@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0f1720">
+<title>Thai Realm — ศึกข้ามยุค</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="stage">
+  <canvas id="game" width="640" height="360"></canvas>
+
+  <div id="hud" hidden>
+    <div id="me">
+      <div id="meName"></div>
+      <div id="meBar"><div id="meHp"></div><span id="meHpText"></span></div>
+      <div id="meInfo"></div>
+    </div>
+    <div id="top">
+      <span id="eraTag"></span>
+      <span id="clock"></span>
+      <span id="score"></span>
+    </div>
+    <canvas id="mini" width="160" height="60"></canvas>
+    <div id="feed"></div>
+    <div id="banner"></div>
+    <div id="stickZone"><div id="stickBase"><div id="stickKnob"></div></div></div>
+    <div id="skills"></div>
+    <button id="pauseBtn" aria-label="หยุดเกม">❚❚</button>
+    <div id="pauseBox" hidden>
+      <div class="card">
+        <h2>หยุดเกมชั่วคราว</h2>
+        <button id="resumeBtn" class="primary">เล่นต่อ</button>
+        <button id="quitBtn">ออกไปเมนู</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="rotate">หมุนจอเป็นแนวนอนเพื่อเล่น</div>
+</div>
+
+<section id="menu">
+  <div class="menu-inner">
+    <header>
+      <div>
+        <h1>THAI REALM</h1>
+        <p class="sub">ศึกข้ามยุค · 5v5 MOBA ธีมไทย · v<span id="ver"></span></p>
+      </div>
+      <button id="updBtn" class="ghost">📢 อัปเดต<span id="updDot" hidden></span></button>
+    </header>
+
+    <div class="cols">
+      <div class="col-heroes">
+        <h3>เลือกฮีโร่ (จิตบรรพชนของแต่ละยุค)</h3>
+        <div id="heroGrid"></div>
+      </div>
+      <div class="col-info">
+        <div id="heroInfo"></div>
+        <h3>เลือกชุดใจ <small>(ล็อกตลอดแมตช์)</small></h3>
+        <div id="emblemGrid"></div>
+        <div id="emblemInfo"></div>
+        <button id="startBtn" class="primary big">เริ่มเกม · 5v5 กับบอท</button>
+        <p class="hint">เดิน: WASD / ลูกศร หรือจอยสติ๊กบนจอ · สกิล: Q E R หรือ 1 2 3 (เล็งเป้าที่ใกล้ที่สุดให้อัตโนมัติ) · หยุดเกม: P</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="result" hidden>
+  <div class="card wide">
+    <h2 id="resTitle"></h2>
+    <p id="resSub"></p>
+    <div id="resTable"></div>
+    <div class="row">
+      <button id="againBtn" class="primary">เล่นอีกครั้ง</button>
+      <button id="menuBtn">กลับเมนู</button>
+    </div>
+  </div>
+</section>
+
+<div id="updateModal" hidden>
+  <div class="card wide">
+    <h2>📢 ข้อความอัปเดต</h2>
+    <div id="updBody"></div>
+    <button id="updClose" class="primary">รับทราบ</button>
+  </div>
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/sim.js"></script>
+<script src="js/ai.js"></script>
+<script src="js/render.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
