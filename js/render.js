@@ -98,6 +98,45 @@
         else { c.strokeStyle = '#e53935'; c.lineWidth = 0.7; c.beginPath(); c.moveTo(8, -2); c.lineTo(11 + Math.sin(rt * 14) * 1.2, -2.6); c.stroke(); }
         c.restore();
         break; }
+      case 'boss': {
+        const bob = Math.sin(rt * 2 + id) * 0.9;
+        c.scale(1.85, 1.85);
+        ell(c, 0, 0.8, 16, 4.2, 'rgba(0,0,0,.35)');
+        // รัศมีไอแดง
+        c.globalAlpha = 0.12 + 0.06 * Math.sin(rt * 3); circ(c, 0, -24, 24, '#ff5252'); c.globalAlpha = 1;
+        // ขา + รองเท้า
+        fillRR(c, -8.4, -12 + bob * 0.3, 7.2, 12, 3, K('#2e6a46'), true); fillRR(c, 1.2, -12 + bob * 0.3, 7.2, 12, 3, K('#2e6a46'), true);
+        ell(c, -4.8, 0, 5.4, 2, K('#3b2a20')); ell(c, 4.8, 0, 5.4, 2, K('#3b2a20'));
+        // ผ้านุ่ง
+        poly(c, [-10, -14 + bob, 10, -14 + bob, 9, -3, 3, -6, 0, -2, -3, -6, -9, -3], K('#c62828'), true);
+        c.strokeStyle = K('#ffd54f'); c.lineWidth = 0.7; c.beginPath(); c.moveTo(-9, -5); c.lineTo(-3, -7); c.lineTo(0, -3); c.lineTo(3, -7); c.lineTo(9, -5); c.stroke();
+        // แขนหลัง
+        fillRR(c, -14.4, -27 + bob, 5.4, 14, 2.7, K('#2f7a50'), true); circ(c, -11.7, -12.4 + bob, 3.2, K('#3d8c5c'), true);
+        // ลำตัวและเกราะ
+        fillRR(c, -10, -29 + bob, 20, 17, 6, K('#3d8c5c'), true);
+        poly(c, [-8, -29 + bob, 8, -29 + bob, 5, -21 + bob, 0, -17 + bob, -5, -21 + bob], K('#e0a82e'), true);
+        circ(c, 0, -23 + bob, 1.6, K('#c62828'), true);
+        fillRR(c, -10, -15 + bob, 20, 3.4, 1.4, K('#e0a82e'), true);
+        // แขนหน้า + กระบอง (ฟาดลงเมื่อโจมตี)
+        c.save(); c.translate(10, -26 + bob); c.rotate(-1.9 + lunge * 3.0 + Math.sin(rt * 1.8 + id) * 0.06);
+        fillRR(c, -2.7, 0, 5.4, 11, 2.6, K('#2f7a50'), true); circ(c, 0, 11.5, 3.2, K('#3d8c5c'), true);
+        cap(c, 0, 12, 0, 26, 3.2, K('#6d4c41')); circ(c, 0, 27, 5.2, K('#8d6e63'), true);
+        for (let k = 0; k < 5; k++) { const a = k * 1.26; poly(c, [Math.cos(a) * 4, 27 + Math.sin(a) * 4, Math.cos(a + 0.3) * 5.5, 27 + Math.sin(a + 0.3) * 5.5, Math.cos(a) * 7.2, 27 + Math.sin(a) * 7.2], K('#cfd8dc'), true); }
+        c.restore();
+        // หัว
+        const hy = -37 + bob;
+        circ(c, -7.6, hy + 1, 2.4, K('#4aa56a'), true); circ(c, 7.6, hy + 1, 2.4, K('#4aa56a'), true); circ(c, -8.6, hy + 4, 1.4, K('#ffd54f')); circ(c, 8.6, hy + 4, 1.4, K('#ffd54f'));
+        circ(c, 0, hy, 8, K('#4aa56a'), true);
+        poly(c, [-7, hy - 2, 0, hy - 1, 7, hy - 2, 7, hy - 4, 0, hy - 3.6, -7, hy - 4], K('#1f4d33'), true);
+        circ(c, -3.1, hy, 2.2, '#fff176', true); circ(c, 3.1, hy, 2.2, '#fff176', true); circ(c, -3.1, hy + 0.2, 1.1, '#c62828'); circ(c, 3.1, hy + 0.2, 1.1, '#c62828');
+        poly(c, [-1.2, hy + 1, 1.2, hy + 1, 0, hy + 3.4], K('#3a8a58'), true);
+        fillRR(c, -5, hy + 3.6, 10, 2.8 + lunge * 2, 1.2, '#4a1010', true);
+        poly(c, [-4.6, hy + 3.7, -3, hy + 3.7, -3.8, hy + 7.4], '#fff'); poly(c, [3, hy + 3.7, 4.6, hy + 3.7, 3.8, hy + 7.4], '#fff');
+        // มงกุฎยอดแหลมแบบเทริด
+        fillRR(c, -8, hy - 8, 16, 3.2, 1.4, K('#e0a82e'), true);
+        poly(c, [-6, hy - 8, -3.6, hy - 8, -4.8, hy - 17], K('#f2c14e'), true); poly(c, [-2.4, hy - 8, 2.4, hy - 8, 0, hy - 24], K('#f2c14e'), true); poly(c, [3.6, hy - 8, 6, hy - 8, 4.8, hy - 17], K('#f2c14e'), true);
+        circ(c, 0, hy - 9.6, 1.1, '#e53935'); circ(c, -4.8, hy - 9.6, 0.8, '#e53935'); circ(c, 4.8, hy - 9.6, 0.8, '#e53935');
+        break; }
       case 'krasue': {
         const fl = Math.sin(rt * 2.6 + id) * 2.4, hy = -26 + fl;
         const pulse = 0.5 + 0.5 * Math.sin(rt * 5);
@@ -492,6 +531,41 @@
     }
   }
 
+
+  /* ================= กำแพงป่า ================= */
+  function drawWall(c, w, era, rt) {
+    const x1 = w.x1, x2 = w.x2, y1 = w.y1, y2 = w.y2, len = x2 - x1, H = 11;
+    ell(c, (x1 + x2) / 2, y2 + 1.5, len / 2 + 2, 3.4, 'rgba(0,0,0,.22)');
+    if (era === 0) { // คอกไม้ไผ่/ไม้ปลายแหลม
+      for (let x = x1 + 3; x < x2 - 1; x += 6.2) {
+        const hv = hash(x * 3 + y1), hh = 20 + hv * 6;
+        poly(c, [x - 3, y2, x + 3, y2, x + 3, y2 - hh + 4, x, y2 - hh - 1.5, x - 3, y2 - hh + 4], '#8e6e3f', true);
+        c.strokeStyle = 'rgba(60,35,10,.5)'; c.lineWidth = 0.5; c.beginPath(); c.moveTo(x - 3, y2 - hh * 0.4); c.lineTo(x + 3, y2 - hh * 0.4); c.moveTo(x - 3, y2 - hh * 0.75); c.lineTo(x + 3, y2 - hh * 0.75); c.stroke();
+      }
+      cap(c, x1 + 1, y2 - 7, x2 - 1, y2 - 7, 1.8, '#6d4c41');
+    } else if (era === 1) { // กำแพงอิฐเก่า มีตะไคร่
+      fillRR(c, x1, y1 - H, len, y2 - y1 + H, 2.4, '#a8694a', true);
+      fillRR(c, x1, y1 - H, len, y2 - y1, 2.4, '#c9825d');
+      c.strokeStyle = 'rgba(80,40,25,.4)'; c.lineWidth = 0.5;
+      for (let yy = y1 - H + 4.5; yy < y2; yy += 4.5) { c.beginPath(); c.moveTo(x1, yy); c.lineTo(x2, yy); c.stroke(); for (let xx = x1 + ((Math.round(yy / 4.5) & 1) ? 4 : 0); xx < x2; xx += 8) { c.beginPath(); c.moveTo(xx, yy); c.lineTo(xx, yy + 4.5); c.stroke(); } }
+      for (let x = x1; x < x2 - 4; x += 11) { const hv = hash(x + y1 * 7); if (hv > 0.45) fillRR(c, x, y1 - H - 3 - hv * 3, 7, 6, 1.2, '#b87450', true); }
+      for (let x = x1 + 3; x < x2 - 6; x += 17) { c.globalAlpha = 0.5; ell(c, x + 4, y1 - H + 2, 6, 2, '#5a8f3a'); c.globalAlpha = 1; }
+    } else if (era === 2) { // กระสอบทรายซ้อน + ลวดหนาม
+      for (let row = 0; row < 3; row++) for (let x = x1 + (row & 1 ? 5 : 0); x < x2 - 4; x += 10) fillRR(c, x, y2 - 6 - row * 5.4, 10.6, 5.8, 2.6, (row + Math.round(x / 10)) % 2 ? '#a8956a' : '#9c8a5f', true);
+      c.strokeStyle = 'rgba(40,40,40,.85)'; c.lineWidth = 0.7; c.beginPath();
+      for (let x = x1; x < x2; x += 6) { c.lineTo(x, y2 - 20 + ((x / 6) & 1 ? -3 : 1)); } c.stroke();
+      for (let x = x1; x < x2 + 1; x += 28) cap(c, x, y2 - 16, x, y2 - 25, 1.4, '#5d4037');
+    } else { // แบริเออร์คอนกรีต
+      for (let x = x1; x < x2 - 1; x += 24) {
+        const ww = Math.min(23, x2 - x - 1);
+        poly(c, [x, y2, x + ww, y2, x + ww - 3, y2 - 14, x + 3, y2 - 14], '#a3acb6', true);
+        c.save(); c.beginPath(); c.moveTo(x + 4, y2 - 12); c.lineTo(x + ww - 4, y2 - 12); c.lineTo(x + ww - 3.4, y2 - 9); c.lineTo(x + 3.4, y2 - 9); c.closePath(); c.clip();
+        for (let sx = x - 6; sx < x + ww; sx += 6) poly(c, [sx, y2 - 14, sx + 3, y2 - 14, sx + 6, y2 - 8, sx + 3, y2 - 8], '#f9c80e'); c.restore();
+        fillRR(c, x + 3, y2 - 15.4, ww - 6, 2.6, 1, '#c3ccd5', true);
+      }
+    }
+  }
+
   /* ================= ป้อม ================= */
   function drawTower(c, g, u, x, y, rt) {
     const era = g.era, tc = TEAM[u.team], td = TEAM_DARK[u.team], tl = TEAM_LIGHT[u.team], king = !!u.king;
@@ -631,9 +705,14 @@
       }
       list.push({ u: u, x: ix, y: iy });
     }
+    for (const w of TR.WALLS) {
+      if (w.x2 < camX - 40 || w.x1 > camX + view.w + 40 || w.y2 < camY - 60 || w.y1 > camY + view.h + 60) continue;
+      list.push({ wall: w, y: w.y2 });
+    }
     list.sort(function (a, b) { return a.y - b.y; });
 
     for (const it of list) {
+      if (it.wall) { drawWall(c, it.wall, g.era, rt); continue; }
       const u = it.u, x = it.x, y = it.y;
       if (u.type === 'tower') {
         // จับจังหวะยิง: cdAtk เพิ่มขึ้น = เพิ่งยิง
@@ -662,8 +741,8 @@
         c.restore();
         if (!u.dead) {
           const M = TR.MONSTERS[u.kind];
-          const hh = M.buff ? 44 : 34;
-          if (u.hp < u.maxHp || u.tgt) hpBar(c, x, y - hh, M.buff ? 30 : 24, u.hp / u.maxHp, 2, true);
+          const boss = u.kind === 'boss', hh = boss ? 98 : (M.buff ? 44 : 34);
+          if (u.hp < u.maxHp || u.tgt || boss) hpBar(c, x, y - hh, boss ? 56 : (M.buff ? 30 : 24), u.hp / u.maxHp, 2, true);
           if (M.buff) { c.fillStyle = 'rgba(255,255,255,.85)'; c.font = '600 5px sans-serif'; c.textAlign = 'center'; c.fillText(M.name, x, y - hh - 3); }
           if (u.leash) { c.fillStyle = '#81c784'; c.font = 'bold 7px sans-serif'; c.textAlign = 'center'; c.fillText('+', x, y - hh + 12); }
         }
@@ -846,11 +925,14 @@
     c.strokeStyle = E.lane; c.globalAlpha = 0.85; c.lineWidth = Math.max(2, h * 0.07); c.lineCap = 'round';
     for (const L of CFG.lanes) { c.beginPath(); c.moveTo(180 * sx, L.y * sy); c.lineTo((CFG.W - 180) * sx, L.y * sy); c.stroke(); }
     for (const bx of [100, CFG.W - 100]) for (const l of [0, 2]) { c.beginPath(); c.moveTo(bx * sx, CFG.baseY * sy); c.quadraticCurveTo((bx + (bx < 500 ? 200 : -200)) * sx, CFG.baseY * sy, (bx < 500 ? CFG.laneEntry : CFG.W - CFG.laneEntry) * sx, CFG.lanes[l].y * sy); c.stroke(); }
+    c.globalAlpha = 0.55; c.fillStyle = '#7d8896';
+    for (const wl of TR.WALLS) c.fillRect(wl.x1 * sx, wl.y1 * sy, Math.max(1, (wl.x2 - wl.x1) * sx), Math.max(1.4, (wl.y2 - wl.y1) * sy));
     c.globalAlpha = 1;
     for (const u of g.units) {
       if (u.dead) continue;
       const x = u.x * sx, y = u.y * sy;
       if (u.type === 'tower') { c.fillStyle = TEAM[u.team]; const s = u.king ? 7 : 4.6; c.fillRect(x - s / 2, y - s / 2, s, s); c.strokeStyle = '#000'; c.lineWidth = 0.6; c.strokeRect(x - s / 2, y - s / 2, s, s); }
+      else if (u.type === 'monster' && u.kind === 'boss') { c.fillStyle = '#e53935'; c.beginPath(); c.arc(x, y, 4.4, 0, TAU); c.fill(); c.strokeStyle = '#fff'; c.lineWidth = 1; c.stroke(); }
       else if (u.type === 'monster') { c.fillStyle = TR.MONSTERS[u.kind].buff ? '#ffd54f' : '#ff9800'; c.beginPath(); c.arc(x, y, TR.MONSTERS[u.kind].buff ? 2.4 : 1.7, 0, TAU); c.fill(); }
       else if (u.type === 'minion') { c.fillStyle = TEAM[u.team]; c.globalAlpha = 0.8; c.fillRect(x - 0.7, y - 0.7, 1.5, 1.5); c.globalAlpha = 1; }
       else if (u.type === 'hero') {
@@ -881,6 +963,7 @@
     { sky: ['#101317', '#333b44', '#80786b'], fog: '#9a9486', part: 'ember', name: 'ยุคสงคราม' },
     { sky: ['#070a1c', '#1b2a66', '#e5488c'], fog: '#6a7bd8', part: 'bokeh', name: 'ปัจจุบัน' }
   ];
+  const STAGE_AMB = [[90, 50, 110], [90, 40, 70], [40, 50, 60], [50, 60, 150]];
   function stageReset(S, id, side) { S.id = id; S.t0 = performance.now() / 1000; S.act = null; S.next = S.t0 + 1.5; S.side = side || (S.side ? -S.side : 1); S.burst = true; }
   function chedi(c, x, b, s, col) {
     c.fillStyle = col; c.beginPath();
@@ -958,7 +1041,7 @@
     const horizon = stageBackdrop(c, w, h, era, now);
     stageParticles(c, S, w, h, era, dt, now);
     // เวทีวงกลม
-    const cx0 = w * 0.5, cy0 = h * 0.86, sc = (h * 0.6) / 36;
+    const cx0 = w * 0.5, cy0 = h * 0.86, sc = Math.min(h * 0.6, w * 0.78) / 36;
     const since = now - S.t0, ent = ease(since / 0.75);
     const ex = (1 - ent) * S.side * w * 0.38;
     c.save(); c.translate(cx0, cy0 + 2); c.scale(1, 0.26);
@@ -987,7 +1070,16 @@
       else if (a.kind === 'walk') { P.mv = 1; P.ph = (now - a.t) * 9; }
     }
     if (S.burst && since > 0.55) { S.burst = false; S.sparks = []; for (let i = 0; i < 34; i++) { const an = Math.random() * TAU, sp = 60 + Math.random() * 160; S.sparks.push({ x: cx0, y: cy0 - sc * 14, vx: Math.cos(an) * sp, vy: Math.sin(an) * sp - 40, l: 0.7 + Math.random() * 0.5, m: 1.2, s: 1.2 + Math.random() * 2.4 }); } }
-    // ฮีโร่
+    // ฮีโร่ (3D low-poly ถ้าใช้ได้ ไม่งั้นถอยกลับไปโครงกระดูก 2D)
+    let drew3d = false;
+    if (TR.Stage3D && TR.Stage3D.ok && !S.no3d) {
+      try {
+        c.save();
+        TR.Stage3D.draw(c, { S: S, def: def, now: now, dt: dt, acc: acc, sc: sc, cx: cx0, cy: cy0, alpha: Math.min(1, since / 0.25), amb: STAGE_AMB[era] });
+        c.restore(); drew3d = true;
+      } catch (err) { S.no3d = true; c.restore(); if (typeof console !== 'undefined') console.error('stage3d ล้มเหลว ใช้ภาพ 2D แทน', err); }
+    }
+    if (!drew3d) {
     c.save(); c.translate(cx0 + ex, cy0); c.globalAlpha = ent; const pop = 0.88 + 0.12 * ent + (since < 0.8 && since > 0.6 ? 0.04 * Math.sin((since - 0.6) * 15) : 0);
     c.scale(sc * pop, sc * pop);
     rig(c, P);
@@ -1002,6 +1094,7 @@
       const k = castK, rr0 = sc * (8 + 36 * ease(k));
       c.save(); c.translate(cx0, cy0); c.scale(1, 0.26); c.globalAlpha = (1 - k) * 0.9; c.strokeStyle = acc; c.lineWidth = 4; c.beginPath(); c.arc(0, 0, rr0, 0, TAU); c.stroke(); c.restore();
       c.globalAlpha = (1 - k) * 0.6; for (let i = 0; i < 10; i++) { const an = i / 10 * TAU + now * 2, rad = sc * (10 + 22 * k); circ(c, cx0 + Math.cos(an) * rad, cy0 - sc * 16 + Math.sin(an) * rad * 0.6 - k * sc * 8, 2.4 * (1 - k) + 0.6, acc); } c.globalAlpha = 1;
+    }
     }
     if (S.sparks) for (let i = S.sparks.length - 1; i >= 0; i--) { const p = S.sparks[i]; p.l -= dt; if (p.l <= 0) { S.sparks.splice(i, 1); continue; } p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 120 * dt; p.vx *= 0.98; c.globalAlpha = Math.min(1, p.l * 1.6); circ(c, p.x, p.y, p.s, acc); }
     c.globalAlpha = 1;

@@ -65,6 +65,11 @@
           leash: false, aggroBy: null, aggroT: -99, respawnAt: 0 });
       });
     }
+    // บอสกลางป่า (ยังไม่เกิดจนถึง spawnAt)
+    { const B = TR.BOSS, M = TR.MONSTERS.boss;
+      g.boss = mkUnit(g, { type: 'monster', team: 2, kind: 'boss', camp: -1, side: -1, home: { x: B.x, y: B.y }, x: B.x, y: B.y,
+        hp: 0, maxHp: M.hp, radius: M.radius, range: M.range, dmg: M.atk, as: M.as, speed: 70, baseArmor: 0.25,
+        leash: false, aggroBy: null, aggroT: -99, respawnAt: B.spawnAt, dead: true, slamAt: 0 }); }
     // ดราฟต์ฮีโร่: ไม่ซ้ำกันทั้งสองทีม
     const pool = TR.HEROES.map(function (h) { return h.id; });
     const picks = [[], []];
@@ -326,7 +331,18 @@
     } else if (dst.type === 'monster') {
       const M = TR.MONSTERS[dst.kind];
       dst.respawnAt = g.t + M.respawn;
-      if (src && src.type === 'hero') {
+      if (dst.kind === 'boss') {
+        const who = src && src.type === 'hero' ? src.team : (dst.aggroBy && dst.aggroBy.team != null ? dst.aggroBy.team : -1);
+        if (who === 0 || who === 1) {
+          const until = g.t + TR.BOSS.buffDur;
+          for (const a of g.units) {
+            if (a.type !== 'hero' || a.team !== who || a.dead) continue;
+            addGold(a, TR.BOSS.teamGold); addXp(g, a, TR.BOSS.teamXp);
+            addFx(a, { type: 'buff', tag: 'jb_boss', until: until, dmgMul: 1.08, armorAdd: 0.08 }); addFx(a, { type: 'hot', tag: 'jb_bhot', until: until, perSec: 25 });
+          }
+          g.events.push({ k: 'boss', state: 'dead', team: who });
+        }
+      } else if (src && src.type === 'hero') {
         addGold(src, M.gold * (TR.EMBLEMS[src.emblem].goldMul || 1)); addXp(g, src, M.xp);
         for (const a of alliedHeroes(g, src.team, dst.x, dst.y, 240)) if (a !== src) addXp(g, a, 30);
         const until = g.t + CFG.buffDur;
@@ -818,7 +834,8 @@
       if (g.t >= u.respawnAt) {
         const M = TR.MONSTERS[u.kind], sc = 1 + 0.8 * Math.min(1, g.t / 1500);
         u.dead = false; u.maxHp = M.hp * sc; u.hp = u.maxHp; u.dmg = M.atk * sc;
-        u.x = u.px = u.home.x; u.y = u.py = u.home.y; u.fx = []; u.tgt = null; u.leash = false; u.aggroBy = null; u.dieT = null; u.spawnT = g.t;
+        u.x = u.px = u.home.x; u.y = u.py = u.home.y; u.fx = []; u.tgt = null; u.leash = false; u.aggroBy = null; u.dieT = null; u.spawnT = g.t; u.slamAt = g.t + 6;
+        if (u.kind === 'boss') g.events.push({ k: 'boss', state: 'spawn' });
       }
       return;
     }
@@ -829,7 +846,7 @@
     if (u.leash) {   // กลับค่ายและฟื้นเลือดเร็ว
       u.tgt = null;
       u.hp = Math.min(u.maxHp, u.hp + u.maxHp * 0.15 * dt);
-      if (hd < 8) u.leash = false; else if (!u.m.root) moveToward(u, u.home.x, u.home.y, dt);
+      if (hd < 8) u.leash = false; else if (!u.m.root) moveNav(u, u.home.x, u.home.y, dt);
       return;
     }
     let tgt = u.tgt;
@@ -843,13 +860,17 @@
       }
     }
     u.tgt = tgt;
-    if (!tgt) { if (hd > 6 && !u.m.root) moveToward(u, u.home.x, u.home.y, dt); else u.hp = Math.min(u.maxHp, u.hp + u.maxHp * 0.03 * dt); return; }
+    if (!tgt) { if (hd > 6 && !u.m.root) moveNav(u, u.home.x, u.home.y, dt); else u.hp = Math.min(u.maxHp, u.hp + u.maxHp * 0.03 * dt); return; }
     if (hd > 270) { u.leash = true; u.tgt = null; return; }
     const d = dist(u, tgt) - tgt.radius;
     u.face = dirToward(u, tgt);
+    if (u.kind === 'boss' && g.t >= u.slamAt && d < u.range + 30) {
+      u.slamAt = g.t + 7; u.lastAtk = g.t; ring(g, u.x, u.y, 78, '#ffb74d', 0.5);
+      for (const e of enemiesIn(g, 2, u.x, u.y, 78, true)) hit(g, u, e, u.dmg * 0.9, { skill: true });
+    }
     if (d <= u.range) {
       if (u.atkCd <= 0) { u.atkCd = 1 / u.as; u.lastAtk = g.t; hit(g, u, tgt, u.dmg, { basic: true }); }
-    } else if (!u.m.root) moveToward(u, tgt.x, tgt.y, dt);
+    } else if (!u.m.root) moveNav(u, tgt.x, tgt.y, dt);
   }
 
   function moveToward(u, tx, ty, dt) {
@@ -977,6 +998,78 @@
     }
   }
 
+
+  /* ---------- กำแพงและการนำทาง ---------- */
+  const WALLS = TR.WALLS || [], WP = TR.WAYPOINTS || [];
+  function segClear(x1, y1, x2, y2, r) {
+    for (let i = 0; i < WALLS.length; i++) {
+      const w = WALLS[i];
+      let t0 = 0, t1 = 1;
+      const dx = x2 - x1, dy = y2 - y1;
+      const mins = [w.x1 - r, w.y1 - r], maxs = [w.x2 + r, w.y2 + r], p = [x1, y1], d = [dx, dy];
+      let hit = true;
+      for (let a = 0; a < 2; a++) {
+        if (Math.abs(d[a]) < 1e-9) { if (p[a] < mins[a] || p[a] > maxs[a]) { hit = false; break; } }
+        else {
+          let ta = (mins[a] - p[a]) / d[a], tb = (maxs[a] - p[a]) / d[a];
+          if (ta > tb) { const q = ta; ta = tb; tb = q; }
+          if (ta > t0) t0 = ta; if (tb < t1) t1 = tb;
+          if (t0 > t1) { hit = false; break; }
+        }
+      }
+      if (hit) return false;
+    }
+    return true;
+  }
+  // กราฟระหว่างจุดนำทาง (คำนวณครั้งเดียว) + เส้นทางสั้นสุดแบบ Floyd–Warshall
+  const NW = WP.length, D = [], NEXT = [];
+  for (let i = 0; i < NW; i++) { D.push(new Array(NW).fill(1e9)); NEXT.push(new Array(NW).fill(-1)); }
+  for (let i = 0; i < NW; i++) {
+    D[i][i] = 0; NEXT[i][i] = i;
+    for (let j = 0; j < NW; j++) if (i !== j && segClear(WP[i].x, WP[i].y, WP[j].x, WP[j].y, 10)) { D[i][j] = Math.hypot(WP[i].x - WP[j].x, WP[i].y - WP[j].y); NEXT[i][j] = j; }
+  }
+  for (let k = 0; k < NW; k++) for (let i = 0; i < NW; i++) for (let j = 0; j < NW; j++) if (D[i][k] + D[k][j] < D[i][j]) { D[i][j] = D[i][k] + D[k][j]; NEXT[i][j] = NEXT[i][k]; }
+
+  // จุดที่ควรเดินไปต่อ (ตรงไปได้ก็ไปเลย ไม่ได้ก็อ้อมผ่านช่องกำแพง)
+  function navPoint(u, tx, ty) {
+    const r = (u.radius || 8) + 2;
+    if (segClear(u.x, u.y, tx, ty, r)) return { x: tx, y: ty };
+    let best = 1e18, bi = -1, bj = -1;
+    const vis = [], visT = [];
+    for (let i = 0; i < NW; i++) { vis[i] = segClear(u.x, u.y, WP[i].x, WP[i].y, r); visT[i] = segClear(WP[i].x, WP[i].y, tx, ty, r); }
+    for (let i = 0; i < NW; i++) {
+      if (!vis[i]) continue;
+      const di = Math.hypot(u.x - WP[i].x, u.y - WP[i].y);
+      for (let j = 0; j < NW; j++) {
+        if (!visT[j] || D[i][j] >= 1e9) continue;
+        const c = di + D[i][j] + Math.hypot(WP[j].x - tx, WP[j].y - ty);
+        if (c < best) { best = c; bi = i; bj = j; }
+      }
+    }
+    if (bi < 0) return { x: tx, y: ty };
+    if (Math.hypot(u.x - WP[bi].x, u.y - WP[bi].y) < 14) {
+      if (bi === bj) return { x: tx, y: ty };
+      const n = NEXT[bi][bj];
+      return { x: WP[n].x, y: WP[n].y };
+    }
+    return { x: WP[bi].x, y: WP[bi].y };
+  }
+  function moveNav(u, tx, ty, dt) { const p = navPoint(u, tx, ty); moveToward(u, p.x, p.y, dt); }
+  function pushOutWalls(u) {
+    for (let i = 0; i < WALLS.length; i++) {
+      const w = WALLS[i];
+      if (u.x < w.x1 - 40 || u.x > w.x2 + 40 || u.y < w.y1 - 40 || u.y > w.y2 + 40) continue;
+      const r = u.radius;
+      const cx = clamp(u.x, w.x1, w.x2), cy = clamp(u.y, w.y1, w.y2);
+      let dx = u.x - cx, dy = u.y - cy, d2 = dx * dx + dy * dy;
+      if (d2 >= r * r) continue;
+      if (d2 < 1e-6) { // ศูนย์กลางอยู่ในกำแพง: ดันออกทางใกล้สุด
+        const l = u.x - w.x1, rr = w.x2 - u.x, t = u.y - w.y1, b = w.y2 - u.y, m = Math.min(l, rr, t, b);
+        if (m === t) u.y = w.y1 - r; else if (m === b) u.y = w.y2 + r; else if (m === l) u.x = w.x1 - r; else u.x = w.x2 + r;
+      } else { const d = Math.sqrt(d2); u.x = cx + dx / d * r; u.y = cy + dy / d * r; }
+    }
+  }
+
   function separate(g) {
     const us = g.units;
     for (let i = 0; i < us.length; i++) {
@@ -1004,11 +1097,12 @@
           b.x += nx * push * (wa / s) * 0.5; b.y += ny * push * (wa / s) * 0.5;
         }
       }
-      if (a.type !== 'tower') { a.x = clamp(a.x, 14, CFG.W - 14); a.y = clamp(a.y, 40, CFG.H - 40); }
+      if (a.type !== 'tower') { a.x = clamp(a.x, 14, CFG.W - 14); a.y = clamp(a.y, 40, CFG.H - 40); pushOutWalls(a); }
     }
   }
 
   TR.Sim = {
+    navPoint: navPoint,
     createGame: createGame, step: step, castSkill: castSkill, canCast: canCast,
     pickEnemy: pickEnemy, enemiesIn: enemiesIn, alliedHeroes: alliedHeroes, canTarget: canTarget,
     towerVuln: towerVuln, dist: dist, norm: norm, findFx: findFx, lowestAlly: lowestAlly, recalc: recalc

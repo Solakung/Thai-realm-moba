@@ -71,6 +71,15 @@
       }
       // ไม่มีค่ายเหลือ = ไปเล่นเลนกลางระหว่างรอมอนเกิดใหม่
     }
+    // บอสกลางป่า: สายป่าเริ่มก่อน คนอื่นที่อยู่ใกล้ตามไปถ้ามีเพื่อนเข้าตีแล้ว และฝั่งศัตรูไม่ได้มากกว่ามาก
+    const boss = g.boss;
+    if (boss && !boss.dead && hpR > 0.7 && !ai.defend && !ai.retreat) {
+      const near = S.alliedHeroes(g, u.team, boss.x, boss.y, 520).filter(function (a) { return a !== u; }).length;
+      let foe = 0; for (const e of g.units) if (e.type === 'hero' && e.team !== u.team && !e.dead && Math.hypot(e.x - boss.x, e.y - boss.y) < 520) foe++;
+      const dB = S.dist(u, boss);
+      const go = ai.jungle ? (u.level >= 4 && foe <= near + 1) : (dB < 1100 && near >= 1 && foe <= near);
+      if (go) jm = boss;
+    }
 
     // เลือดน้อย → ถอย
     if (ai.retreat) { if (hpR > 0.7) ai.retreat = false; }
@@ -87,7 +96,8 @@
 
     if (ai.retreat) {
       u.aiTarget = null;
-      u.input.dx = homeX - u.x; u.input.dy = CFG.baseY - u.y;
+      const rp = S.navPoint(u, homeX, CFG.baseY);
+      u.input.dx = rp.x - u.x; u.input.dy = rp.y - u.y;
       return;
     }
 
@@ -133,7 +143,8 @@
       }
       tx = wx; ty = wy;
     }
-    u.input.dx = tx - u.x; u.input.dy = ty - u.y;
+    const np = S.navPoint(u, tx, ty);
+    u.input.dx = np.x - u.x; u.input.dy = np.y - u.y;
     if (Math.abs(u.input.dx) < 3 && Math.abs(u.input.dy) < 3) { u.input.dx = 0; u.input.dy = 0; }
   }
 

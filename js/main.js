@@ -94,6 +94,35 @@
     TR.Render.stageReset(stageState, id);
   }
 
+  /* ลากเพื่อหมุนฮีโร่ 3D (เมาส์/นิ้ว), บีบนิ้วหรือล้อเมาส์เพื่อซูม, ดับเบิลคลิกกลับด้านหน้า */
+  (function () {
+    const pts = new Map(); let lastX = 0, pinch = 0;
+    const hint = $('stageHint');
+    function dist() { const a = Array.from(pts.values()); return Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y) || 1; }
+    function used() { if (hint) hint.classList.add('gone'); }
+    stageCv.addEventListener('pointerdown', function (e) {
+      if (!TR.Stage3D) return;
+      try { stageCv.setPointerCapture(e.pointerId); } catch (x) {}
+      pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pts.size === 1) { lastX = e.clientX; TR.Stage3D.dragStart(stageState); stageCv.classList.add('grabbing'); }
+      else if (pts.size === 2) pinch = dist();
+    });
+    stageCv.addEventListener('pointermove', function (e) {
+      if (!pts.has(e.pointerId)) return;
+      pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pts.size >= 2) { const d = dist(); TR.Stage3D.zoomBy(stageState, d / pinch); pinch = d; used(); }
+      else { const dx = e.clientX - lastX; lastX = e.clientX; if (dx) { TR.Stage3D.dragMove(stageState, dx); used(); } }
+    });
+    function up(e) {
+      if (!pts.delete(e.pointerId)) return;
+      if (pts.size === 0) { TR.Stage3D.dragEnd(stageState); stageCv.classList.remove('grabbing'); }
+      else if (pts.size === 1) { const p = Array.from(pts.values())[0]; lastX = p.x; }
+    }
+    stageCv.addEventListener('pointerup', up); stageCv.addEventListener('pointercancel', up);
+    stageCv.addEventListener('wheel', function (e) { if (!TR.Stage3D) return; e.preventDefault(); TR.Stage3D.zoomBy(stageState, e.deltaY < 0 ? 1.08 : 1 / 1.08); used(); }, { passive: false });
+    stageCv.addEventListener('dblclick', function () { if (TR.Stage3D) TR.Stage3D.resetView(stageState); });
+  })();
+
   function sizeStage() {
     const dpr = Math.min(window.devicePixelRatio || 1, 2), w = stageCv.clientWidth, h = stageCv.clientHeight;
     if (!w || !h) return false;
@@ -212,6 +241,10 @@
     while (g.events.length) {
       const e = g.events.shift();
       if (e.k === 'kill') feed(e.killer + ' ปราบ ' + e.victim, e.kteam);
+      else if (e.k === 'boss') {
+        if (e.state === 'spawn') banner('ยักษ์วัดแจ้งปรากฏกลางป่า!', 'ฆ่าได้ทั้งทีมได้บัฟและทอง · ระวังการสแลมพื้นที่', 5000);
+        else { feed('ทีม' + (e.team === 0 ? 'ฟ้า' : 'แดง') + 'ปราบยักษ์วัดแจ้งได้', e.team); banner('ทีม' + (e.team === 0 ? 'ฟ้า' : 'แดง') + 'ปราบยักษ์วัดแจ้ง', 'ทั้งทีมได้บัฟและทอง · ยักษ์จะกลับมาใน 3 นาที', 4500); }
+      }
       else if (e.k === 'jungle') feed(e.killer + ' ได้บัฟ' + e.name + ' (' + e.text + ')', e.kteam);
       else if (e.k === 'tower') feed('ป้อม' + e.name + (e.team === 0 ? 'ฝั่งเรา' : 'ฝั่งศัตรู') + 'พังแล้ว', 1 - e.team);
       else if (e.k === 'warn') banner('อีก ' + CFG.eraWarn + ' วินาทีเข้าสู่ยุค' + TR.ERAS[e.era].name, 'ป้อมจะเปลี่ยนเป็น: ' + TR.ERAS[e.era].short, 4500);

@@ -1,0 +1,54 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Thai Realm — ดูโมเดล 3D ฮีโร่</title>
+<style>
+  body { margin: 0; background: #111820; color: #dfe8f0; font: 13px sans-serif; }
+  .bar { padding: 8px 12px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; position: sticky; top: 0; background: #0b1018; z-index: 2; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 6px; padding: 6px; }
+  .cell { position: relative; background: linear-gradient(#26324a, #0e1420); border-radius: 8px; overflow: hidden; }
+  .cell span { position: absolute; left: 8px; top: 6px; font-weight: 700; }
+  canvas { width: 100%; height: 300px; display: block; }
+</style>
+<div class="bar">
+  ท่า <select id="act"></select>
+  เวลา <input id="t" type="range" min="0" max="3" step="0.02" value="0.5"> <b id="tv">0.5</b>
+  หมุน <input id="yaw" type="range" min="0" max="6.283" step="0.05" value="0"> <b id="yv">0</b>
+  <label><input id="live" type="checkbox"> เล่นต่อเนื่อง</label>
+  <span>เครื่องมือตรวจรูปร่างโมเดลระหว่างปรับแต่ง (ลากบนช่องเพื่อหมุนดูได้)</span>
+</div>
+<div class="grid" id="grid"></div>
+<script src="../js/data.js"></script>
+<script src="../js/stage3d.js"></script>
+<script src="../js/heroes3d.js"></script>
+<script src="../js/view3d.js"></script>
+<script>
+  const TR = globalThis.TR, grid = document.getElementById('grid');
+  const acts = ['idle', 'enter', 'slash', 'spin', 'guard', 'flex', 'run', 'shoot', 'cast', 'swing', 'combo'];
+  acts.forEach(a => { const o = document.createElement('option'); o.value = a; o.textContent = a; document.getElementById('act').appendChild(o); });
+  const q = new URLSearchParams(location.search);
+  if (q.get('act')) document.getElementById('act').value = q.get('act');
+  if (q.get('t')) document.getElementById('t').value = q.get('t');
+  if (q.get('yaw')) document.getElementById('yaw').value = q.get('yaw');
+  const cells = TR.HEROES.map(h => {
+    const d = document.createElement('div'); d.className = 'cell';
+    d.innerHTML = '<span>' + h.name + '</span><canvas></canvas>'; grid.appendChild(d);
+    const cv = d.querySelector('canvas'); cv.width = 460; cv.height = 600;
+    const S = { t0: 0 };
+    let drag = null;
+    cv.addEventListener('pointerdown', e => { drag = e.clientX; cv.setPointerCapture(e.pointerId); });
+    cv.addEventListener('pointermove', e => { if (drag !== null) { S.userYaw = (S.userYaw || 0) + (e.clientX - drag) * 0.012; drag = e.clientX; } });
+    cv.addEventListener('pointerup', () => { drag = null; });
+    return { h, cv, c: cv.getContext('2d'), S };
+  });
+  function render() {
+    const act = document.getElementById('act').value, t = +document.getElementById('t').value, yaw = +document.getElementById('yaw').value;
+    document.getElementById('tv').textContent = t; document.getElementById('yv').textContent = yaw;
+    const live = document.getElementById('live').checked, now = performance.now() / 1000;
+    cells.forEach(k => {
+      const c = k.c, w = k.cv.width, hgt = k.cv.height;
+      c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, w, hgt);
+      TR.Stage3D.draw(c, { S: k.S, def: k.h, now: live ? now : 1, dt: 0.016, acc: k.h.colors.accent, sc: hgt * 0.62 / 36, cx: w / 2, cy: hgt * 0.88, force: { act, t: live ? (now % 3) : t, yaw: yaw + (k.S.userYaw || 0) } });
+    });
+  }
+  setInterval(render, 100); render();
+</script>
