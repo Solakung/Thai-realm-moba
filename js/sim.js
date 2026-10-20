@@ -29,6 +29,7 @@
   function later(g, delay, fn) { g.timers.push({ at: g.t + delay, fn: fn }); }
   function ring(g, x, y, r, c, dur) { g.fx.push({ k: 'ring', x: x, y: y, r: r, c: c, t0: g.t, dur: dur || 0.3 }); }
   function line(g, a, b, c, dur) { g.fx.push({ k: 'line', x1: a.x, y1: a.y, x2: b.x, y2: b.y, c: c, t0: g.t, dur: dur || 0.12 }); }
+  const VIS = typeof window !== 'undefined';
   const NEG = { stun: 1, slow: 1, root: 1, blind: 1, taunt: 1 };
 
   /* ---------- สร้างเกม ---------- */
@@ -41,12 +42,19 @@
       score: [0, 0], idc: 1, player: null, opts: opts, aiThink: TR.AI ? TR.AI.think : null
     };
     // ป้อม
+    g.towers = [[[], [], []], [[], [], []]];   // [ทีม][เลน][ชั้น]
+    g.kings = [null, null];
     for (let team = 0; team < 2; team++) {
-      for (let i = 0; i < CFG.towers.length; i++) {
-        const c = CFG.towers[i];
-        mkUnit(g, { type: 'tower', team: team, idx: i, name: c.name, x: team === 0 ? c.x : CFG.W - c.x, y: CFG.laneY,
-          hp: c.hp, maxHp: c.hp, radius: 16, range: CFG.towerRange, baseArmor: 0.3, cdAtk: 0, tgt: null });
+      for (let l = 0; l < CFG.lanes.length; l++) {
+        for (let i = 0; i < CFG.laneTowers.length; i++) {
+          const c = CFG.laneTowers[i];
+          g.towers[team][l][i] = mkUnit(g, { type: 'tower', team: team, lane: l, idx: i, name: c.name, x: team === 0 ? c.x : CFG.W - c.x, y: CFG.lanes[l].y,
+            hp: c.hp, maxHp: c.hp, radius: 16, range: CFG.towerRange, baseArmor: 0.3, cdAtk: 0, tgt: null });
+        }
       }
+      const k = CFG.king;
+      g.kings[team] = mkUnit(g, { type: 'tower', king: true, team: team, lane: -1, idx: CFG.laneTowers.length, name: k.name, x: team === 0 ? k.x : CFG.W - k.x, y: CFG.baseY,
+        hp: k.hp, maxHp: k.hp, radius: 20, range: CFG.towerRange, baseArmor: 0.3, cdAtk: 0, tgt: null });
     }
     // ดราฟต์ฮีโร่: ไม่ซ้ำกันทั้งสองทีม
     const pool = TR.HEROES.map(function (h) { return h.id; });
@@ -83,7 +91,7 @@
     return u;
   }
 
-  function spawnPos(team, slot) { return { x: team === 0 ? 100 : CFG.W - 100, y: 150 + slot * 45 }; }
+  function spawnPos(team, slot) { return { x: team === 0 ? 100 : CFG.W - 100, y: CFG.baseY - 90 + slot * 45 }; }
 
   function mkHero(g, def, team, emblem, slot, isPlayer) {
     const r = TR.ROLES[def.role];
@@ -94,7 +102,7 @@
       level: 1, xp: 0, gold: 0, tier: 0, cd: [0, 0, 0], input: { dx: 0, dy: 0 }, kills: 0, deaths: 0, cs: 0,
       greedCount: 0, greedReady: false, decoyCd: 0, untarget: 0, still: 0, lastHeroHit: -99, auraT: 0,
       respawnAt: 0, casting: null, dash: null, aiTarget: null, nextMul: 0, goldTotal: 0,
-      ai: { next: 0, retreat: false, yOff: (slot - 2) * 16 }
+      ai: { next: 0, retreat: false, yOff: (slot - 2) * 14, lane: CFG.botLanes[slot], home: CFG.botLanes[slot], defend: false, chk: 0 }
     });
     recalc(g, u);
     u.hp = u.maxHp;
@@ -149,12 +157,12 @@
   }
 
   function towerVuln(g, t) {
-    if (t.idx === 0) return true;
-    for (let i = 0; i < g.units.length; i++) {
-      const o = g.units[i];
-      if (o.type === 'tower' && o.team === t.team && o.idx === t.idx - 1) return o.dead;
+    if (t.king) {
+      for (let l = 0; l < CFG.lanes.length; l++) if (g.towers[t.team][l][1].dead) return true;
+      return false;
     }
-    return true;
+    if (t.idx === 0) return true;
+    return g.towers[t.team][t.lane][t.idx - 1].dead;
   }
 
   function canTarget(g, src, dst) {
@@ -237,6 +245,7 @@
     if (d <= 0) return 0;
     dst.hp -= d;
     dst.flash = g.t + 0.08;
+    if (VIS && (dst.type !== 'minion' || (src && src.isPlayer)) && g.fx.length < 150) g.fx.push({ k: 'dmg', x: dst.x + (g.rand() - 0.5) * 8, y: dst.y - 22, v: Math.round(d), c: dst.type === 'hero' ? (dst.team === 0 ? '#ff8a80' : '#fff59d') : '#ffffff', t0: g.t, dur: 0.8, big: dst.type === 'hero' || (src && src.isPlayer) });
     if (src) {
       if (src.m && src.m.ls > 0 && !src.dead) src.hp = Math.min(src.maxHp, src.hp + d * src.m.ls);
       if (src.type === 'hero' && dst.type === 'hero') src.lastHeroHit = g.t;
@@ -281,7 +290,8 @@
 
   function kill(g, dst, src, o) {
     if (dst.dead) return;
-    dst.dead = true; dst.hp = 0;
+    dst.dead = true; dst.hp = 0; dst.dieT = g.t;
+    if (VIS) g.fx.push({ k: 'burst', x: dst.x, y: dst.y, c: dst.type === 'tower' ? '#bcaaa4' : (dst.team === 0 ? '#64b5f6' : '#ef5350'), n: dst.type === 'minion' ? 6 : (dst.type === 'hero' ? 14 : 24), t0: g.t, dur: 0.8 });
     if (dst.type === 'hero') {
       dst.deaths++;
       dst.respawnAt = g.t + CFG.respawnBase + CFG.respawnPerLevel * dst.level;
@@ -306,7 +316,7 @@
     } else if (dst.type === 'tower') {
       for (const a of alliedHeroes(g, 1 - dst.team, dst.x, dst.y, 450)) addGold(a, 150);
       g.events.push({ k: 'tower', team: dst.team, name: dst.name });
-      if (dst.idx === CFG.towers.length - 1) { g.over = true; g.winner = 1 - dst.team; g.events.push({ k: 'over', winner: g.winner }); }
+      if (dst.king) { g.over = true; g.winner = 1 - dst.team; g.events.push({ k: 'over', winner: g.winner }); }
     }
   }
 
@@ -333,6 +343,7 @@
     if (u.nextMul) { ctx.mul *= u.nextMul; u.nextMul = 0; }
     if (u.greedReady) { ctx.mul *= 1.08; u.greedReady = false; }
     u.cd[slot] = sk.cd;
+    u.lastCast = g.t;
     const st = findFxStealth(u);
     ring(g, u.x, u.y, 14, u.def.colors.accent, 0.2);
     for (const fx of sk.fx) doEffect(g, u, fx, ctx, sk);
@@ -627,12 +638,15 @@
     const nm = 3 + (late ? 1 : 0), nr = 1 + (late ? 1 : 0);
     const sc = 1 + 0.03 * g.waveNo;
     for (let team = 0; team < 2; team++) {
-      const x0 = team === 0 ? 200 : CFG.W - 200, dir = team === 0 ? 1 : -1;
-      for (let i = 0; i < nm + nr; i++) {
-        const ranged = i >= nm;
-        mkUnit(g, { type: 'minion', team: team, ranged: ranged, x: x0 + dir * i * 12, y: CFG.laneY + (g.rand() - 0.5) * 40,
-          hp: (ranged ? 220 : 320) * sc, maxHp: (ranged ? 220 : 320) * sc, dmg: (ranged ? 28 : 22) * sc, as: 1, range: ranged ? 70 : 18,
-          speed: 40, radius: 6, baseArmor: 0.1 });
+      const x0 = team === 0 ? 230 : CFG.W - 230, dir = team === 0 ? 1 : -1;
+      for (let l = 0; l < CFG.lanes.length; l++) {
+        for (let i = 0; i < nm + nr; i++) {
+          const ranged = i >= nm;
+          // เกิดที่ฐาน แล้วเดินออกไปเข้าเลนตามทางโค้ง (เลนกลางตรงเข้าเลย)
+          mkUnit(g, { type: 'minion', team: team, lane: l, inLane: l === 1, ranged: ranged, x: x0 + dir * i * 12, y: CFG.baseY + (g.rand() - 0.5) * 40,
+            hp: (ranged ? 220 : 320) * sc, maxHp: (ranged ? 220 : 320) * sc, dmg: (ranged ? 28 : 22) * sc, as: 1, range: ranged ? 70 : 18,
+            speed: 48, radius: 6, baseArmor: 0.1 });
+        }
       }
     }
   }
@@ -656,7 +670,7 @@
     // ฟื้นเลือด
     const em = TR.EMBLEMS[u.emblem];
     const sp = u.team === 0 ? 100 : CFG.W - 100;
-    const inBase = Math.abs(u.x - sp) < 160;
+    const inBase = Math.hypot(u.x - sp, u.y - CFG.baseY) < 230;
     u.hp = Math.min(u.maxHp, u.hp + u.maxHp * (inBase ? 0.08 : 0.004 * (em.regenMul || 1)) * dt);
     for (const e of u.fx) if (e.type === 'hot') u.hp = Math.min(u.maxHp, u.hp + e.perSec * dt);
 
@@ -664,7 +678,7 @@
     if (u.decoyCd > 0) u.decoyCd -= dt;
     if (u.emblem === 'long' && u.decoyCd <= 0 && u.hp / u.maxHp < 0.3) {
       u.decoyCd = 60; u.untarget = g.t + 2;
-      g.fx.push({ k: 'decoy', x: u.x, y: u.y, c: u.def.colors.body, t0: g.t, dur: 2 });
+      g.fx.push({ k: 'decoy', x: u.x, y: u.y, def: u.def, c: u.def.colors.body, t0: g.t, dur: 2 });
     }
     // พลังแฝง: ศรัทธา = บัฟเมื่อเพื่อนอยู่ใกล้
     if (u.emblem === 'sat') {
@@ -727,6 +741,7 @@
     }
     if (!tgt || u.atkCd > 0) return;
     u.atkCd = 1 / (r.as * u.m.atkSpd);
+    u.lastAtk = g.t;
     u.face = dirToward(u, tgt);
     const st = findFxStealth(u); if (st) removeFx(u, st);
     if (r.range > 60) {
@@ -758,13 +773,21 @@
       if (d <= u.range) {
         if (u.atkCd <= 0) {
           u.atkCd = 1 / u.as;
+          u.lastAtk = g.t; u.face = dirToward(u, tgt);
           hit(g, u, tgt, u.dmg, { basic: true });
           if (u.ranged) line(g, u, tgt, u.team === 0 ? '#90caf9' : '#ef9a9a', 0.08);
         }
       } else if (!u.m.root) moveToward(u, tgt.x, tgt.y, dt);
     } else if (!u.m.root) {
-      const gx = u.team === 0 ? CFG.W - 200 : 200;
-      moveToward(u, gx, CFG.laneY, dt);
+      if (!u.inLane) {
+        const wx = u.team === 0 ? CFG.laneEntry : CFG.W - CFG.laneEntry;
+        if (u.team === 0 ? u.x >= wx - 20 : u.x <= wx + 20) u.inLane = true;
+        else { moveToward(u, wx, CFG.lanes[u.lane].y, dt); return; }
+      }
+      // เดินตามเลนไปจนใกล้ฐานศัตรู แล้วค่อยเลี้ยวเข้าราชธานี
+      const nearBase = u.team === 0 ? u.x > CFG.W - 420 : u.x < 420;
+      if (nearBase) moveToward(u, u.team === 0 ? CFG.W - CFG.king.x : CFG.king.x, CFG.baseY, dt);
+      else moveToward(u, u.team === 0 ? CFG.W - 380 : 380, CFG.lanes[u.lane].y, dt);
     }
   }
 

@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="th"><head><meta charset="utf-8"><title>Thai Realm — ตัวอย่างสไปรต์</title>
+<style>body{margin:0;background:#2c3a2a;color:#fff;font:12px sans-serif}canvas{display:block}</style></head>
+<body><canvas id="c"></canvas>
+<script src="../js/data.js"></script><script src="../js/sim.js"></script><script src="../js/ai.js"></script><script src="../js/render.js"></script>
+<script>
+/* หน้านี้ใช้ดูท่าของตัวละครทุกท่าในที่เดียว: ยืน เดิน(3 จังหวะ) ฟัน ร่ายสกิล */
+const TR = window.TR, cv = document.getElementById('c'), c = cv.getContext('2d');
+const rows = TR.HEROES.length + 1, cols = 7, cw = 120, ch = 110, Z = 2.4;
+cv.width = cols * cw * 1; cv.height = rows * ch;
+c.fillStyle = '#4c7a3a'; c.fillRect(0, 0, cv.width, cv.height);
+const poses = [
+  { mv: 0, ph: 0, atkP: 9, castP: 9 }, { mv: 1, ph: 0.6, atkP: 9, castP: 9 }, { mv: 1, ph: 2.2, atkP: 9, castP: 9 },
+  { mv: 1, ph: 4.0, atkP: 9, castP: 9 }, { mv: 0, ph: 0, atkP: 0.1, castP: 9 }, { mv: 0, ph: 0, atkP: 0.5, castP: 9 }, { mv: 0, ph: 0, atkP: 9, castP: 0.5 }
+];
+function cell(r, k, key, colors, role, sc) {
+  c.save(); c.translate(k * cw + cw / 2, r * ch + ch - 18); c.scale(Z * sc, Z * sc);
+  const P = poses[k];
+  TR.Render._rig(c, { id: r + 1, key: key, colors: colors, role: role, vf: 1, mv: P.mv, ph: P.ph, rt: 1, atkP: P.atkP, castP: P.castP, flash: false });
+  c.restore();
+}
+TR.HEROES.forEach(function (h, r) { for (let k = 0; k < poses.length; k++) cell(r, k, h.id, h.colors, h.role, 0.95); c.fillStyle = '#fff'; c.font = '11px sans-serif'; c.fillText(h.name, 4, r * ch + 12); });
+['minionM', 'minionR'].forEach(function (key, i) { for (let k = 0; k < 4; k++) cell(rows - 1, i * 4 + k > 6 ? 6 : i * 3 + k, key, { body: i ? '#ff5a4f' : '#4c8dff', accent: '#fff', hair: '#3e2723' }, 'minion', 0.72); });
+window.__ready = true;
+</script></body></html>

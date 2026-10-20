@@ -3,14 +3,12 @@
   'use strict';
   const TR = G.TR, S = TR.Sim, CFG = TR.CFG;
 
-  function frontTower(g, team) {
-    // ป้อมศัตรูที่ยังโจมตีได้ชั้นหน้าสุด
-    let best = null;
-    for (const t of g.units) {
-      if (t.type !== 'tower' || t.team === team || t.dead || !S.towerVuln(g, t)) continue;
-      if (!best || t.idx < best.idx) best = t;
-    }
-    return best;
+  // ป้อมศัตรูชั้นหน้าสุดที่โจมตีได้ในเลนนั้น (เลนโล่งแล้ว = ราชธานี ถ้าเปิดอยู่)
+  function frontTower(g, team, lane) {
+    const en = 1 - team;
+    for (let i = 0; i < CFG.laneTowers.length; i++) { const t = g.towers[en][lane][i]; if (!t.dead) return t; }
+    const k = g.kings[en];
+    return S.towerVuln(g, k) ? k : null;
   }
 
   function allyMinionsNear(g, team, x, y, r) {
@@ -30,12 +28,23 @@
     const ranged = rng > 60;
     const hpR = u.hp / u.maxHp;
     const homeX = u.team === 0 ? 100 : CFG.W - 100;
-    const ft = frontTower(g, u.team);
+    const lane = ai.lane, laneY = CFG.lanes[lane].y + ai.yOff;
+    const ft = frontTower(g, u.team, lane);
     const minionsAtTower = ft ? allyMinionsNear(g, u.team, ft.x, ft.y, 110) : 0;
     let enemyDead = 0;
     for (const e of g.units) if (e.type === 'hero' && e.team !== u.team && e.dead) enemyDead++;
     // ศัตรูตายอย่างน้อย 2 คน = จังหวะบุกป้อมแม้มินเนียนไม่อยู่
-    const towerOk = minionsAtTower >= 2 || (enemyDead >= 2 && u.hp / u.maxHp > 0.5);
+    const groupN = S.alliedHeroes(g, u.team, u.x, u.y, 300).length;
+    const towerOk = minionsAtTower >= 2 || (enemyDead >= 1 && u.hp / u.maxHp > 0.5) || (groupN >= 3 && u.hp / u.maxHp > 0.6);
+
+    // ป้องกันฐาน: ศัตรูเข้าใกล้ราชธานีของเรา
+    const myKing = g.kings[u.team];
+    if (g.t >= ai.chk) {
+      ai.chk = g.t + 1.5;
+      let thr = 0;
+      for (const e of g.units) if (e.type === 'hero' && e.team !== u.team && !e.dead && Math.hypot(e.x - myKing.x, e.y - myKing.y) < 520) thr++;
+      ai.defend = thr > 0 && !myKing.dead;
+    }
 
     // ข้อมูลรอบตัว
     let eh = null, ehd = 1e9, ehCount = 0, nm = null, nmd = 1e9, minions = 0;
@@ -64,7 +73,7 @@
 
     if (ai.retreat) {
       u.aiTarget = null;
-      u.input.dx = homeX - u.x; u.input.dy = (CFG.laneY + ai.yOff) - u.y;
+      u.input.dx = homeX - u.x; u.input.dy = CFG.baseY - u.y;
       return;
     }
 
@@ -96,15 +105,18 @@
       let lead = null;
       for (const m of g.units) {
         if (m.type !== 'minion' || m.team !== u.team || m.dead) continue;
+        if (m.lane !== lane) continue;
         if (!lead || (m.x - lead.x) * dir > 0) lead = m;
       }
       const behind = u.role === 'tank' ? -20 : (ranged ? 70 : 35);
       let wx = lead ? lead.x - dir * behind : (u.team === 0 ? 420 : CFG.W - 420);
-      if (ft && !towerOk) {
+      let wy = laneY;
+      if (ai.defend) { wx = myKing.x + dir * 240; wy = CFG.baseY; }
+      if (ft && !towerOk && !ai.defend) {
         const stop = ft.x - dir * (CFG.towerRange + 30);
         if ((wx - stop) * dir > 0) wx = stop;
       }
-      tx = wx; ty = CFG.laneY + ai.yOff;
+      tx = wx; ty = wy;
     }
     u.input.dx = tx - u.x; u.input.dy = ty - u.y;
     if (Math.abs(u.input.dx) < 3 && Math.abs(u.input.dy) < 3) { u.input.dx = 0; u.input.dy = 0; }

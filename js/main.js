@@ -51,8 +51,8 @@
     TR.HEROES.forEach(function (h) {
       const b = document.createElement('button');
       b.className = 'hcard'; b.dataset.id = h.id;
-      const cv = document.createElement('canvas'); cv.width = 28; cv.height = 32;
-      TR.Render.drawHeroIcon(cv.getContext('2d'), h, 28, 32);
+      const cv = document.createElement('canvas'); cv.width = 112; cv.height = 128;
+      TR.Render.drawHeroIcon(cv.getContext('2d'), h, 112, 128, 0);
       const era = document.createElement('div'); era.className = 'era'; era.textContent = TR.ERAS[h.era].name;
       const n = document.createElement('div'); n.className = 'n'; n.textContent = h.name;
       const r = document.createElement('div'); r.className = 'r'; r.textContent = TR.ROLES[h.role].name;
@@ -104,12 +104,7 @@
   }
 
   /* ---------- เริ่ม/จบเกม ---------- */
-  function fit() {
-    let s = Math.min(window.innerWidth / TR.Render.VW, window.innerHeight / TR.Render.VH);
-    if (s >= 1) s = Math.floor(s);
-    canvas.style.width = Math.round(TR.Render.VW * s) + 'px';
-    canvas.style.height = Math.round(TR.Render.VH * s) + 'px';
-  }
+  function fit() { TR.Render.resize(canvas, window.innerWidth, window.innerHeight); }
 
   function buildSkillButtons(def) {
     const box = $('skills');
