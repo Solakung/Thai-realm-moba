@@ -50,6 +50,7 @@
     let eh = null, ehd = 1e9, ehCount = 0, nm = null, nmd = 1e9, minions = 0;
     for (const e of g.units) {
       if (e.team === u.team || e.dead || e.type === 'tower') continue;
+      if (e.type === 'monster' && !ai.jungle) continue;
       if (!S.canTarget(g, u, e)) continue;
       const d = S.dist(u, e) - e.radius;
       if (e.type === 'hero') {
@@ -59,10 +60,23 @@
     }
     const allies = S.alliedHeroes(g, u.team, u.x, u.y, 260).filter(function (a) { return a !== u; });
 
+    // สายป่า: เลือกค่ายมอนที่ใกล้ที่สุดฝั่งเรา (ชอบค่ายบัฟตอนเลือดดี)
+    let jm = null;
+    if (ai.jungle) {
+      let bs = 1e9;
+      for (const e of g.units) {
+        if (e.type !== 'monster' || e.dead || e.side !== u.team) continue;
+        const sc = S.dist(u, e) - (TR.MONSTERS[e.kind].buff && hpR > 0.6 ? 220 : 0);
+        if (sc < bs) { bs = sc; jm = e; }
+      }
+      // ไม่มีค่ายเหลือ = ไปเล่นเลนกลางระหว่างรอมอนเกิดใหม่
+    }
+
     // เลือดน้อย → ถอย
     if (ai.retreat) { if (hpR > 0.7) ai.retreat = false; }
     else if (hpR < 0.3) ai.retreat = true;
 
+    if (jm && !(eh && ehd < 220)) { eh = jm; ehd = S.dist(u, jm) - jm.radius; }
     const ctx = { eh: eh, ehd: ehd, ehCount: ehCount, minions: minions, nmd: nmd, allies: allies.length, hpR: hpR };
 
     // ใช้สกิล
@@ -89,6 +103,7 @@
       const assassinOk = u.role !== 'assassin' || eh.hp / eh.maxHp < 0.65 || allies.length >= 2;
       if (safe && assassinOk) tgt = eh;
     }
+    if (!tgt && jm && !(eh && ehd < 220 && eh !== jm)) tgt = jm;
     if (!tgt && nm && nmd <= (ranged ? rng + 40 : 90)) tgt = nm;
     if (!tgt && ft && towerOk && S.dist(u, ft) - ft.radius <= (ranged ? rng + 60 : 120)) tgt = ft;
     u.aiTarget = tgt;

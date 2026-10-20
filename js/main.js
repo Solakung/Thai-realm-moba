@@ -6,6 +6,8 @@
   const canvas = $('game'), ctx = canvas.getContext('2d');
   const mini = $('mini'), mctx = mini.getContext('2d');
 
+  const stageCv = $('stageCv'), stageCtx = stageCv.getContext('2d'), stageState = { side: 1 };
+  let introEnd = 0;
   let sel = { hero: TR.HEROES[0].id, emblem: null };
   let g = null, acc = 0, lastTs = 0, paused = false, playing = false, hudT = 0, miniT = 0, camCache = null, endTimer = null;
   const keys = {}, queue = [];
@@ -84,6 +86,19 @@
       info.appendChild(el('div', 'sk', '<b>' + (i === 2 ? 'อัลติ' : 'สกิล ' + (i + 1)) + ' · ' + s.name + '</b> (' + s.cd + ' วิ) — ' + s.desc));
     });
     buildEmblems();
+    const nm = $('stageName');
+    nm.querySelector('.et').textContent = 'ยุค' + TR.ERAS[h.era].name;
+    nm.querySelector('.nm').textContent = h.name;
+    nm.querySelector('.rl').textContent = TR.ROLES[h.role].name + ' · ' + h.strength;
+    nm.classList.remove('anim'); void nm.offsetWidth; nm.classList.add('anim');
+    TR.Render.stageReset(stageState, id);
+  }
+
+  function sizeStage() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2), w = stageCv.clientWidth, h = stageCv.clientHeight;
+    if (!w || !h) return false;
+    if (stageCv.width !== Math.round(w * dpr) || stageCv.height !== Math.round(h * dpr)) { stageCv.width = Math.round(w * dpr); stageCv.height = Math.round(h * dpr); }
+    return { w: w, h: h, dpr: dpr };
   }
 
   function buildEmblems() {
@@ -133,7 +148,40 @@
     banner('ยุค' + TR.ERAS[0].name + ' เริ่มแล้ว', TR.ERAS[0].note + ' · ฮีโร่ยุคนี้แข็งขึ้น: ' + heroesOfEra(0), 4500);
     fit();
     lastTs = performance.now();
+    showIntro();
   }
+
+  /* ---------- หน้า VS ก่อนเริ่มแมตช์ ---------- */
+  function showIntro() {
+    const L = $('vsLeft'), Rr = $('vsRight');
+    L.innerHTML = ''; Rr.innerHTML = '';
+    $('vsTitle').textContent = 'ศึกข้ามยุค · เริ่มที่ยุค' + TR.ERAS[0].name;
+    const hs = g.units.filter(function (u) { return u.type === 'hero'; });
+    [0, 1].forEach(function (team) {
+      hs.filter(function (u) { return u.team === team; }).sort(function (a, b) { return a.slot - b.slot; }).forEach(function (u, i) {
+        const card = document.createElement('div');
+        card.className = 'vs-card' + (u === g.player ? ' me' : '');
+        card.style.animationDelay = (0.15 + i * 0.09) + 's';
+        const cv = document.createElement('canvas'); cv.width = 92; cv.height = 104;
+        TR.Render.drawHeroIcon(cv.getContext('2d'), u.def, 92, 104, 0);
+        const t = document.createElement('div');
+        t.innerHTML = '<div class="n">' + u.def.name + (u === g.player ? ' (คุณ)' : '') + '</div><div class="r">' + TR.ROLES[u.role].name + ' · ใจ' + TR.EMBLEMS[u.emblem].name + '</div>';
+        card.appendChild(cv); card.appendChild(t);
+        (team === 0 ? L : Rr).appendChild(card);
+      });
+    });
+    const el = $('intro');
+    el.classList.remove('out'); el.hidden = false;
+    introEnd = performance.now() + 3400;
+  }
+  function endIntro() {
+    if (!introEnd) return;
+    introEnd = 0;
+    const el = $('intro'); el.classList.add('out');
+    setTimeout(function () { el.hidden = true; el.classList.remove('out'); }, 480);
+    queue.length = 0; lastTs = performance.now(); acc = 0;
+  }
+  $('intro').addEventListener('pointerdown', function () { if (introEnd && performance.now() < introEnd - 600) introEnd = performance.now() + 50; });
 
   function toMenu() {
     playing = false; g = null;
@@ -164,6 +212,7 @@
     while (g.events.length) {
       const e = g.events.shift();
       if (e.k === 'kill') feed(e.killer + ' ปราบ ' + e.victim, e.kteam);
+      else if (e.k === 'jungle') feed(e.killer + ' ได้บัฟ' + e.name + ' (' + e.text + ')', e.kteam);
       else if (e.k === 'tower') feed('ป้อม' + e.name + (e.team === 0 ? 'ฝั่งเรา' : 'ฝั่งศัตรู') + 'พังแล้ว', 1 - e.team);
       else if (e.k === 'warn') banner('อีก ' + CFG.eraWarn + ' วินาทีเข้าสู่ยุค' + TR.ERAS[e.era].name, 'ป้อมจะเปลี่ยนเป็น: ' + TR.ERAS[e.era].short, 4500);
       else if (e.k === 'era') banner('เข้าสู่ยุค' + TR.ERAS[e.era].name, TR.ERAS[e.era].note + ' · ฮีโร่ยุครุ่งเรือง: ' + heroesOfEra(e.era), 5500);
@@ -271,7 +320,17 @@
   /* ---------- ลูปหลัก ---------- */
   function frame(ts) {
     requestAnimationFrame(frame);
-    if (!playing || !g) { lastTs = ts; return; }
+    if (!playing || !g) {
+      lastTs = ts;
+      if (!$('menu').hidden) { const sz = sizeStage(); if (sz) TR.Render.drawStage(stageCtx, sz.w, sz.h, stageState, TR.HERO_BY_ID[sel.hero], sz.dpr); }
+      return;
+    }
+    if (introEnd) {
+      if (performance.now() >= introEnd) endIntro();
+      lastTs = ts;
+      camCache = TR.Render.draw(ctx, g, 1);
+      return;
+    }
     if (!paused) {
       acc += Math.min(0.25, (ts - lastTs) / 1000);
       while (acc >= CFG.dt) { readInput(); TR.Sim.step(g); acc -= CFG.dt; }

@@ -56,6 +56,10 @@
         <h3>เลือกฮีโร่ (จิตบรรพชนของแต่ละยุค)</h3>
         <div id="heroGrid"></div>
       </div>
+      <div id="stagePane">
+        <canvas id="stageCv"></canvas>
+        <div id="stageName"><div class="et"></div><div class="nm"></div><div class="rl"></div></div>
+      </div>
       <div class="col-info">
         <div id="heroInfo"></div>
         <h3>เลือกชุดใจ <small>(ล็อกตลอดแมตช์)</small></h3>
@@ -79,6 +83,17 @@
     </div>
   </div>
 </section>
+
+<div id="intro" hidden>
+  <div class="vs-bg"></div>
+  <div class="vs-title" id="vsTitle"></div>
+  <div class="vs-row">
+    <div class="vs-side left" id="vsLeft"></div>
+    <div class="vs-mid"><span>VS</span></div>
+    <div class="vs-side right" id="vsRight"></div>
+  </div>
+  <div class="vs-hint">แตะเพื่อข้าม</div>
+</div>
 
 <div id="updateModal" hidden>
   <div class="card wide">

@@ -7,7 +7,7 @@
   const TR = G.TR, CFG = TR.CFG;
   const VIEW_H = 360;                       // ความสูงที่มองเห็นเป็นหน่วยโลก (กว้างขยายตามอัตราส่วนจอ)
   const view = { w: 640, h: VIEW_H, z: 2, cw: 1280, ch: 720 };
-  const TEAM = ['#4c8dff', '#ff5a4f'], TEAM_DARK = ['#1f4fbf', '#b3261e'], TEAM_LIGHT = ['#b7d3ff', '#ffc2bd'];
+  const TEAM = ['#4c8dff', '#ff5a4f', '#ffb74d'], TEAM_DARK = ['#1f4fbf', '#b3261e', '#a36a1e'], TEAM_LIGHT = ['#b7d3ff', '#ffc2bd', '#ffe0b2'];
   const OUT = 'rgba(28,18,12,0.85)';
   const TAU = Math.PI * 2;
 
@@ -49,6 +49,90 @@
     c.beginPath(); c.moveTo(pts[0], pts[1]);
     for (let i = 2; i < pts.length; i += 2) c.lineTo(pts[i], pts[i + 1]);
     c.closePath(); c.fillStyle = col; c.fill(); if (ol) { c.strokeStyle = OUT; c.lineWidth = 0.7; c.lineJoin = 'round'; c.stroke(); }
+  }
+
+
+  /* ================= มอนป่า ================= */
+  function drawMonster(c, u, K, rt, vf, lunge, openJaw) {
+    const id = u.id;
+    switch (u.kind) {
+      case 'croc': {
+        const sw = Math.sin(rt * 2.2 + id) * 2.2;
+        c.scale(1.12, 1.12);
+        ell(c, 0, 0.5, 19, 4.4, 'rgba(0,0,0,.3)');
+        // หาง
+        c.beginPath(); c.moveTo(-8, -6); c.quadraticCurveTo(-20, -5 + sw, -27, -2 + sw * 1.4); c.quadraticCurveTo(-19, -1 + sw * 0.5, -8, -1.5); c.closePath(); c.fillStyle = K('#3f7a35'); c.fill(); c.strokeStyle = OUT; c.lineWidth = 0.7; c.stroke();
+        // ขา
+        for (const lx of [-8, 5]) { fillRR(c, lx - 1.6, -4.6, 3.6, 4.6, 1.4, K('#35692d'), true); fillRR(c, lx + 2.4, -3.6, 3.4, 3.8, 1.4, K('#2f5d28'), true); }
+        // ลำตัว
+        c.beginPath(); c.ellipse(0, -7.2, 13, 6.2, 0, 0, TAU); c.fillStyle = K('#4b8f3d'); c.fill(); c.strokeStyle = OUT; c.lineWidth = 0.8; c.stroke();
+        c.beginPath(); c.ellipse(0.5, -4.4, 11, 3, 0, 0, Math.PI); c.fillStyle = K('#c9d38b'); c.fill();
+        for (let i = -9; i <= 8; i += 3.4) poly(c, [i - 1.4, -12.6, i, -15, i + 1.4, -12.6], K('#2f5d28'), true);
+        // หัว/ปากอ้า
+        c.save(); c.translate(11 + lunge * 4, -7); 
+        const jaw = openJaw * 0.55;
+        c.save(); c.rotate(jaw); poly(c, [0, 0, 11, 1, 12, 3.4, 0, 3.4], K('#6ea85a'), true); for (let i = 3; i < 11; i += 2.6) poly(c, [i, 0.8, i + 0.8, 0.8, i + 0.4, -0.6], '#fff'); c.restore();
+        poly(c, [-1, -4, 12, -2.6, 12.6, -0.4, 0, 0.6], K('#4b8f3d'), true); for (let i = 3; i < 11; i += 2.6) poly(c, [i, -0.4, i + 0.8, -0.4, i + 0.4, 1], '#fff');
+        circ(c, 3, -4.8, 2, K('#4b8f3d'), true); circ(c, 3.4, -4.9, 1, '#ffeb3b'); circ(c, 3.6, -4.9, 0.4, '#111');
+        c.restore();
+        break; }
+      case 'snake': {
+        const raise = 16 + Math.sin(rt * 2.4 + id) * 1.2 + lunge * 3;
+        c.scale(1.05, 1.05);
+        ell(c, 0, 0.5, 15, 4, 'rgba(0,0,0,.3)');
+        // ขดตัวด้านล่าง
+        for (let i = 0; i < 3; i++) { c.beginPath(); c.ellipse(-2 + i * 0.6, -3 - i * 2.6, 12 - i * 2.4, 3.6, 0, 0, TAU); c.fillStyle = K(i % 2 ? '#7a8a2f' : '#6b7b27'); c.fill(); c.strokeStyle = OUT; c.lineWidth = 0.8; c.stroke(); }
+        // คอยกขึ้นเป็นรูปตัว S
+        c.lineCap = 'round'; c.lineJoin = 'round';
+        const sx = [0, 0]; 
+        c.beginPath(); c.moveTo(-3, -10);
+        c.bezierCurveTo(-9 + Math.sin(rt * 1.6 + id) * 1.5, -14, 7, -raise * 0.55, 1.5 + lunge * 8, -raise - 6);
+        c.strokeStyle = OUT; c.lineWidth = 7.6; c.stroke(); c.strokeStyle = K('#8a9a35'); c.lineWidth = 6.4; c.stroke();
+        c.strokeStyle = K('#c5cf6c'); c.lineWidth = 2; c.stroke();
+        // หัวและแผ่แม่เบี้ย
+        c.save(); c.translate(1.5 + lunge * 8, -raise - 6);
+        c.beginPath(); c.ellipse(0, 2, 6.2, 7.6, 0, 0, TAU); c.fillStyle = K('#7e8f2e'); c.fill(); c.strokeStyle = OUT; c.lineWidth = 0.8; c.stroke();
+        c.beginPath(); c.ellipse(1, 3, 3.2, 4.6, 0, 0, TAU); c.fillStyle = K('#e0e48a'); c.fill();
+        circ(c, 4.4, -3.2, 3.6, K('#8a9a35'), true); circ(c, 5.4, -3.8, 1, '#ff3d00'); circ(c, 5.6, -3.8, 0.4, '#111');
+        if (openJaw > 0.1) poly(c, [7, -2, 12, -1, 7, 0.6], '#ef5350');
+        else { c.strokeStyle = '#e53935'; c.lineWidth = 0.7; c.beginPath(); c.moveTo(8, -2); c.lineTo(11 + Math.sin(rt * 14) * 1.2, -2.6); c.stroke(); }
+        c.restore();
+        break; }
+      case 'krasue': {
+        const fl = Math.sin(rt * 2.6 + id) * 2.4, hy = -26 + fl;
+        const pulse = 0.5 + 0.5 * Math.sin(rt * 5);
+        c.globalAlpha = 0.18 + 0.1 * pulse; circ(c, 0, hy, 21, '#ff5252'); c.globalAlpha = 1;
+        ell(c, 0, 0.6, 11, 3.2, 'rgba(0,0,0,.28)'); ell(c, 0, 0.6, 8, 2.2, 'rgba(255,60,60,' + (0.18 + 0.12 * pulse) + ')');
+        // ไส้ห้อยพลิ้ว
+        c.lineCap = 'round';
+        for (let k = 0; k < 3; k++) { c.beginPath(); c.moveTo(-2 + k * 2, hy + 6); for (let i = 1; i <= 7; i++) c.lineTo(-2 + k * 2 + Math.sin(rt * 4 + i * 0.8 + k) * (1.2 + i * 0.4), hy + 6 + i * 2.7); c.strokeStyle = OUT; c.lineWidth = 3.3 - k * 0.5; c.stroke(); c.strokeStyle = K(['#e57373', '#f48fb1', '#ef9a9a'][k]); c.lineWidth = 2.3 - k * 0.4; c.stroke(); }
+        // ผมยาว
+        for (let k = 0; k < 5; k++) { c.beginPath(); c.moveTo(-3 + k * 1.6, hy - 3); c.quadraticCurveTo(-8 - k * 1.6 + Math.sin(rt * 3 + k) * 2.5, hy + 8, -10 - k * 2 + Math.sin(rt * 2.4 + k * 1.3) * 3, hy + 14 + k); c.strokeStyle = '#0b0b10'; c.lineWidth = 2.4; c.stroke(); }
+        circ(c, 0, hy, 8.4, K('#e6d3bd'), true);
+        c.beginPath(); c.arc(0, hy - 1, 8.4, Math.PI * 1.02, TAU * 1.0); c.lineTo(5, hy - 2); c.quadraticCurveTo(0, hy - 5, -5, hy - 2); c.closePath(); c.fillStyle = '#0b0b10'; c.fill();
+        circ(c, 3, hy - 0.6, 2.1, '#ffeb3b'); circ(c, 3.4, hy - 0.6, 0.9, '#b71c1c'); circ(c, -2.4, hy - 0.8, 1.6, '#ffeb3b'); circ(c, -2.2, hy - 0.8, 0.7, '#b71c1c');
+        fillRR(c, -3.5, hy + 2.6, 8.4, 2.8 + openJaw * 2, 1.2, '#6a1a1a', true); poly(c, [-2.6, hy + 2.7, -1.6, hy + 2.7, -2.1, hy + 5], '#fff'); poly(c, [2.4, hy + 2.7, 3.4, hy + 2.7, 2.9, hy + 5], '#fff');
+        break; }
+      case 'krahang': {
+        const fl = Math.sin(rt * 2.2 + id) * 2.2, hy = -25 + fl, flap = Math.sin(rt * 7 + id);
+        const pulse = 0.5 + 0.5 * Math.sin(rt * 4);
+        c.globalAlpha = 0.17 + 0.1 * pulse; circ(c, 0, hy, 22, '#4db6ac'); c.globalAlpha = 1;
+        ell(c, 0, 0.6, 11, 3.2, 'rgba(0,0,0,.28)'); ell(c, 0, 0.6, 8, 2.2, 'rgba(77,182,172,' + (0.2 + 0.12 * pulse) + ')');
+        // ผ้าขาดห้อย
+        for (let k = 0; k < 4; k++) poly(c, [-6 + k * 4, hy + 7, -3 + k * 4, hy + 7, -4.5 + k * 4 + Math.sin(rt * 3 + k) * 2, hy + 18 + (k % 2) * 4], K('#1f2a2e'), true);
+        // กระด้งสองข้างเป็นปีก
+        for (const s of [-1, 1]) {
+          c.save(); c.translate(s * 5, hy + 1); c.rotate(s * (0.35 + flap * 0.5) - Math.PI / 2 * 0 ); c.scale(s, 1);
+          c.beginPath(); c.ellipse(9, 0, 10.5, 5.2 + Math.abs(flap) * 1.2, 0.2, 0, TAU); c.fillStyle = K('#b8864b'); c.fill(); c.strokeStyle = OUT; c.lineWidth = 0.8; c.stroke();
+          c.strokeStyle = 'rgba(80,50,20,.55)'; c.lineWidth = 0.5; for (let i = 3; i <= 16; i += 3) { c.beginPath(); c.moveTo(i, -4.6); c.lineTo(i, 4.6); c.stroke(); } c.beginPath(); c.moveTo(0, 0); c.lineTo(19, 0); c.stroke();
+          c.restore();
+        }
+        circ(c, 0, hy, 7.6, K('#e0d2bd'), true);
+        c.beginPath(); c.arc(0, hy - 1, 7.8, Math.PI * 1.0, TAU * 1.0); c.lineTo(4.4, hy - 1.6); c.quadraticCurveTo(0, hy - 4.6, -4.4, hy - 1.6); c.closePath(); c.fillStyle = '#10151a'; c.fill();
+        circ(c, 2.8, hy - 0.4, 1.9, '#b2ff59'); circ(c, 3.1, hy - 0.4, 0.8, '#1b5e20'); circ(c, -2.2, hy - 0.6, 1.5, '#b2ff59'); circ(c, -2, hy - 0.6, 0.6, '#1b5e20');
+        fillRR(c, -3.2, hy + 2.4, 7.6, 2.6 + openJaw * 2, 1.1, '#3a1010', true); poly(c, [-2.2, hy + 2.5, -1.2, hy + 2.5, -1.7, hy + 4.6], '#fff'); poly(c, [2.2, hy + 2.5, 3.2, hy + 2.5, 2.7, hy + 4.6], '#fff');
+        break; }
+    }
   }
 
   /* ================= ฮีโร่และมินเนียน (โครงกระดูก) ================= */
@@ -543,7 +627,7 @@
       if (u.dead) {
         const age = g.t - (u.dieT == null ? -99 : u.dieT);
         if (u.type === 'tower') { list.push({ u: u, x: ix, y: iy }); continue; }
-        if (age > (u.type === 'hero' ? 0.9 : 0.4)) continue;
+        if (age > (u.type === 'hero' ? 0.9 : (u.type === 'monster' ? 0.8 : 0.4))) continue;
       }
       list.push({ u: u, x: ix, y: iy });
     }
@@ -565,6 +649,26 @@
         continue;
       }
       const an = unitAnim(u, g, dt, alpha);
+      if (u.type === 'monster') {
+        const age = u.dead ? clamp((g.t - u.dieT) / 0.8, 0, 1) : 0;
+        const ap = u.lastAtk != null ? (rt - u.lastAtk) / 0.35 : 9;
+        const lunge = ap >= 0 && ap < 1 ? Math.sin(ap * Math.PI) : 0, jaw = lunge;
+        const pop = u.spawnT != null && g.t - u.spawnT < 0.5 ? ease((g.t - u.spawnT) / 0.5) : 1;
+        c.save(); c.translate(x, y);
+        if (u.dead) { c.globalAlpha = 1 - age; c.scale(1 + age * 0.15, 1 - age * 0.3); }
+        else if (pop < 1) { c.globalAlpha = pop; c.scale(0.6 + 0.4 * pop, 0.6 + 0.4 * pop); }
+        c.scale(an.vf, 1);
+        drawMonster(c, u, u.flash > g.t ? FLASHK : IDENT, rt, an.vf, lunge, jaw);
+        c.restore();
+        if (!u.dead) {
+          const M = TR.MONSTERS[u.kind];
+          const hh = M.buff ? 44 : 34;
+          if (u.hp < u.maxHp || u.tgt) hpBar(c, x, y - hh, M.buff ? 30 : 24, u.hp / u.maxHp, 2, true);
+          if (M.buff) { c.fillStyle = 'rgba(255,255,255,.85)'; c.font = '600 5px sans-serif'; c.textAlign = 'center'; c.fillText(M.name, x, y - hh - 3); }
+          if (u.leash) { c.fillStyle = '#81c784'; c.font = 'bold 7px sans-serif'; c.textAlign = 'center'; c.fillText('+', x, y - hh + 12); }
+        }
+        continue;
+      }
       if (u.type === 'minion') {
         const age = u.dead ? (g.t - u.dieT) / 0.4 : 0;
         const ap = u.lastAtk != null ? (rt - u.lastAtk) / 0.3 : 9;
@@ -747,6 +851,7 @@
       if (u.dead) continue;
       const x = u.x * sx, y = u.y * sy;
       if (u.type === 'tower') { c.fillStyle = TEAM[u.team]; const s = u.king ? 7 : 4.6; c.fillRect(x - s / 2, y - s / 2, s, s); c.strokeStyle = '#000'; c.lineWidth = 0.6; c.strokeRect(x - s / 2, y - s / 2, s, s); }
+      else if (u.type === 'monster') { c.fillStyle = TR.MONSTERS[u.kind].buff ? '#ffd54f' : '#ff9800'; c.beginPath(); c.arc(x, y, TR.MONSTERS[u.kind].buff ? 2.4 : 1.7, 0, TAU); c.fill(); }
       else if (u.type === 'minion') { c.fillStyle = TEAM[u.team]; c.globalAlpha = 0.8; c.fillRect(x - 0.7, y - 0.7, 1.5, 1.5); c.globalAlpha = 1; }
       else if (u.type === 'hero') {
         if (u.m.stealth && g.player && u.team !== g.player.team) continue;
@@ -768,5 +873,143 @@
     c.setTransform(1, 0, 0, 1, 0, 0);
   }
 
-  TR.Render = { _rig: rig, view: view, resize: resize, draw: draw, drawMinimap: drawMinimap, drawHeroIcon: drawHeroIcon, TEAM: TEAM };
+
+  /* ================= เวทีเลือกฮีโร่ (หน้าเมนู ฉากตามยุค ฮีโร่ตัวใหญ่ทำท่า) ================= */
+  const STAGE = [
+    { sky: ['#24163a', '#d9733a', '#ffd88a'], fog: '#ffcf8a', part: 'petal', name: 'สุโขทัย' },
+    { sky: ['#171c36', '#b04c1c', '#ffc866'], fog: '#ffb45a', part: 'gold', name: 'อยุธยา' },
+    { sky: ['#101317', '#333b44', '#80786b'], fog: '#9a9486', part: 'ember', name: 'ยุคสงคราม' },
+    { sky: ['#070a1c', '#1b2a66', '#e5488c'], fog: '#6a7bd8', part: 'bokeh', name: 'ปัจจุบัน' }
+  ];
+  function stageReset(S, id, side) { S.id = id; S.t0 = performance.now() / 1000; S.act = null; S.next = S.t0 + 1.5; S.side = side || (S.side ? -S.side : 1); S.burst = true; }
+  function chedi(c, x, b, s, col) {
+    c.fillStyle = col; c.beginPath();
+    c.rect(x - 34 * s, b - 8 * s, 68 * s, 8 * s); c.rect(x - 28 * s, b - 15 * s, 56 * s, 7 * s); c.rect(x - 22 * s, b - 21 * s, 44 * s, 6 * s);
+    c.moveTo(x - 20 * s, b - 21 * s); c.quadraticCurveTo(x - 24 * s, b - 52 * s, x, b - 62 * s); c.quadraticCurveTo(x + 24 * s, b - 52 * s, x + 20 * s, b - 21 * s);
+    c.moveTo(x - 4 * s, b - 60 * s); c.lineTo(x, b - 96 * s); c.lineTo(x + 4 * s, b - 60 * s); c.fill();
+  }
+  function prang(c, x, b, s, col) {
+    c.fillStyle = col; c.beginPath(); c.moveTo(x - 30 * s, b);
+    const steps = [[30, 0], [26, 14], [22, 28], [19, 40], [15, 54], [11, 66], [7, 78], [3, 90]];
+    for (let i = 0; i < steps.length; i++) { c.lineTo(x - steps[i][0] * s, b - steps[i][1] * s); c.lineTo(x - (steps[i][0] - 3) * s, b - (steps[i][1] + 5) * s); }
+    c.lineTo(x, b - 112 * s);
+    for (let i = steps.length - 1; i >= 0; i--) { c.lineTo(x + (steps[i][0] - 3) * s, b - (steps[i][1] + 5) * s); c.lineTo(x + steps[i][0] * s, b - steps[i][1] * s); }
+    c.lineTo(x + 30 * s, b); c.closePath(); c.fill();
+  }
+  function stageBackdrop(c, w, h, era, now) {
+    const T = STAGE[era], horizon = h * 0.62;
+    const g = c.createLinearGradient(0, 0, 0, horizon); g.addColorStop(0, T.sky[0]); g.addColorStop(0.62, T.sky[1]); g.addColorStop(1, T.sky[2]);
+    c.fillStyle = g; c.fillRect(0, 0, w, h);
+    // ดวงอาทิตย์/พระจันทร์
+    const sx = w * 0.72 + Math.sin(now * 0.1) * 6, sy = horizon - h * 0.2;
+    const sg = c.createRadialGradient(sx, sy, 4, sx, sy, h * 0.34); sg.addColorStop(0, era === 3 ? 'rgba(255,170,220,.85)' : 'rgba(255,240,190,.95)'); sg.addColorStop(0.25, T.fog + '99'); sg.addColorStop(1, T.fog + '00');
+    c.fillStyle = sg; c.beginPath(); c.arc(sx, sy, h * 0.34, 0, TAU); c.fill();
+    // ภูเขา/เมฆไกล
+    c.fillStyle = mix(T.sky[1], '#000000', 0.45); c.globalAlpha = 0.7; c.beginPath(); c.moveTo(0, horizon);
+    for (let x = 0; x <= w; x += 20) c.lineTo(x, horizon - 14 - Math.sin(x * 0.011 + era) * 12 - Math.sin(x * 0.027) * 7); c.lineTo(w, horizon); c.fill(); c.globalAlpha = 1;
+    const dk = mix(T.sky[0], '#000000', 0.35), dk2 = mix(T.sky[0], '#000000', 0.6);
+    const drift = Math.sin(now * 0.18) * 8;
+    if (era === 0) { chedi(c, w * 0.18 + drift * 0.5, horizon + 6, h / 340, dk); chedi(c, w * 0.88 + drift * 0.5, horizon + 8, h / 420, dk); chedi(c, w * 0.5 + drift, horizon + 18, h / 250, dk2); }
+    else if (era === 1) { prang(c, w * 0.16 + drift * 0.5, horizon + 6, h / 300, dk); prang(c, w * 0.9 + drift * 0.5, horizon + 8, h / 360, dk); prang(c, w * 0.48 + drift, horizon + 18, h / 220, dk2); }
+    else if (era === 2) {
+      c.fillStyle = dk2; for (let i = 0; i < 9; i++) { const bx = (i / 8) * w, bh = 30 + hash(i * 17) * 80; c.beginPath(); c.moveTo(bx - 20, horizon + 8); c.lineTo(bx - 20, horizon - bh); c.lineTo(bx - 8, horizon - bh + 8); c.lineTo(bx + 4, horizon - bh - 6); c.lineTo(bx + 20, horizon - bh + 12); c.lineTo(bx + 20, horizon + 8); c.fill(); }
+      // ไฟส่องสว่างกวาดท้องฟ้า
+      for (let k = 0; k < 2; k++) { const ax = w * (k ? 0.82 : 0.2), ang = -Math.PI / 2 + Math.sin(now * 0.5 + k * 2) * 0.55; c.fillStyle = 'rgba(255,255,220,.08)'; c.beginPath(); c.moveTo(ax, horizon); c.lineTo(ax + Math.cos(ang - 0.07) * h, horizon + Math.sin(ang - 0.07) * h); c.lineTo(ax + Math.cos(ang + 0.07) * h, horizon + Math.sin(ang + 0.07) * h); c.fill(); }
+    } else {
+      for (let i = 0; i < 12; i++) {
+        const bw = 26 + hash(i * 5) * 34, bx = (i / 11) * w - bw / 2, bh = 60 + hash(i * 9 + 1) * 130;
+        c.fillStyle = i % 2 ? dk : dk2; c.fillRect(bx, horizon + 8 - bh, bw, bh);
+        for (let wy = horizon + 8 - bh + 6; wy < horizon; wy += 9) for (let wx = bx + 4; wx < bx + bw - 5; wx += 8) if (hash(i * 131 + wy * 3 + wx) > 0.55) { c.fillStyle = hash(wx + wy) > 0.5 ? 'rgba(255,225,130,.8)' : 'rgba(120,220,255,.75)'; c.fillRect(wx, wy, 3.4, 4.2); }
+        if (i % 4 === 1) { c.fillStyle = Math.floor(now * 1.6 + i) % 2 ? '#ff4d6d' : '#601020'; c.fillRect(bx + bw / 2 - 1, horizon + 8 - bh - 12, 2, 12); }
+      }
+    }
+    // พื้น
+    const gg = c.createLinearGradient(0, horizon, 0, h); gg.addColorStop(0, mix(T.sky[1], '#000000', 0.55)); gg.addColorStop(1, mix(T.sky[0], '#000000', 0.7));
+    c.fillStyle = gg; c.fillRect(0, horizon, w, h - horizon);
+    c.globalAlpha = 0.18; c.fillStyle = T.fog; c.fillRect(0, horizon - 3, w, 6); c.globalAlpha = 1;
+    return horizon;
+  }
+  function stageParticles(c, S, w, h, era, dt, now) {
+    const T = STAGE[era];
+    S.parts = S.parts || [];
+    if (S.parts.length < 70 && Math.random() < dt * 26) {
+      const k = T.part;
+      S.parts.push({ x: Math.random() * w, y: k === 'ember' ? h * (0.7 + Math.random() * 0.3) : (k === 'petal' ? -6 : Math.random() * h), vx: (Math.random() - 0.5) * 14, vy: k === 'ember' ? -(14 + Math.random() * 28) : (k === 'petal' ? 14 + Math.random() * 18 : -(4 + Math.random() * 10)), life: 4 + Math.random() * 4, max: 8, s: k === 'bokeh' ? 3 + Math.random() * 9 : 1 + Math.random() * 2.4, ph: Math.random() * 6, kind: k });
+    }
+    for (let i = S.parts.length - 1; i >= 0; i--) {
+      const p = S.parts[i]; p.life -= dt; if (p.life <= 0 || p.y < -20 || p.y > h + 20) { S.parts.splice(i, 1); continue; }
+      p.x += (p.vx + Math.sin(now * 1.4 + p.ph) * 8) * dt; p.y += p.vy * dt;
+      const a = Math.min(1, p.life * 0.7) * 0.9;
+      c.globalAlpha = a;
+      if (p.kind === 'petal') { c.save(); c.translate(p.x, p.y); c.rotate(now * 1.5 + p.ph); ell(c, 0, 0, p.s * 1.7, p.s * 0.8, p.ph > 3 ? '#f8bbd0' : '#fff3c4'); c.restore(); }
+      else if (p.kind === 'gold') { c.fillStyle = '#ffe08a'; c.fillRect(p.x - p.s * 0.5, p.y - p.s * 0.5, p.s, p.s); c.globalAlpha = a * 0.3; circ(c, p.x, p.y, p.s * 2.6, '#ffd054'); }
+      else if (p.kind === 'ember') { circ(c, p.x, p.y, p.s * 0.8, p.ph > 3 ? '#ff9a3c' : '#c9c0b0'); }
+      else { c.globalAlpha = a * 0.35; circ(c, p.x, p.y, p.s, p.ph > 3 ? '#ff6fb5' : '#5fd3ff'); }
+    }
+    c.globalAlpha = 1;
+  }
+  function drawStage(c, w, h, S, def, dpr) {
+    const now = performance.now() / 1000;
+    if (S.id !== def.id) stageReset(S, def.id);
+    const dt = clamp(now - (S.last || now), 0.001, 0.05); S.last = now;
+    c.setTransform(dpr, 0, 0, dpr, 0, 0);
+    c.clearRect(0, 0, w, h);
+    const era = def.era, acc = def.colors.accent;
+    const horizon = stageBackdrop(c, w, h, era, now);
+    stageParticles(c, S, w, h, era, dt, now);
+    // เวทีวงกลม
+    const cx0 = w * 0.5, cy0 = h * 0.86, sc = (h * 0.6) / 36;
+    const since = now - S.t0, ent = ease(since / 0.75);
+    const ex = (1 - ent) * S.side * w * 0.38;
+    c.save(); c.translate(cx0, cy0 + 2); c.scale(1, 0.26);
+    const R = sc * 30;
+    const pg = c.createRadialGradient(0, 0, R * 0.1, 0, 0, R * 1.5); pg.addColorStop(0, acc + 'aa'); pg.addColorStop(0.6, acc + '33'); pg.addColorStop(1, acc + '00');
+    c.fillStyle = pg; c.beginPath(); c.arc(0, 0, R * 1.5, 0, TAU); c.fill();
+    c.strokeStyle = acc; c.lineWidth = 3; c.globalAlpha = 0.9; c.setLineDash([R * 0.18, R * 0.1]); c.lineDashOffset = -now * 40; c.beginPath(); c.arc(0, 0, R, 0, TAU); c.stroke();
+    c.lineWidth = 1.6; c.setLineDash([R * 0.04, R * 0.12]); c.lineDashOffset = now * 60; c.beginPath(); c.arc(0, 0, R * 0.78, 0, TAU); c.stroke(); c.setLineDash([]);
+    c.lineWidth = 2; c.globalAlpha = 0.5; c.beginPath(); c.arc(0, 0, R * 1.18 + Math.sin(now * 2) * 3, 0, TAU); c.stroke(); c.globalAlpha = 1;
+    c.restore();
+    // ลำแสงจากฟ้า
+    const lg = c.createLinearGradient(0, 0, 0, cy0); lg.addColorStop(0, 'rgba(255,255,255,0)'); lg.addColorStop(1, acc + '40');
+    c.fillStyle = lg; c.beginPath(); c.moveTo(cx0 - sc * 9, 0); c.lineTo(cx0 + sc * 9, 0); c.lineTo(cx0 + sc * 26, cy0); c.lineTo(cx0 - sc * 26, cy0); c.fill();
+    // จัดท่า
+    let P = { id: 7, key: def.id, colors: def.colors, role: def.role, vf: 1, mv: 0, ph: 0, rt: now, atkP: 9, castP: 9, flash: false };
+    if (!S.act && since > 0.9 && now >= S.next) {
+      const pick = ['attack', 'cast', 'walk', 'attack', 'cast'][Math.floor(Math.random() * 5)];
+      S.act = { kind: pick, t: now, dur: pick === 'walk' ? 1.5 : (pick === 'attack' ? 1.0 : 0.7), fired: false };
+    }
+    let slash = 0, castK = -1;
+    if (S.act) {
+      const a = S.act, k = (now - a.t) / a.dur;
+      if (k >= 1) { S.act = null; S.next = now + 1.2 + Math.random() * 1.6; }
+      else if (a.kind === 'attack') { const sw = k < 0.5 ? k / 0.5 : (k - 0.5) / 0.5; P.atkP = sw * 0.95 + 0.02; slash = sw > 0.3 && sw < 0.85 ? 1 - Math.abs(sw - 0.55) / 0.3 : 0; if (sw > 0.9 && !a.fired) a.fired = true; }
+      else if (a.kind === 'cast') { P.castP = k; castK = k; }
+      else if (a.kind === 'walk') { P.mv = 1; P.ph = (now - a.t) * 9; }
+    }
+    if (S.burst && since > 0.55) { S.burst = false; S.sparks = []; for (let i = 0; i < 34; i++) { const an = Math.random() * TAU, sp = 60 + Math.random() * 160; S.sparks.push({ x: cx0, y: cy0 - sc * 14, vx: Math.cos(an) * sp, vy: Math.sin(an) * sp - 40, l: 0.7 + Math.random() * 0.5, m: 1.2, s: 1.2 + Math.random() * 2.4 }); } }
+    // ฮีโร่
+    c.save(); c.translate(cx0 + ex, cy0); c.globalAlpha = ent; const pop = 0.88 + 0.12 * ent + (since < 0.8 && since > 0.6 ? 0.04 * Math.sin((since - 0.6) * 15) : 0);
+    c.scale(sc * pop, sc * pop);
+    rig(c, P);
+    c.restore(); c.globalAlpha = 1;
+    // เอฟเฟกต์ฟัน
+    if (slash > 0) {
+      c.save(); c.translate(cx0 + sc * 4, cy0 - sc * 15); c.globalAlpha = slash * 0.9; c.lineCap = 'round';
+      const rad = sc * 24; c.strokeStyle = acc; c.lineWidth = sc * 4.5 * slash; c.beginPath(); c.arc(0, 0, rad, -1.25, 0.95); c.stroke();
+      c.strokeStyle = '#ffffff'; c.lineWidth = sc * 1.6 * slash; c.stroke(); c.restore(); c.globalAlpha = 1;
+    }
+    if (castK >= 0) {
+      const k = castK, rr0 = sc * (8 + 36 * ease(k));
+      c.save(); c.translate(cx0, cy0); c.scale(1, 0.26); c.globalAlpha = (1 - k) * 0.9; c.strokeStyle = acc; c.lineWidth = 4; c.beginPath(); c.arc(0, 0, rr0, 0, TAU); c.stroke(); c.restore();
+      c.globalAlpha = (1 - k) * 0.6; for (let i = 0; i < 10; i++) { const an = i / 10 * TAU + now * 2, rad = sc * (10 + 22 * k); circ(c, cx0 + Math.cos(an) * rad, cy0 - sc * 16 + Math.sin(an) * rad * 0.6 - k * sc * 8, 2.4 * (1 - k) + 0.6, acc); } c.globalAlpha = 1;
+    }
+    if (S.sparks) for (let i = S.sparks.length - 1; i >= 0; i--) { const p = S.sparks[i]; p.l -= dt; if (p.l <= 0) { S.sparks.splice(i, 1); continue; } p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 120 * dt; p.vx *= 0.98; c.globalAlpha = Math.min(1, p.l * 1.6); circ(c, p.x, p.y, p.s, acc); }
+    c.globalAlpha = 1;
+    // แฟลชตอนเลือก
+    if (since < 0.45) { const fk = 1 - since / 0.45; const fg = c.createRadialGradient(cx0, cy0 - sc * 16, 0, cx0, cy0 - sc * 16, h * 0.7); fg.addColorStop(0, 'rgba(255,255,255,' + 0.85 * fk + ')'); fg.addColorStop(1, 'rgba(255,255,255,0)'); c.fillStyle = fg; c.fillRect(0, 0, w, h); }
+    // ขอบมืดเล็กน้อย
+    const vg = c.createLinearGradient(0, h * 0.7, 0, h); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.45)'); c.fillStyle = vg; c.fillRect(0, h * 0.7, w, h * 0.3);
+  }
+
+  TR.Render = { drawStage: drawStage, stageReset: stageReset, _rig: rig, view: view, resize: resize, draw: draw, drawMinimap: drawMinimap, drawHeroIcon: drawHeroIcon, TEAM: TEAM };
 })(typeof window !== 'undefined' ? window : globalThis);
