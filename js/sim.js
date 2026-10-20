@@ -77,18 +77,40 @@
     function pull() { return pool.splice(Math.floor(g.rand() * pool.length), 1)[0]; }
     while (picks[0].length < 5) picks[0].push(pull());
     while (picks[1].length < 5) picks[1].push(pull());
+    // เลนของทีมเรา: ผู้เล่นเลือกเลนเอง บอทเพื่อนเติมเลนที่เหลือจากแผนเดิม
+    const pool0 = CFG.botLanes.slice();
+    if (opts.playerLane != null) { let i = pool0.indexOf(opts.playerLane); if (i < 0) i = pool0.indexOf(0); if (i >= 0) pool0.splice(i, 1); }
+    else pool0.shift();
     for (let team = 0; team < 2; team++) {
       for (let s = 0; s < 5; s++) {
         const id = picks[team][s];
         const isPlayer = !!(opts.playerHero && team === 0 && s === 0);
         const em = isPlayer ? (opts.playerEmblem || 'kro') : botEmblem(g, id);
-        const h = mkHero(g, TR.HERO_BY_ID[id], team, em, s, isPlayer);
+        const laneSel = team === 0 ? (isPlayer ? (opts.playerLane == null ? CFG.botLanes[0] : opts.playerLane) : pool0[s - 1]) : null;
+        const h = mkHero(g, TR.HERO_BY_ID[id], team, em, s, isPlayer, laneSel);
         h.spell = isPlayer ? (opts.playerSpell || 'heal') : botSpellPick(g, h);
         if (isPlayer) g.player = h;
       }
     }
     return g;
   }
+
+  /* ---------- สัญญาณทีม (ปักหมุด/แชทด่วน) บอทเพื่อนตอบสนอง ---------- */
+  function signal(g, team, type, x, y, from) {
+    g.sig = g.sig || [null, null];
+    const dur = TR.SIGNALS[type] ? TR.SIGNALS[type].dur : 15;
+    g.sig[team] = { type: type, x: x, y: y, until: g.t + dur, from: from ? from.id : -1 };
+    g.pings = g.pings || [];
+    g.pings.push({ team: team, type: type, x: x, y: y, t: g.t, until: g.t + Math.min(dur, 6) });
+    if (g.pings.length > 8) g.pings.shift();
+    // บอทเพื่อนในทีมตอบกลับ 1 คน
+    const ans = g.units.filter(function (u) { return u.type === 'hero' && u.team === team && !u.isPlayer && !u.dead; });
+    if (ans.length && TR.SIGNALS[type] && TR.SIGNALS[type].reply) {
+      const a = ans[Math.floor(g.rand() * ans.length)];
+      g.events.push({ k: 'chat', team: team, who: a.def.name, text: TR.SIGNALS[type].reply });
+    }
+  }
+  function sigFor(g, u) { const s = g.sig && g.sig[u.team]; return s && g.t < s.until ? s : null; }
 
   function botSpellPick(g, h) {
     if (h.ai.jungle) return 'punish';
@@ -113,16 +135,17 @@
 
   function spawnPos(team, slot) { return { x: team === 0 ? 100 : CFG.W - 100, y: CFG.baseY - 90 + slot * 45 }; }
 
-  function mkHero(g, def, team, emblem, slot, isPlayer) {
+  function mkHero(g, def, team, emblem, slot, isPlayer, laneSel) {
+    const lane0 = laneSel == null ? CFG.botLanes[slot] : laneSel;
     const r = TR.ROLES[def.role];
     const sp = spawnPos(team, slot);
     const u = mkUnit(g, {
       type: 'hero', def: def, team: team, role: def.role, emblem: emblem, isPlayer: isPlayer, slot: slot,
       x: sp.x, y: sp.y, hp: 1, maxHp: 1, radius: r.radius, baseArmor: r.armor,
       level: 1, xp: 0, gold: 0, items: [], itm: zeroItm(), cd: [0, 0, 0], spell: 'heal', spCd: 0, sl: [0, 0, 0], atkHold: false, atkBuf: -99, atkType: null, lockT: null, prio: 'near', autoSkill: !isPlayer, atkMode: 'auto', recall: null, hurtT: -99, input: { dx: 0, dy: 0 }, kills: 0, deaths: 0, cs: 0,
-      greedCount: 0, greedReady: false, decoyCd: 0, untarget: 0, still: 0, lastHeroHit: -99, auraT: 0,
+      stDmg: 0, stTwr: 0, stTaken: 0, stHeal: 0, stTowers: 0, stMon: 0, assists: 0, recent: {}, greedCount: 0, greedReady: false, decoyCd: 0, untarget: 0, still: 0, lastHeroHit: -99, auraT: 0,
       respawnAt: 0, casting: null, dash: null, aiTarget: null, nextMul: 0, goldTotal: 0,
-      ai: { next: 0, retreat: false, yOff: (slot - 2) * 14, lane: CFG.botLanes[slot] < 0 ? 1 : CFG.botLanes[slot], jungle: CFG.botLanes[slot] < 0, defend: false, chk: 0 }
+      ai: { next: 0, retreat: false, yOff: (slot - 2) * 14, lane: lane0 < 0 ? 1 : lane0, jungle: lane0 < 0, defend: false, chk: 0 }
     });
     recalc(g, u);
     u.hp = u.maxHp;
@@ -338,10 +361,13 @@
     if (d <= 0) return 0;
     dst.hp -= d;
     dst.flash = g.t + 0.08;
-    if (dst.type === 'hero') dst.hurtT = g.t;
+    if (dst.type === 'hero') { dst.hurtT = g.t; dst.stTaken += d; }
+    if (src && src.type === 'hero') {
+      if (dst.type === 'hero') { src.stDmg += d; dst.recent[src.id] = { u: src, t: g.t }; } else if (dst.type === 'tower') src.stTwr += d;
+    }
     if (VIS && (dst.type === 'hero' || dst.type === 'tower' || (src && src.isPlayer)) && g.fx.length < 150) g.fx.push({ k: 'dmg', x: dst.x + (g.rand() - 0.5) * 8, y: dst.y - 22, v: Math.round(d), c: dst.type === 'hero' ? (dst.team === 0 ? '#ff8a80' : '#fff59d') : '#ffffff', t0: g.t, dur: 0.8, big: dst.type === 'hero' || (src && src.isPlayer) });
     if (src) {
-      if (src.m && src.m.ls > 0 && !src.dead) src.hp = Math.min(src.maxHp, src.hp + d * src.m.ls);
+      if (src.m && src.m.ls > 0 && !src.dead) { const b4 = src.hp; src.hp = Math.min(src.maxHp, src.hp + d * src.m.ls); if (src.type === 'hero') src.stHeal += src.hp - b4; }
       if (src.type === 'hero' && dst.type === 'hero') src.lastHeroHit = g.t;
       if (src.type === 'hero') { const st = findFxStealth(src); if (st && !o.keepStealth) removeFx(src, st); }
     }
@@ -370,7 +396,8 @@
   }
   function healUnit(g, u, amt) {
     if (u.dead || amt <= 0) return;
-    u.hp = Math.min(u.maxHp, u.hp + amt);
+    const b4 = u.hp; u.hp = Math.min(u.maxHp, u.hp + amt);
+    if (u.type === 'hero') u.stHeal += u.hp - b4;
   }
 
   function addGold(u, n) { u.gold += n; u.goldTotal += n; }
@@ -388,12 +415,13 @@
     dst.dead = true; dst.hp = 0; dst.dieT = g.t;
     if (VIS) g.fx.push({ k: 'burst', x: dst.x, y: dst.y, c: dst.type === 'tower' ? '#bcaaa4' : (dst.team === 0 ? '#64b5f6' : '#ef5350'), n: dst.type === 'minion' ? 6 : (dst.type === 'hero' ? 14 : 24), t0: g.t, dur: 0.8 });
     if (dst.type === 'hero') {
-      dst.deaths++;
+      dst.deaths++; dst.recent = {};
       dst.respawnAt = g.t + CFG.respawnBase + CFG.respawnPerLevel * dst.level;
       dst.fx = []; dst.dash = null; dst.casting = null;
       const killer = src && src.type === 'hero' ? src : (src && src.lastHeroOwner) || null;
       if (killer && killer.team !== dst.team) {
         killer.kills++; g.score[killer.team]++;
+        for (const id in dst.recent) { const r = dst.recent[id]; if (r.u !== killer && r.u.team === killer.team && g.t - r.t <= 10) r.u.assists++; }
         addGold(killer, 300); addXp(g, killer, 150);
         for (const a of alliedHeroes(g, killer.team, dst.x, dst.y, 260)) if (a !== killer) { addGold(a, 60); addXp(g, a, 60); }
       } else if ((dst.team === 0 || dst.team === 1) && !(src && src.type === 'monster')) { g.score[1 - dst.team]++; }
@@ -423,6 +451,7 @@
           g.events.push({ k: 'boss', state: 'dead', team: who });
         }
       } else if (src && src.type === 'hero') {
+        src.stMon++;
         addGold(src, M.gold * goldMul(src)); addXp(g, src, M.xp);
         for (const a of alliedHeroes(g, src.team, dst.x, dst.y, 240)) if (a !== src) addXp(g, a, 30);
         const until = g.t + CFG.buffDur;
@@ -431,6 +460,7 @@
         if (M.buff) g.events.push({ k: 'jungle', killer: src.def.name, kteam: src.team, name: M.name, text: M.buffText });
       }
     } else if (dst.type === 'tower') {
+      if (src && src.type === 'hero') src.stTowers++;
       for (const a of alliedHeroes(g, 1 - dst.team, dst.x, dst.y, 450)) addGold(a, 150);
       g.events.push({ k: 'tower', team: dst.team, name: dst.name });
       if (dst.king) { g.over = true; g.winner = 1 - dst.team; g.events.push({ k: 'over', winner: g.winner }); }
@@ -899,12 +929,15 @@
     for (let team = 0; team < 2; team++) {
       const x0 = team === 0 ? 230 : CFG.W - 230, dir = team === 0 ? 1 : -1;
       for (let l = 0; l < CFG.lanes.length; l++) {
-        for (let i = 0; i < nm + nr; i++) {
-          const ranged = i >= nm;
+        // ป้อมศัตรูในเลนนี้พังหมดแล้ว = ได้มินเนียนยักษ์เพิ่ม (ช่วยดันเข้าราชธานี)
+        const open = g.towers[1 - team][l].every(function (t) { return t.dead; });
+        const sup = open ? CFG.siege.superMul : 1, ext = open ? CFG.siege.superExtra : 0;
+        for (let i = 0; i < nm + nr + ext; i++) {
+          const ranged = i >= nm && i < nm + nr, big = i >= nm + nr;
           // เกิดที่ฐาน แล้วเดินออกไปเข้าเลนตามทางโค้ง (เลนกลางตรงเข้าเลย)
           mkUnit(g, { type: 'minion', team: team, lane: l, inLane: l === 1, ranged: ranged, x: x0 + dir * i * 12, y: CFG.baseY + (g.rand() - 0.5) * 40,
-            hp: (ranged ? 220 : 320) * sc, maxHp: (ranged ? 220 : 320) * sc, dmg: (ranged ? 28 : 22) * sc, as: 1, range: ranged ? 70 : 18,
-            speed: 48, radius: 6, baseArmor: 0.1 });
+            hp: (ranged ? 220 : 320) * sc * (open ? sup : 1), maxHp: (ranged ? 220 : 320) * sc * (open ? sup : 1), dmg: (ranged ? 28 : 22) * sc * (open ? sup : 1), as: 1, range: ranged ? 70 : 18,
+            speed: 48, radius: big ? 8 : 6, baseArmor: 0.1, big: big });
         }
       }
     }
@@ -1352,7 +1385,7 @@
 
   TR.Sim = {
     navPoint: navPoint,
-    createGame: createGame, hit: hit, kill: kill, step: step, upgradeSkill: upgradeSkill, canUpgrade: canUpgrade, skillPts: skillPts, skillAim: skillAim, skillMul: skillMul, castSpell: castSpell, startRecall: startRecall, cancelRecall: cancelRecall, castSkill: castSkill, canCast: canCast,
+    createGame: createGame, hit: hit, kill: kill, signal: signal, sigFor: sigFor, step: step, upgradeSkill: upgradeSkill, canUpgrade: canUpgrade, skillPts: skillPts, skillAim: skillAim, skillMul: skillMul, castSpell: castSpell, startRecall: startRecall, cancelRecall: cancelRecall, castSkill: castSkill, canCast: canCast,
     pickEnemy: pickEnemy, enemiesIn: enemiesIn, alliedHeroes: alliedHeroes, canTarget: canTarget,
     towerVuln: towerVuln, buy: buy, sell: sell, canShop: canShop, netCost: netCost, ownedInLine: ownedInLine, wantShop: wantShop, dist: dist, norm: norm, findFx: findFx, lowestAlly: lowestAlly, recalc: recalc
   };

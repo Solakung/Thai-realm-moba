@@ -8,7 +8,8 @@
 
   const stageCv = $('stageCv'), stageCtx = stageCv.getContext('2d'), stageState = { side: 1 };
   let introEnd = 0;
-  let sel = { hero: TR.HEROES[0].id, emblem: null, spell: 'heal' };
+  let sel = { hero: TR.HEROES[0].id, emblem: null, spell: 'heal', lane: 1 };
+  try { const sl = parseInt(localStorage.getItem('tr_lane'), 10); if ([-1, 0, 1, 2].indexOf(sl) >= 0) sel.lane = sl; } catch (e) { /* ไม่เป็นไร */ }
   try { const sv = localStorage.getItem('tr_spell'); if (sv && TR.SPELL_BY_ID[sv]) sel.spell = sv; } catch (e) { /* ไม่เป็นไร */ }
   let g = null, acc = 0, lastTs = 0, paused = false, playing = false, hudT = 0, miniT = 0, camCache = null, endTimer = null;
   const keys = {}, queue = [];
@@ -86,7 +87,7 @@
     h.skills.forEach(function (s, i) {
       info.appendChild(el('div', 'sk', '<b>' + (i === 2 ? 'อัลติ' : 'สกิล ' + (i + 1)) + ' · ' + s.name + '</b> (' + s.cd + ' วิ) — ' + s.desc));
     });
-    buildEmblems(); buildSpells();
+    buildEmblems(); buildSpells(); buildLanes();
     const nm = $('stageName');
     nm.querySelector('.et').textContent = 'ยุค' + TR.ERAS[h.era].name;
     nm.querySelector('.nm').textContent = h.name;
@@ -131,6 +132,16 @@
     return { w: w, h: h, dpr: dpr };
   }
 
+  const LANES = [[0, '⬆️', 'เลนบน'], [1, '⏺️', 'เลนกลาง'], [2, '⬇️', 'เลนล่าง'], [-1, '🌲', 'ตีป่า']];
+  function buildLanes() {
+    const grid = $('laneGrid'); grid.innerHTML = '';
+    LANES.forEach(function (l) {
+      const b = document.createElement('button'); b.className = sel.lane === l[0] ? 'sel' : '';
+      b.innerHTML = '<span class="ic">' + l[1] + '</span>' + l[2];
+      b.addEventListener('click', function () { sel.lane = l[0]; try { localStorage.setItem('tr_lane', String(l[0])); } catch (e) { /* ไม่เป็นไร */ } buildLanes(); });
+      grid.appendChild(b);
+    });
+  }
   function buildSpells() {
     const grid = $('spellGrid'); grid.innerHTML = '';
     TR.SPELLS.forEach(function (sp) {
@@ -247,8 +258,29 @@
     mini.style.width = base + 'px'; mini.style.height = Math.round(base * 0.375) + 'px';
     mini.width = base * 2; mini.height = Math.round(base * 0.75);
     $('pauseBtn').style.right = 'calc(' + rs + ' + ' + (base + 10) + 'px)'; $('shopBtn').style.right = 'calc(' + rs + ' + ' + (base + 50) + 'px)';
+    $('chatBtn').style.right = 'calc(' + rs + ' + ' + (base + 90) + 'px)'; $('chatPanel').style.right = 'calc(' + rs + ' + ' + (base + 10) + 'px)';
     $('feed').style.top = (Math.round(base * 0.375) + (window.innerHeight <= 460 ? 10 : 16)) + 'px';
   }
+  /* ---------- สัญญาณทีม: ส่งไปที่จุดที่กล้องมองอยู่ (ตัวเอง / จุดที่แอบดู / ตอนตายคือจุดที่ดูอยู่) ---------- */
+  const SIG_ORDER = ['go', 'group', 'danger', 'retreat', 'defend'];
+  function buildChat() {
+    const box = $('chatPanel'); box.innerHTML = '<small>ส่งไปที่จุดที่กล้องมองอยู่ (แตะมินิแมพค้างแล้วกดส่งเพื่อปักหมุดที่อื่น)</small>';
+    SIG_ORDER.forEach(function (id, i) {
+      const sg = TR.SIGNALS[id], b = document.createElement('button');
+      b.innerHTML = '<span>' + sg.icon + '</span><span>' + sg.name + '</span><span class="k">' + (i + 1) + '</span>';
+      b.addEventListener('pointerdown', function (e) { e.preventDefault(); e.stopPropagation(); sendSignal(id); });
+      box.appendChild(b);
+    });
+  }
+  function sendSignal(id) {
+    if (!g || !playing || paused) return;
+    const pt = TR.Render.camPoint(g);
+    TR.Sim.signal(g, g.player.team, id, pt.x, pt.y, g.player);
+    feed('คุณ: ' + TR.SIGNALS[id].icon + ' ' + TR.SIGNALS[id].name, g.player.team);
+    $('chatPanel').hidden = true;
+  }
+  $('chatBtn').addEventListener('pointerdown', function (e) { e.preventDefault(); if (!g || !playing) return; $('chatPanel').hidden = !$('chatPanel').hidden; });
+  buildChat();
   // แตะ/ลากมินิแมพ: แอบดูจุดอื่น (ตอนตายจะค้างไว้)
   let miniDrag = null;
   function miniMove(e) { const w = TR.Render.minimapToWorld(mini, e.clientX, e.clientY); TR.Render.setCamFree(w.x, w.y); }
@@ -368,9 +400,9 @@
 
   function startGame() {
     if (endTimer) { clearTimeout(endTimer); endTimer = null; }
-    g = TR.Sim.createGame({ playerHero: sel.hero, playerEmblem: sel.emblem, playerSpell: sel.spell });
+    g = TR.Sim.createGame({ playerHero: sel.hero, playerEmblem: sel.emblem, playerSpell: sel.spell, playerLane: sel.lane });
     window.TRGame = g;
-    acc = 0; paused = false; playing = true; queue.length = 0; shopOpen = false; $('shop').hidden = true;
+    acc = 0; paused = false; playing = true; queue.length = 0; shopOpen = false; $('shop').hidden = true; $('chatPanel').hidden = true;
     $('menu').hidden = true; $('result').hidden = true; $('pauseBox').hidden = true;
     $('hud').hidden = false; $('pauseBtn').style.display = 'block';
     $('feed').innerHTML = '';
@@ -451,6 +483,7 @@
         if (e.state === 'spawn') banner('ยักษ์วัดแจ้งปรากฏกลางป่า!', 'ฆ่าได้ทั้งทีมได้บัฟและทอง · ระวังการสแลมพื้นที่', 5000);
         else { feed('ทีม' + (e.team === 0 ? 'ฟ้า' : 'แดง') + 'ปราบยักษ์วัดแจ้งได้', e.team); banner('ทีม' + (e.team === 0 ? 'ฟ้า' : 'แดง') + 'ปราบยักษ์วัดแจ้ง', 'ทั้งทีมได้บัฟและทอง · ยักษ์จะกลับมาใน 3 นาที', 4500); }
       }
+      else if (e.k === 'chat') feed(e.who + ': ' + e.text, e.team);
       else if (e.k === 'jungle') feed(e.killer + ' ได้บัฟ' + e.name + ' (' + e.text + ')', e.kteam);
       else if (e.k === 'tower') feed('ป้อม' + e.name + (e.team === 0 ? 'ฝั่งเรา' : 'ฝั่งศัตรู') + 'พังแล้ว', 1 - e.team);
       else if (e.k === 'warn') banner('อีก ' + CFG.eraWarn + ' วินาทีเข้าสู่ยุค' + TR.ERAS[e.era].name, 'ป้อมจะเปลี่ยนเป็น: ' + TR.ERAS[e.era].short, 4500);
@@ -464,10 +497,28 @@
     $('resTitle').textContent = win ? 'ชนะแล้ว! ราชธานีศัตรูล่ม' : 'พ่ายแพ้ ราชธานีของเราล่ม';
     $('resTitle').style.color = win ? '#6ee7a0' : '#ff9b8a';
     const mm = Math.floor(g.t / 60), ss = Math.floor(g.t % 60);
-    $('resSub').textContent = 'เวลาแมตช์ ' + mm + ':' + String(ss).padStart(2, '0') + ' · จบในยุค' + TR.ERAS[g.era].name + ' · ฆ่ารวม ' + g.score[0] + ' : ' + g.score[1];
-    let html = '<table><tr><th>ฮีโร่</th><th>ชุดใจ</th><th>เลเวล</th><th>ฆ่า</th><th>ตาย</th><th>มินเนียน</th></tr>';
-    g.units.filter(function (u) { return u.type === 'hero'; }).sort(function (a, b) { return a.team - b.team || a.slot - b.slot; }).forEach(function (u) {
-      html += '<tr class="' + (u === pl ? 'me' : '') + '"><td class="' + (u.team === 0 ? 'b' : 'r') + '">' + u.def.name + '</td><td>' + TR.EMBLEMS[u.emblem].name + '</td><td>' + u.level + '</td><td>' + u.kills + '</td><td>' + u.deaths + '</td><td>' + u.cs + '</td></tr>';
+    $('resSub').textContent = 'เวลาแมตช์ ' + mm + ':' + String(ss).padStart(2, '0') + ' · จบในยุค' + TR.ERAS[g.era].name;
+    const heroes = g.units.filter(function (u) { return u.type === 'hero'; });
+    const score = function (u) { return u.kills * 3 + u.assists * 1.5 + u.stDmg / 1000 + u.stTwr / 700 + u.stHeal / 900 + u.stMon * 0.3 - u.deaths * 2; };
+    const mvpOf = function (team) { let b = null; heroes.forEach(function (u) { if (u.team === team && (!b || score(u) > score(b))) b = u; }); return b; };
+    const mvp = [mvpOf(0), mvpOf(1)];
+    const mx = function (k) { return Math.max(1, Math.max.apply(null, heroes.map(function (u) { return u[k]; }))); };
+    const mDmg = mx('stDmg'), mTk = mx('stTaken'), mHl = mx('stHeal'), mTw = mx('stTwr');
+    const towersDown = [0, 0];
+    g.units.forEach(function (u) { if (u.type === 'tower' && u.dead && !u.king) towersDown[1 - u.team]++; });
+    const tg = [0, 1].map(function (t) { return Math.round(heroes.filter(function (u) { return u.team === t; }).reduce(function (a, u) { return a + u.goldTotal; }, 0)); });
+    const chip = function (v, l) { return '<div class="chip"><b>' + v + '</b>' + l + '</div>'; };
+    $('resSummary').innerHTML = chip(g.score[0] + ' : ' + g.score[1], 'ฆ่ารวม (ฟ้า : แดง)') + chip(towersDown[0] + ' : ' + towersDown[1], 'ป้อมที่พัง (ฟ้า : แดง)') + chip(tg[0] + ' : ' + tg[1], 'ทองรวม (ฟ้า : แดง)') +
+      chip(g.waveNo, 'คลื่นมินเนียนที่ปล่อย');
+    const bar = function (v, m, txt) { return '<td class="bar"><i style="width:' + Math.round(100 * v / m) + '%"></i><b>' + txt + '</b></td>'; };
+    let html = '<table><tr><th>ฮีโร่</th><th>เลเวล</th><th>ฆ่า/ตาย/ช่วย</th><th>ดาเมจใส่ฮีโร่</th><th>ดาเมจที่รับ</th><th>ฟื้นฟู</th><th>ดาเมจป้อม</th><th>ป้อม</th><th>ป่า</th><th>ลูกกระจ๊อก</th><th>ทอง</th></tr>';
+    [0, 1].forEach(function (t) {
+      html += '<tr class="tm"><td colspan="11" class="' + (t === 0 ? 'b' : 'r') + '">ทีม' + (t === 0 ? 'ฟ้า' : 'แดง') + (g.winner === t ? ' · ชนะ' : '') + '</td></tr>';
+      heroes.filter(function (u) { return u.team === t; }).sort(function (a, b) { return a.slot - b.slot; }).forEach(function (u) {
+        html += '<tr class="' + (u === pl ? 'me' : '') + '"><td class="' + (t === 0 ? 'b' : 'r') + '">' + u.def.name + (u === mvp[t] ? '<span class="mvp">MVP</span>' : '') + (u === pl ? ' (คุณ)' : '') + '</td><td>' + u.level + '</td><td>' + u.kills + '/' + u.deaths + '/' + u.assists + '</td>' +
+          bar(u.stDmg, mDmg, Math.round(u.stDmg)) + bar(u.stTaken, mTk, Math.round(u.stTaken)) + bar(u.stHeal, mHl, Math.round(u.stHeal)) + bar(u.stTwr, mTw, Math.round(u.stTwr)) +
+          '<td>' + u.stTowers + '</td><td>' + u.stMon + '</td><td>' + u.cs + '</td><td>' + Math.round(u.goldTotal) + '</td></tr>';
+      });
     });
     $('resTable').innerHTML = html + '</table>';
     $('result').hidden = false;
@@ -479,6 +530,8 @@
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].indexOf(e.code) >= 0) e.preventDefault();
     if (e.repeat) return;
     keys[e.code] = true;
+    if (e.code === 'KeyV') { $('chatPanel').hidden = !$('chatPanel').hidden; return; }
+    if (!$('chatPanel').hidden && /^Digit[1-5]$/.test(e.code)) { sendSignal(SIG_ORDER[+e.code.slice(5) - 1]); return; }
     if (e.code === 'KeyQ' || e.code === 'Digit1') keySkill(0);
     else if (e.code === 'KeyE' || e.code === 'Digit2') keySkill(1);
     else if (e.code === 'KeyR' || e.code === 'Digit3') keySkill(2);

@@ -858,6 +858,39 @@
     const px = (clientX - r.left) * canvas.width / r.width, py = (clientY - r.top) * canvas.height / r.height;
     return { x: ST.camX + px / view.z, y: ST.camY + py / (view.z * ST.K) };
   }
+  /* ---------- หมุดสัญญาณทีม: วงคลื่นบนพื้น + ไอคอนลอย (ถ้าอยู่นอกจอจะติดขอบจอ) ---------- */
+  function activePings(g) { return (g.pings || []).filter(function (p) { return g.t < p.until && (!g.player || p.team === g.player.team); }); }
+  function drawPingsGround(c, g, rt) {
+    for (const p of activePings(g)) {
+      const S0 = TR.SIGNALS[p.type], k = (g.t - p.t), col = S0 ? S0.color : '#fff';
+      c.strokeStyle = col; c.lineWidth = 2;
+      for (let i = 0; i < 3; i++) { const ph = ((k * 0.9 + i / 3) % 1); c.globalAlpha = (1 - ph) * 0.9; c.beginPath(); c.ellipse(p.x, p.y, 8 + ph * 34, 8 + ph * 34, 0, 0, TAU); c.stroke(); }
+      c.globalAlpha = 1;
+    }
+  }
+  function drawPingsHud(c, g, rt) {
+    const z = view.z;
+    c.setTransform(z, 0, 0, z, 0, 0);
+    for (const p of activePings(g)) {
+      const S0 = TR.SIGNALS[p.type]; if (!S0) continue;
+      let vx = p.x - ST.camX, vy = (p.y - ST.camY) * ST.K - 26, off = false;
+      const mx = 16, my = 16, cx = clamp(vx, mx, view.w - mx), cy = clamp(vy, my + 40, VIEW_H - my);
+      if (cx !== vx || cy !== vy) off = true;
+      const bob = Math.sin(rt * 6) * 2;
+      c.fillStyle = 'rgba(0,0,0,.6)'; c.strokeStyle = S0.color; c.lineWidth = 1.6;
+      c.beginPath(); c.arc(cx, cy + bob, 11, 0, TAU); c.fill(); c.stroke();
+      c.font = '14px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = '#fff'; c.fillText(S0.icon, cx, cy + bob + 1);
+      if (off) { const a = Math.atan2(vy - cy, vx - cx); c.fillStyle = S0.color; c.beginPath(); c.moveTo(cx + Math.cos(a) * 17, cy + Math.sin(a) * 17); c.lineTo(cx + Math.cos(a + 2.5) * 8, cy + Math.sin(a + 2.5) * 8); c.lineTo(cx + Math.cos(a - 2.5) * 8, cy + Math.sin(a - 2.5) * 8); c.closePath(); c.fill(); }
+    }
+    c.textAlign = 'left'; c.textBaseline = 'alphabetic';
+  }
+  // จุดที่กล้องกำลังมองอยู่ (ใช้ส่งสัญญาณ: ตอนแอบดู/ตอนตายจะเป็นจุดที่ดูอยู่)
+  function camPoint(g) {
+    if (RS.follow && !RS.follow.dead) return { x: RS.follow.x, y: RS.follow.y };
+    if (RS.free) return { x: RS.free.x, y: RS.free.y };
+    return g.player ? { x: g.player.x, y: g.player.y } : { x: CFG.W / 2, y: CFG.H / 2 };
+  }
+
   function drawAimUI(c, g, rt) {
     const pl = g.player; if (!pl || pl.dead) return;
     const L = pl.lockT;
@@ -1029,6 +1062,7 @@
     drawFountains(c, g, rt);
     drawZones(c, g, rt);
     drawAimUI(c, g, rt);
+    drawPingsGround(c, g, rt);
     drawUnits(c, g, alpha, dt, rt, camX, camY);
     drawProjs(c, g);
     drawFx(c, g, rt);
@@ -1041,6 +1075,7 @@
     const vg = c.createRadialGradient(view.w / 2, VIEW_H / 2, VIEW_H * 0.55, view.w / 2, VIEW_H / 2, VIEW_H * 1.1);
     vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.28)');
     c.fillStyle = vg; c.fillRect(0, 0, view.w, VIEW_H);
+    drawPingsHud(c, g, rt);
     return { camX: camX, camY: camY, vw: view.w, vh: view.h };
   }
 
@@ -1105,6 +1140,11 @@
       c.strokeStyle = isMe ? '#fff' : '#000'; c.lineWidth = (isMe ? 1.6 : 0.9) * k; c.beginPath(); c.arc(x, y, r, 0, TAU); c.stroke();
       if (isMe) { c.strokeStyle = 'rgba(255,235,59,.75)'; c.lineWidth = 1 * k; c.beginPath(); c.arc(x, y, r + 3 * k, 0, TAU); c.stroke(); }
       if (u.hp < u.maxHp * 0.35 && !isMe) { c.strokeStyle = '#ff1744'; c.lineWidth = 1.2 * k; c.beginPath(); c.arc(x, y, r + 2 * k, 0, TAU); c.stroke(); }
+    }
+    for (const p of activePings(g)) {
+      const S0 = TR.SIGNALS[p.type]; if (!S0) continue; const x = p.x * sx, y = p.y * sy, ph = ((g.t - p.t) * 1.2) % 1;
+      c.strokeStyle = S0.color; c.lineWidth = 1.6 * k; c.globalAlpha = 1 - ph; c.beginPath(); c.arc(x, y, (5 + ph * 14) * k, 0, TAU); c.stroke(); c.globalAlpha = 1;
+      c.font = (11 * k) + 'px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = '#fff'; c.fillText(S0.icon, x, y); c.textAlign = 'left'; c.textBaseline = 'alphabetic';
     }
     if (cam) {
       c.fillStyle = 'rgba(255,255,255,0.07)'; c.fillRect(cam.camX * sx, cam.camY * sy, cam.vw * sx, cam.vh * sy);
@@ -1272,5 +1312,5 @@
     const vg = c.createLinearGradient(0, h * 0.7, 0, h); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.45)'); c.fillStyle = vg; c.fillRect(0, h * 0.7, w, h * 0.3);
   }
 
-  TR.Render = { setAim: setAim, screenToWorld: screenToWorld, is3d: function () { return !!RS.use3d; }, setMode3d: setMode3d, setTilt: setTilt, tilt: ST, drawStage: drawStage, stageReset: stageReset, _rig: rig, view: view, resize: resize, draw: draw, drawMinimap: drawMinimap, setCamFree: setCamFree, panCam: panCam, followUnit: followUnit, clearCam: clearCam, camMode: camMode, minimapToWorld: minimapToWorld, drawHeroIcon: drawHeroIcon, TEAM: TEAM };
+  TR.Render = { setAim: setAim, screenToWorld: screenToWorld, is3d: function () { return !!RS.use3d; }, setMode3d: setMode3d, setTilt: setTilt, tilt: ST, drawStage: drawStage, stageReset: stageReset, _rig: rig, view: view, resize: resize, draw: draw, drawMinimap: drawMinimap, setCamFree: setCamFree, panCam: panCam, followUnit: followUnit, clearCam: clearCam, camMode: camMode, camPoint: camPoint, minimapToWorld: minimapToWorld, drawHeroIcon: drawHeroIcon, TEAM: TEAM };
 })(typeof window !== 'undefined' ? window : globalThis);

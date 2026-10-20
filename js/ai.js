@@ -11,6 +11,14 @@
     return S.towerVuln(g, k) ? k : null;
   }
 
+  // เลนที่ค่ายกลางศัตรูพังแล้ว (ไปบุกราชธานีทางนั้น) — ชอบเลนเดิมถ้าใช้ได้
+  function kingLane(g, team, cur) {
+    const en = 1 - team, last = CFG.laneTowers.length - 1;
+    if (g.towers[en][cur][last].dead) return cur;
+    for (let l = 0; l < CFG.lanes.length; l++) if (g.towers[en][l][last].dead) return l;
+    return -1;
+  }
+
   function allyMinionsNear(g, team, x, y, r) {
     let n = 0;
     for (const m of g.units) if (m.type === 'minion' && m.team === team && !m.dead && Math.hypot(m.x - x, m.y - y) <= r) n++;
@@ -29,6 +37,11 @@
     const ranged = rng > 60;
     const hpR = u.hp / u.maxHp;
     const homeX = u.team === 0 ? 100 : CFG.W - 100;
+    // บุกราชธานี: ค่ายกลางเลนไหนพัง บอทสายเลนทุกคนไปรวมเลนนั้น
+    if (!ai.jungle && !ai.defend && g.t >= CFG.siege.rallyStart) {
+      const kl = kingLane(g, u.team, ai.lane);
+      if (kl >= 0) ai.lane = kl;
+    }
     const lane = ai.lane, laneY = CFG.lanes[lane].y + ai.yOff;
     const ft = frontTower(g, u.team, lane);
     const minionsAtTower = ft ? allyMinionsNear(g, u.team, ft.x, ft.y, 110) : 0;
@@ -36,7 +49,7 @@
     for (const e of g.units) if (e.type === 'hero' && e.team !== u.team && e.dead) enemyDead++;
     // ศัตรูตายอย่างน้อย 2 คน = จังหวะบุกป้อมแม้มินเนียนไม่อยู่
     const groupN = S.alliedHeroes(g, u.team, u.x, u.y, 300).length;
-    const towerOk = minionsAtTower >= 2 || (enemyDead >= 1 && u.hp / u.maxHp > 0.5) || (groupN >= 3 && u.hp / u.maxHp > 0.6);
+    const towerOk = minionsAtTower >= 2 || (enemyDead >= 1 && u.hp / u.maxHp > 0.5) || (groupN >= CFG.siege.groupMin && u.hp / u.maxHp > 0.55);
 
     // ป้องกันฐาน: ศัตรูเข้าใกล้ราชธานีของเรา
     const myKing = g.kings[u.team];
@@ -44,7 +57,7 @@
       ai.chk = g.t + 1.5;
       let thr = 0;
       for (const e of g.units) if (e.type === 'hero' && e.team !== u.team && !e.dead && Math.hypot(e.x - myKing.x, e.y - myKing.y) < 520) thr++;
-      ai.defend = thr > 0 && !myKing.dead;
+      ai.defend = !myKing.dead && (thr >= 2 || (thr >= 1 && Math.hypot(u.x - myKing.x, u.y - myKing.y) < 800));
     }
 
     // ข้อมูลรอบตัว
@@ -82,9 +95,13 @@
       if (go) jm = boss;
     }
 
+    // สัญญาณจากผู้เล่น (ปักหมุด/แชทด่วน): บอททำตามช่วงสั้น ๆ
+    const sg = S.sigFor(g, u), fromMe = sg && sg.type;
+    if (sg && sg.type === 'defend') ai.defend = true;
     // เลือดน้อย → ถอย
     if (ai.retreat) { if (hpR > 0.7) ai.retreat = false; }
     else if (hpR < 0.3 || (hpR < 0.65 && S.wantShop(u) && !u.ai.jungle)) ai.retreat = true;
+    if (sg && sg.type === 'retreat') ai.retreat = true;
 
     if (jm && !(eh && ehd < 220)) { eh = jm; ehd = S.dist(u, jm) - jm.radius; }
     const ctx = { eh: eh, ehd: ehd, ehCount: ehCount, minions: minions, nmd: nmd, allies: allies.length, hpR: hpR };
@@ -138,6 +155,7 @@
       let wx = lead ? lead.x - dir * behind : (u.team === 0 ? 420 : CFG.W - 420);
       let wy = laneY;
       if (ai.defend) { wx = myKing.x + dir * 240; wy = CFG.baseY; }
+      if (sg && (sg.type === 'go' || sg.type === 'group' || sg.type === 'danger')) { wx = sg.x; wy = sg.y; }
       if (ft && !towerOk && !ai.defend) {
         const stop = ft.x - dir * (CFG.towerRange + 30);
         if ((wx - stop) * dir > 0) wx = stop;
