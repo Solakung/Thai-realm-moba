@@ -196,9 +196,10 @@
     const lv = 1 + CFG.levelBonus * (u.level - 1);
     const pk = u.def.era === g.era ? CFG.peak : 1;
     u.peak = pk > 1;
-    const nm = r.hp * lv * (1 + u.itm.hp) * pk * (em.hpMul || 1);
+    const hb = TR.HERO_BAL[u.def.id] || { hp: 1, dmg: 1 };
+    const nm = r.hp * lv * (1 + u.itm.hp) * pk * (em.hpMul || 1) * hb.hp;
     if (nm !== u.maxHp) { const pct = u.maxHp > 0 ? u.hp / u.maxHp : 1; u.maxHp = nm; u.hp = Math.min(nm, pct * nm); }
-    u.dmgBase = lv * (1 + u.itm.dmg) * pk * (em.dmgMul || 1);
+    u.dmgBase = lv * (1 + u.itm.dmg) * pk * (em.dmgMul || 1) * hb.dmg;
     u.baseSpeed = r.speed;
   }
 

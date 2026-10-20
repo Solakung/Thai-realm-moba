@@ -4,7 +4,7 @@
   'use strict';
   const TR = (G.TR = G.TR || {});
 
-  TR.VERSION = '0.7.0';
+  TR.VERSION = '0.7.1';
 
   TR.CFG = {
     dt: 0.05,          // ตรรกะเกม 20 ครั้งต่อวินาที
@@ -110,6 +110,9 @@
     assassin: { name: 'แอสซาซิน', hp: 2000, atk: 100, as: 1.0,  range: 30,  speed: 88, armor: 0.12, radius: 7 },
     support:  { name: 'ซัพพอร์ต', hp: 2300, atk: 55,  as: 1.0,  range: 110, speed: 74, armor: 0.15, radius: 8 }
   };
+
+  // ตัวคูณปรับสมดุลรายฮีโร่ (จากผลรันบอทหลายรอบ) hp/dmg 1 = ปกติ
+  TR.HERO_BAL = { kwan: { hp: 0.92, dmg: 0.95 }, muay: { hp: 0.92, dmg: 0.93 }, mae: { hp: 1.06, dmg: 1.06 }, yai: { hp: 1.04, dmg: 1.04 } };
 
   // ชุดใจ: ค่าสถานะพื้นฐาน + ราคาที่ต้องจ่าย (พลังแฝงอยู่ใน sim.js)
   TR.EMBLEMS = {
@@ -409,9 +412,9 @@
   // ลำดับสายที่บอทเก็บตามบทบาท (เก็บทีละสายจนครบชั้น 3 ถึงขยับไปสายถัดไป)
   TR.ITEM_BUILD = {
     tank:     ['def', 'wall', 'move', 'regen', 'cdr', 'siege', 'life', 'atk', 'vamp', 'spd', 'crit', 'pen', 'jungle', 'gold'],
-    fighter:  ['atk', 'vamp', 'move', 'def', 'crit', 'siege', 'life', 'pen', 'spd', 'wall', 'cdr', 'regen', 'jungle', 'gold'],
-    assassin: ['move', 'crit', 'pen', 'atk', 'vamp', 'siege', 'life', 'spd', 'def', 'cdr', 'wall', 'regen', 'jungle', 'gold'],
-    marksman: ['spd', 'crit', 'move', 'pen', 'vamp', 'siege', 'atk', 'life', 'def', 'cdr', 'wall', 'regen', 'jungle', 'gold'],
+    fighter:  ['atk', 'vamp', 'siege', 'move', 'def', 'crit', 'life', 'pen', 'spd', 'wall', 'cdr', 'regen', 'jungle', 'gold'],
+    assassin: ['move', 'crit', 'siege', 'pen', 'atk', 'vamp', 'life', 'spd', 'def', 'cdr', 'wall', 'regen', 'jungle', 'gold'],
+    marksman: ['spd', 'crit', 'siege', 'move', 'pen', 'vamp', 'atk', 'life', 'def', 'cdr', 'wall', 'regen', 'jungle', 'gold'],
     mage:     ['cdr', 'atk', 'move', 'life', 'pen', 'siege', 'def', 'regen', 'vamp', 'spd', 'crit', 'wall', 'jungle', 'gold'],
     support:  ['move', 'regen', 'cdr', 'def', 'life', 'siege', 'wall', 'atk', 'vamp', 'spd', 'crit', 'pen', 'jungle', 'gold']
   };
@@ -421,6 +424,16 @@
      ทุกครั้งที่อัปเดตเกม: เพิ่มรายการใหม่ไว้บนสุด และแก้ TR.VERSION ให้ตรงกัน
      ผู้เล่นที่ยังไม่เคยเห็นเวอร์ชันนั้นจะเห็นกล่องอัปเดตขึ้นเองตอนเปิดเกม */
   TR.CHANGELOG = [
+    {
+      version: '0.7.1',
+      date: '2026-10-20',
+      title: 'ป้อม 3D และปรับสมดุลเล็กน้อย',
+      items: [
+        'ป้อมและราชธานีเป็นโมเดล 3D ครบทั้ง 4 ยุค (ค่ายไม้ กำแพงอิฐ+ปืนใหญ่ บังเกอร์ปืนกล ป้อมไฟฟ้า) ป้อมปืนหมุนเล็งเป้า มีท่ากระตุกตอนยิง ธงโบก และตอนพังจะสั่น จมลงพร้อมฝุ่นก่อนเหลือซาก',
+        'ปรับสมดุลเล็กน้อย: ควาญช้างศึกและนักมวยคาดเชือกอ่อนลง แม่ค้าริมทางและผู้ใหญ่บ้านพิทักษ์แข็งขึ้น',
+        'บอทสายนักสู้ แอสซาซิน มือปืน ซื้อไอเทมทลายค่ายเร็วขึ้น'
+      ]
+    },
     {
       version: '0.7.0',
       date: '2026-10-20',

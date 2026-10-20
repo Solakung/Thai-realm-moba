@@ -327,7 +327,7 @@
   }
 
   /* ================= สถานะภาพ (ต่อเฟรม) ================= */
-  const RS = { use3d: false, fa: {}, g: null, cam: { x: 0, y: 0, init: false }, parts: [], vf: {}, ph: {}, mv: {}, last: 0, fire: {}, dust: {}, eraPrev: 0, eraFade: 1, eraSeen: 0, rt: 0, fxSeen: new WeakSet() };
+  const RS = { use3d: false, fa: {}, g: null, cam: { x: 0, y: 0, init: false }, parts: [], vf: {}, ph: {}, mv: {}, last: 0, fire: {}, fall: {}, dust: {}, eraPrev: 0, eraFade: 1, eraSeen: 0, rt: 0, fxSeen: new WeakSet() };
   const tileCache = {};
 
   function resetState(g) {
@@ -741,7 +741,16 @@
         const prev = RS.fire['p' + u.id] || 0;
         if (u.cdAtk > prev + 0.05) { RS.fire[u.id] = rt; if (g.era === 1 && u.tgt) for (let i = 0; i < 5; i++) spawnPart(x + (u.team === 0 ? 14 : -14), y - 40, (Math.random() - 0.3) * 14 * (u.team ? -1 : 1), -6 - Math.random() * 8, 0.7, 2.4 + Math.random() * 2, '#cfcfcf', 'smoke'); }
         RS.fire['p' + u.id] = u.cdAtk;
-        drawTower(c, g, u, x, y, rt);
+        const colT = u.dead ? (g.t - (u.dieT || g.t)) / 1.3 : 0;
+        const MT = RS.use3d && TR.Units3D && (!u.dead || colT < 1.15) ? TR.Units3D.model('tower', [g.era, u.team, !!u.king]) : null;
+        if (MT) {
+          const since = rt - (RS.fire[u.id] || -9), tg = u.tgt && !u.tgt.dead ? u.tgt : null;
+          const aim = tg ? Math.atan2(tg.x - u.x, tg.y - u.y) : (u.team === 0 ? Math.PI / 2 : -Math.PI / 2);
+          if (u.dead && colT < 1 && !RS.fall[u.id]) { RS.fall[u.id] = 1; for (let i = 0; i < 14; i++) spawnPart(x + (Math.random() - 0.5) * 30, y - Math.random() * 20, (Math.random() - 0.5) * 30, -4 - Math.random() * 10, 1.1, 3 + Math.random() * 3, '#9e9487', 'smoke'); }
+          if (!u.dead) RS.fall[u.id] = 0;
+          TR.Stage3D.drawFigure(c, MT, { id: u.id, rt: rt, mv: 0, ph: 0, atkP: since >= 0 && since < 0.3 ? since / 0.3 : 9, castP: 9, dead: 0, collapse: u.dead ? clamp(colT, 0, 1) : 0, aim: aim }, { x: x, y: y, facing: 0, pitch: Math.asin(ST.K), scale: (u.king ? 1.35 : 1) * 1.18, alpha: u.dead ? clamp(1.15 - colT, 0, 1) / 0.15 > 1 ? 1 : clamp(1.15 - colT, 0, 1) / 0.15 : 1, flash: u.flash > g.t, amb: ERA_AMB[g.era] });
+          if (!u.dead && !TR.Sim.towerVuln(g, u)) { c.globalAlpha = 0.5; c.strokeStyle = '#ffffff'; c.lineWidth = 0.9; c.beginPath(); c.ellipse(x, y - 18, 30, 30 * 0.9, 0, 0, TAU); c.stroke(); c.globalAlpha = 1; }
+        } else drawTower(c, g, u, x, y, rt);
         if (!u.dead) {
           const th = u.king ? 76 : 62;
           hpBar(c, x, y - th, u.king ? 40 : 30, u.hp / u.maxHp, u.team, true);

@@ -211,18 +211,87 @@
     return M;
   }
 
+
+  /* ---------- ป้อมตามยุค (ราชธานีใช้แบบเดียวกัน เพิ่มมงกุฎ) ----------
+     root = ฐาน, torso = ตัวป้อม, head = ป้อมปืน/อาวุธที่หมุนตามเป้า (st.aim), shA = เสาธงโบก
+     anim: st.atkP = ท่าสะบัดตอนยิง, st.collapse = กำลังพังทลาย 0..1 (จมลงพื้นพร้อมเอียงสั่น) */
+  function tower(era, team, king) {
+    const M = newModel('tower' + era + team + (king ? 'k' : ''), 'beast', 1.0);
+    const P = M.P, at = M.at, tc = team === 0 ? '#4c8dff' : '#ff5a4f', td = team === 0 ? '#1f4fbf' : '#b3261e';
+    const T0 = [[0, 0, 0]];
+    M.T = []; for (let i = 0; i < 15; i++) M.T.push(T0);
+    let H = 30, top = 40;
+    P('root', at(prism(19, 21, 2.4, 14), 0, 1.2, 0), '#8a8a80'); P('root', at(prism(21.5, 21.5, 1.0, 14), 0, 0.4, 0), td);
+    const fl = function (i) { M.feet.push(i); return i; };
+    fl(M.parts.length - 2);
+    if (era === 0) {                                              // ค่ายไม้ยกพื้น
+      H = 30; top = 46;
+      [[-9, -9], [9, -9], [-9, 9], [9, 9]].forEach(function (q) { P('torso', at(prism(1.7, 2.1, 24, 6), q[0], 13.5, q[1]), '#6d4c41'); });
+      P('torso', at(box(7, 1.2, 1.0), 0, 8, 9.2, 0, 0, 0.5), '#8d6e63'); P('torso', at(box(7, 1.2, 1.0), 0, 8, -9.2, 0, 0, -0.5), '#8d6e63');
+      P('torso', at(box(25, 2.4, 25), 0, 26, 0), '#8d6e63');
+      P('torso', at(box(19, 9, 19), 0, 32, 0), '#a1887f');
+      P('torso', at(prism(0, 17, 12, 4), 0, 43, 0, 0, 0.785, 0), '#c9a14a'); P('torso', at(prism(0, 13, 6, 4), 0, 46, 0, 0, 0.785, 0), '#b8923f');
+      P('head', at(box(3.2, 3.2, 10), 0, 3, 5.5), '#5d4037'); P('head', at(box(11, 1.0, 1.0), 0, 3.2, 8.5), '#8d6e63'); P('head', at(box(0.3, 0.3, 11), 0, 3.4, 9), '#efe6c9');
+      H = 29;
+    } else if (era === 1) {                                       // กำแพงอิฐ + ปืนใหญ่
+      H = 31; top = 40;
+      P('torso', at(prism(10, 12.5, 30, 12), 0, 16, 0), '#b0714f');
+      for (let i = 0; i < 4; i++) P('torso', at(box(22, 0.5, 22), 0, 5 + i * 7, 0), '#9b5f40');
+      P('torso', at(prism(12.5, 12.5, 2.6, 12), 0, 30.5, 0), '#8f573a');
+      for (let i = 0; i < 8; i++) { const a = i / 8 * TAU; P('torso', at(box(4.4, 4.5, 3.0), Math.cos(a) * 11.2, 34.2, Math.sin(a) * 11.2, 0, -a + Math.PI / 2, 0), '#b0714f'); }
+      P('torso', at(box(6, 10, 1.0), 0, 8, 12.6), '#5b3a2a');
+      P('head', at(prism(2.2, 2.2, 14, 8), 0, 3.5, 5.5, 1.5708, 0, 0), '#37474f'); P('head', at(prism(2.8, 2.8, 3, 8), 0, 3.5, 12.5, 1.5708, 0, 0), '#263238');
+      P('head', at(sphere(3.4, 7, 4), 0, 3.5, -1.5), '#455a64'); P('head', at(prism(2.6, 2.6, 1.4, 10), 4.4, 1.6, 0, 0, 0, 1.5708), '#5d4037'); P('head', at(prism(2.6, 2.6, 1.4, 10), -4.4, 1.6, 0, 0, 0, 1.5708), '#5d4037');
+    } else if (era === 2) {                                       // บังเกอร์ + ปืนกล
+      H = 24; top = 38;
+      P('torso', at(box(30, 12, 30), 0, 8, 0), '#8a8574'); P('torso', at(box(31, 2.4, 31), 0, 14.4, 0), '#9c9784');
+      P('torso', at(box(22, 2.6, 1.2), 0, 11, 15.4), '#2b2b2b');
+      for (let i = -3; i <= 3; i++) { P('torso', at(box(3.6, 3.0, 4.4), i * 4.4, 3.2, 16.8), '#a8956a'); P('torso', at(box(3.6, 3.0, 4.4), i * 4.4, 3.2, -16.8), '#a8956a'); }
+      P('torso', at(box(17, 8, 17), 0, 19.5, 0), '#6e6b5e'); P('torso', at(box(18, 1.2, 18), 0, 24, 0), '#7c796b');
+      P('head', at(box(1.6, 1.6, 15), 0, 3, 8), '#212121'); P('head', at(box(5.4, 5, 6), 0, 3, 2), '#37474f'); P('head', at(box(8, 7, 1.0), 0, 4, 11), '#4b5254');
+      H = 25;
+    } else {                                                      // ป้อมไฟฟ้า + กล้องวงจรปิด
+      H = 44; top = 52;
+      P('torso', at(box(22, 8, 22), 0, 5, 0), '#78909c'); P('torso', at(frustum(8, 8, 14, 14, 34), 0, 24, 0), '#9eb1ba'); P('torso', at(box(3, 34, 3), 6.5, 24, 6.5), '#c3d0d6');
+      for (let i = 0; i < 3; i++) P('torso', at(box(14.6, 1.8, 14.6), 0, 14 + i * 9, 0), '#4dd0e1', { em: true });
+      P('torso', at(box(12, 2, 12), 0, 41, 0), '#546e7a');
+      P('head', at(sphere(4.4, 8, 4), 0, 3, 0), '#263238'); P('head', at(sphere(2.6, 7, 4), 0, 3, 3.4), '#4dd0e1', { em: true, glow: 9, gc: ['rgba(120,230,255,.7)', 'rgba(80,200,255,.25)'] });
+      P('head', at(box(1.4, 1.4, 8), 5, 3, 3), '#37474f'); P('head', at(box(3, 2, 3), 5, 3, 7), '#37474f');
+    }
+    // เสาธงสีทีมบนยอด
+    P('shA', at(prism(0.5, 0.5, 14, 5), 0, 7, 0), '#4e342e'); P('shA', at(box(11, 6, 0.5), 5.6, 11, 0), tc); P('shA', at(box(4, 2.6, 0.5), 12.8, 12.7, 0), shHex(tc, 0.8));
+    M.T[3] = [[0, top + (king ? 6 : 0) - 12, 0]];
+    M.T[2] = [[0, H, 0]];
+    if (king) {
+      P('shA', at(prism(6.5, 8, 2.2, 8), 0, 5.2, 0), '#ffca28'); P('shA', at(prism(9.5, 9.5, 0.9, 8), 0, 3.6, 0), '#e6a800');
+      for (let i = 0; i < 6; i++) { const a = i / 6 * TAU; P('shA', at(gem(1.2, 4.2, 4), Math.cos(a) * 7, 8.2, Math.sin(a) * 7), '#fff59d', { em: true }); }
+    }
+    M.hasAim = true; M.towerH = top;
+    setRest(M);
+    M.anim = function (o, st, rt) {
+      o[KI['head.ry']] = (st.aim || 0);
+      const a = st.atkP; if (a >= 0 && a < 1) { const k = Math.sin(a * Math.PI) * (1 - a); o[KI['head.rx']] -= 0.22 * k; o[KI['torso.rx']] -= 0.015 * k; }
+      o[KI['shA.rz']] = Math.sin(rt * 3.2 + st.id) * 0.16 - 0.05;
+      if (st.collapse > 0) { const k = Math.min(1, st.collapse), sh = Math.sin(rt * 40) * (1 - k) * 0.03;
+        o[KI['root.y']] = -top * 1.05 * k * k; o[KI['torso.rx']] = 0.28 * k + sh; o[KI['torso.rz']] = (st.id % 2 ? 1 : -1) * 0.2 * k + sh; o[KI['head.rx']] = 0.5 * k; o[KI['head.rz']] = 0.4 * k; o[KI['shA.rz']] = 1.3 * k; }
+    };
+    return M;
+  }
+
+  const TAU = S.TAU;
   const CACHE = {};
   function model(kind, team) {
-    const key = kind + (team === undefined ? '' : team);
+    const key = kind + (team === undefined ? '' : (Array.isArray(team) ? team.join('_') : team));
     if (CACHE[key]) return CACHE[key];
     let M;
     if (kind === 'minionM') M = minion(false, team); else if (kind === 'minionR') M = minion(true, team);
     else if (kind === 'boss') M = boss(); else if (kind === 'croc') M = croc(); else if (kind === 'snake') M = snake();
+    else if (kind === 'tower') M = tower(team[0], team[1], team[2]);
     else if (kind === 'krasue') M = krasue(); else if (kind === 'krahang') M = krahang();
     else return null;
     M.hasGlow = M.parts.some(function (p) { return p.glow; });
     M.P = M.at = null;
     return (CACHE[key] = M);
   }
-  TR.Units3D = { model: model, kinds: ['minionM', 'minionR', 'boss', 'croc', 'snake', 'krasue', 'krahang'] };
+  TR.Units3D = { model: model, kinds: ['tower', 'minionM', 'minionR', 'boss', 'croc', 'snake', 'krasue', 'krahang'] };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
