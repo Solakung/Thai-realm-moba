@@ -130,7 +130,7 @@ button.ghost, .card button:not(.primary) { background: var(--panel2); border: 1p
   #top { top: 4px; gap: 8px; padding: 2px 10px; font-size: 11px; } #clock, #score { font-size: 11px; }
   #mini { width: 136px; height: 51px; top: 4px; } #pauseBtn { top: 4px; right: calc(max(10px, env(safe-area-inset-right)) + 146px); }
   #feed { top: 61px; width: 180px; } #feed div { font-size: 10px; }
-  .skill { width: 54px; height: 54px; } .skill.ult { width: 64px; height: 64px; } .skill .nm { font-size: 9px; bottom: 4px; }
+  .skill { width: 54px; height: 54px; } .skill.ult { width: 64px; height: 64px; } .skill .nm { display: none; } .skill .up { right: -6px; top: -8px; width: 22px; height: 22px; font-size: 11px; line-height: 18px; } .cbtn .nm { font-size: 10px; } .cbtn.sm .nm { display: none; } .cbtn.sm .ic { font-size: 18px; top: 22%; }
   #banner { top: 14%; font-size: 16px; } #banner small { font-size: 11px; }
 }
 

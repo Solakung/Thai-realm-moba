@@ -222,13 +222,13 @@
 
   /* ---------- จัดวางปุ่มแบบ AoV: ปุ่มโจมตีใหญ่มุมขวาล่าง สกิลเรียงโค้งรอบปุ่ม ---------- */
   function layoutCtl() {
-    const f = Math.max(0.6, Math.min(1.05, Math.min(window.innerHeight / 540, window.innerWidth / 800))) * ctl.size;
+    const f = Math.max(0.88, Math.min(1.05, Math.min(window.innerHeight / 480, window.innerWidth / 760))) * ctl.size;
     const ATK = 86 * f, SK = 64 * f, ULT = 76 * f, SM = 42 * f, SP = 52 * f, M = 14 + 4;
     const set = function (el, cx, cy, size) { el.style.width = el.style.height = size + 'px'; el.style.right = (cx - size / 2) + 'px'; el.style.bottom = (cy - size / 2) + 'px'; };
-    const cx0 = M + ATK / 2, cy0 = M + ATK / 2, rr = ATK * 0.5 + SK * 0.5 + 14 * f;
+    const cx0 = M + ATK / 2, cy0 = M + ATK / 2, rr = ATK * 0.5 + SK * 0.5 + 26 * f;
     set($('atkBtn'), cx0, cy0, ATK);
     const sk = $('skills').children;
-    const pos = [[180, rr * 1.0], [133, rr * 1.06], [88, rr * 1.04]];
+    const pos = [[180, rr], [130, rr * 1.08], [82, rr * 1.08]];
     for (let i = 0; i < sk.length && i < 3; i++) {
       const a = pos[i][0] * Math.PI / 180, r = pos[i][1], size = i === 2 ? ULT : SK;
       set(sk[i], cx0 - Math.cos(a) * r, cy0 + Math.sin(a) * r, size);
