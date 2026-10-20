@@ -228,7 +228,7 @@
     const cx0 = M + ATK / 2, cy0 = M + ATK / 2, rr = ATK * 0.5 + SK * 0.5 + 26 * f;
     set($('atkBtn'), cx0, cy0, ATK);
     const sk = $('skills').children;
-    const pos = [[180, rr], [130, rr * 1.08], [82, rr * 1.08]];
+    const pos = [[172, rr * 1.04], [128, rr * 1.16], [84, rr * 1.16]];
     for (let i = 0; i < sk.length && i < 3; i++) {
       const a = pos[i][0] * Math.PI / 180, r = pos[i][1], size = i === 2 ? ULT : SK;
       set(sk[i], cx0 - Math.cos(a) * r, cy0 + Math.sin(a) * r, size);
@@ -236,7 +236,7 @@
     const colX = cx0 + rr + SK / 2 + SM / 2 + 10 * f;
     set($('atkMin'), colX, M + SM / 2, SM); set($('atkTwr'), colX, M + SM * 1.5 + 8 * f, SM);
     const spX = colX + SM / 2 + SP / 2 + 10 * f;
-    set($('spBtn'), spX, M + SP / 2, SP); set($('rcBtn'), spX, M + SP * 1.5 + 8 * f, SP);
+    set($('spBtn'), spX, M + SP / 2, SP); set($('rcBtn'), spX + SP + 8 * f, M + SP / 2, SP);
   }
   window.addEventListener('resize', layoutCtl);
 

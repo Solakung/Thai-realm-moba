@@ -196,7 +196,7 @@ button.ghost, .card button:not(.primary) { background: var(--panel2); border: 1p
 .spbtn .ic { display: block; font-size: 20px; } .spbtn.sel { border-color: #80d8ff; background: rgba(128,216,255,.14); }
 #spellInfo { margin-top: 6px; font-size: 12px; color: var(--dim); min-height: 32px; }
 #shopInfo { position: sticky; bottom: 0; background: rgba(12,18,28,.97); }
-@media (max-height: 460px) { #spBox { bottom: calc(max(8px, env(safe-area-inset-bottom)) + 72px); } .spb { width: 44px; height: 44px; } .spb .ic { font-size: 16px; top: 3px; } }
+@media (max-height: 460px) { .spb { width: 44px; height: 44px; } .spb .ic { font-size: 16px; top: 3px; } }
 
 /* ปุ่มโจมตีและการควบคุมแบบ AoV */
 .cbtn { position: absolute; width: 86px; height: 86px; border-radius: 50%; border: 3px solid #ffb300; background: radial-gradient(circle at 35% 30%, #ff8a50, #c62828 70%); color: #fff; padding: 0; touch-action: none; pointer-events: auto; box-shadow: 0 3px 10px rgba(0,0,0,.6), inset 0 0 12px rgba(255,255,255,.25); -webkit-user-select: none; user-select: none; }
