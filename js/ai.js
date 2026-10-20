@@ -83,7 +83,7 @@
 
     // เลือดน้อย → ถอย
     if (ai.retreat) { if (hpR > 0.7) ai.retreat = false; }
-    else if (hpR < 0.3) ai.retreat = true;
+    else if (hpR < 0.3 || (hpR < 0.65 && S.wantShop(u) && !u.ai.jungle)) ai.retreat = true;
 
     if (jm && !(eh && ehd < 220)) { eh = jm; ehd = S.dist(u, jm) - jm.radius; }
     const ctx = { eh: eh, ehd: ehd, ehCount: ehCount, minions: minions, nmd: nmd, allies: allies.length, hpR: hpR };

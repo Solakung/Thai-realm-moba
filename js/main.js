@@ -166,7 +166,7 @@
     if (endTimer) { clearTimeout(endTimer); endTimer = null; }
     g = TR.Sim.createGame({ playerHero: sel.hero, playerEmblem: sel.emblem });
     window.TRGame = g;
-    acc = 0; paused = false; playing = true; queue.length = 0;
+    acc = 0; paused = false; playing = true; queue.length = 0; shopOpen = false; $('shop').hidden = true;
     $('menu').hidden = true; $('result').hidden = true; $('pauseBox').hidden = true;
     $('hud').hidden = false; $('pauseBtn').style.display = 'block';
     $('feed').innerHTML = '';
@@ -215,7 +215,7 @@
   function toMenu() {
     playing = false; g = null;
     document.body.classList.remove('playing');
-    $('hud').hidden = true; $('result').hidden = true; $('menu').hidden = false; $('pauseBtn').style.display = 'none';
+    shopOpen = false; $('shop').hidden = true; $('hud').hidden = true; $('result').hidden = true; $('menu').hidden = false; $('pauseBtn').style.display = 'none';
   }
 
   function heroesOfEra(e) { return TR.HEROES.filter(function (h) { return h.era === e; }).map(function (h) { return h.name; }).join(', '); }
@@ -276,12 +276,49 @@
     if (e.code === 'KeyQ' || e.code === 'Digit1') queue.push(0);
     else if (e.code === 'KeyE' || e.code === 'Digit2') queue.push(1);
     else if (e.code === 'KeyR' || e.code === 'Digit3') queue.push(2);
+    else if (e.code === 'KeyB') toggleShop();
+    else if (e.code === 'Escape' && shopOpen) toggleShop(false);
     else if (e.code === 'KeyP' || e.code === 'Escape') togglePause();
   });
   window.addEventListener('keyup', function (e) { keys[e.code] = false; });
   window.addEventListener('blur', function () { for (const k in keys) keys[k] = false; });
   document.addEventListener('visibilitychange', function () { if (document.hidden && playing && !paused) togglePause(); });
   window.addEventListener('contextmenu', function (e) { if (playing) e.preventDefault(); });
+
+  /* ---------- ร้านค้า ---------- */
+  let shopOpen = false, shopSig = '';
+  function toggleShop(force) {
+    if (!playing || !g || g.over) return;
+    shopOpen = force === undefined ? !shopOpen : force;
+    $('shop').hidden = !shopOpen; shopSig = '';
+    if (shopOpen) renderShop(true);
+  }
+  function renderShop(force) {
+    const pl = g.player, can = TR.Sim.canShop(pl);
+    $('shopGold').textContent = '💰 ' + Math.floor(pl.gold);
+    $('shopWhere').textContent = can ? 'ซื้อ/ขายได้ตอนนี้' : 'ซื้อได้เมื่ออยู่ที่ฐานหรือตอนตาย (ขายคืน 70%)';
+    const sig = pl.items.join(',') + '|' + can + '|' + TR.ITEMS.map(function (it) { return pl.gold >= it.cost ? 1 : 0; }).join('');
+    if (!force && sig === shopSig) return;
+    shopSig = sig;
+    const own = $('shopOwned'); own.innerHTML = '';
+    for (let i = 0; i < CFG.shopSlots; i++) {
+      const id = pl.items[i], d = document.createElement('div');
+      d.className = 'slot' + (id ? ' on' : ''); d.textContent = id ? TR.ITEM_BY_ID[id].icon : '';
+      if (id) { d.title = 'แตะเพื่อขาย: ' + TR.ITEM_BY_ID[id].name; d.addEventListener('click', function () { if (TR.Sim.sell(g, pl, id)) renderShop(true); }); }
+      own.appendChild(d);
+    }
+    const list = $('shopList'); list.innerHTML = '';
+    TR.ITEMS.forEach(function (it) {
+      const have = pl.items.indexOf(it.id) >= 0, afford = pl.gold >= it.cost && pl.items.length < CFG.shopSlots;
+      const b = document.createElement('button');
+      b.className = 'sitem' + (have ? ' have' : (afford && can ? ' can' : ' no'));
+      b.innerHTML = '<span class="ic">' + it.icon + '</span><span class="tx"><span class="nm">' + it.name + (have ? ' ✓' : '') + '</span><br><span class="ds">' + it.desc + '</span></span><span class="co">' + it.cost + '</span>';
+      b.addEventListener('click', function () { if (!have && TR.Sim.buy(g, pl, it.id)) renderShop(true); });
+      list.appendChild(b);
+    });
+  }
+  $('shopBtn').addEventListener('click', function () { toggleShop(); });
+  $('shopClose').addEventListener('click', function () { toggleShop(false); });
 
   function togglePause() {
     if (!playing || !g || g.over) return;
@@ -341,7 +378,10 @@
     const hp = Math.max(0, pl.hp);
     $('meHp').style.width = (100 * hp / pl.maxHp) + '%';
     $('meHpText').textContent = pl.dead ? 'ฟื้นใน ' + Math.max(0, Math.ceil(pl.respawnAt - g.t)) + ' วิ' : Math.ceil(hp) + ' / ' + Math.ceil(pl.maxHp);
-    $('meInfo').textContent = 'Lv ' + pl.level + ' · ขั้นทอง ' + pl.tier + ' · ฆ่า ' + pl.kills + '/' + pl.deaths + (pl.peak ? ' · ยุครุ่งเรือง' : '');
+    $('meInfo').textContent = 'Lv ' + pl.level + ' · ทอง ' + Math.floor(pl.gold) + ' · ฆ่า ' + pl.kills + '/' + pl.deaths + (pl.peak ? ' · ยุครุ่งเรือง' : '');
+    const canBuy = TR.ITEMS.some(function (it) { return pl.items.indexOf(it.id) < 0 && pl.gold >= it.cost; }) && pl.items.length < CFG.shopSlots && TR.Sim.canShop(pl);
+    $('shopDot').hidden = !canBuy;
+    if (shopOpen) renderShop(false);
     const btns = $('skills').children;
     for (let i = 0; i < btns.length; i++) {
       const cd = pl.cd[i], b = btns[i];

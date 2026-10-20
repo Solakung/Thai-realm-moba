@@ -113,7 +113,7 @@
     const u = mkUnit(g, {
       type: 'hero', def: def, team: team, role: def.role, emblem: emblem, isPlayer: isPlayer, slot: slot,
       x: sp.x, y: sp.y, hp: 1, maxHp: 1, radius: r.radius, baseArmor: r.armor,
-      level: 1, xp: 0, gold: 0, tier: 0, cd: [0, 0, 0], input: { dx: 0, dy: 0 }, kills: 0, deaths: 0, cs: 0,
+      level: 1, xp: 0, gold: 0, items: [], itm: { hp: 0, dmg: 0, armor: 0, speed: 0, ls: 0, atkSpd: 0, tower: 0 }, cd: [0, 0, 0], input: { dx: 0, dy: 0 }, kills: 0, deaths: 0, cs: 0,
       greedCount: 0, greedReady: false, decoyCd: 0, untarget: 0, still: 0, lastHeroHit: -99, auraT: 0,
       respawnAt: 0, casting: null, dash: null, aiTarget: null, nextMul: 0, goldTotal: 0,
       ai: { next: 0, retreat: false, yOff: (slot - 2) * 14, lane: CFG.botLanes[slot] < 0 ? 1 : CFG.botLanes[slot], jungle: CFG.botLanes[slot] < 0, defend: false, chk: 0 }
@@ -124,15 +124,54 @@
   }
 
   /* ---------- ค่าสถานะ ---------- */
+  /* ---------- ร้านค้า ---------- */
+  function canShop(u) {
+    if (u.type !== 'hero') return false;
+    if (u.dead) return true;
+    const sp = u.team === 0 ? 100 : CFG.W - 100;
+    return Math.hypot(u.x - sp, u.y - CFG.baseY) < CFG.shopRange;
+  }
+  function sumItems(u) {
+    const t = { hp: 0, dmg: 0, armor: 0, speed: 0, ls: 0, atkSpd: 0, tower: 0 };
+    u.items.forEach(function (id) { const s = TR.ITEM_BY_ID[id].s; Object.keys(s).forEach(function (k) { t[k] += s[k]; }); });
+    u.itm = t;
+  }
+  function buy(g, u, id) {
+    const it = TR.ITEM_BY_ID[id];
+    if (!it || !canShop(u) || u.items.indexOf(id) >= 0 || u.items.length >= CFG.shopSlots || u.gold < it.cost) return false;
+    u.gold -= it.cost; u.items.push(id); sumItems(u); recalc(g, u);
+    return true;
+  }
+  function sell(g, u, id) {
+    const i = u.items.indexOf(id);
+    if (i < 0 || !canShop(u)) return false;
+    u.items.splice(i, 1); u.gold += Math.floor(TR.ITEM_BY_ID[id].cost * 0.7); sumItems(u); recalc(g, u);
+    return true;
+  }
+
+  // บอทเลือกไอเทมชิ้นถัดไปตามบทบาท (ที่ยังไม่มีและเงินพอ)
+  function botNextItem(u, needGold) {
+    const list = TR.ITEM_BUILD[u.role] || TR.ITEM_BUILD.fighter;
+    for (let i = 0; i < list.length; i++) {
+      if (u.items.indexOf(list[i]) >= 0) continue;
+      return (!needGold || u.gold >= TR.ITEM_BY_ID[list[i]].cost) ? list[i] : null;
+    }
+    return null;
+  }
+  function wantShop(u) { return u.items.length < CFG.shopSlots && !!botNextItem(u, true); }
+  function botShop(g, u) {
+    if (u.isPlayer || !canShop(u)) return;
+    for (let n = 0; n < 3; n++) { const id = botNextItem(u, true); if (!id || !buy(g, u, id)) break; }
+  }
+
   function recalc(g, u) {
     const r = TR.ROLES[u.role], em = TR.EMBLEMS[u.emblem];
     const lv = 1 + CFG.levelBonus * (u.level - 1);
-    const gl = 1 + CFG.tierBonus * u.tier;
     const pk = u.def.era === g.era ? CFG.peak : 1;
     u.peak = pk > 1;
-    const nm = r.hp * lv * gl * pk * (em.hpMul || 1);
+    const nm = r.hp * lv * (1 + u.itm.hp) * pk * (em.hpMul || 1);
     if (nm !== u.maxHp) { const pct = u.maxHp > 0 ? u.hp / u.maxHp : 1; u.maxHp = nm; u.hp = Math.min(nm, pct * nm); }
-    u.dmgBase = lv * gl * pk * (em.dmgMul || 1);
+    u.dmgBase = lv * (1 + u.itm.dmg) * pk * (em.dmgMul || 1);
     u.baseSpeed = r.speed;
   }
 
@@ -164,8 +203,9 @@
     m.armor += u.baseArmor;
     if (u.type === 'hero') {
       const em = TR.EMBLEMS[u.emblem];
-      m.armor += em.armorAdd || 0;
-      m.speed *= em.speedMul || 1;
+      m.armor += (em.armorAdd || 0) + u.itm.armor;
+      m.speed *= (em.speedMul || 1) * (1 + u.itm.speed);
+      m.ls += u.itm.ls; m.atkSpd *= 1 + u.itm.atkSpd; m.tower *= 1 + u.itm.tower;
     }
     u.m = m;
   }
@@ -691,6 +731,7 @@
 
   function updateHero(g, u, dt) {
     if (u.dead) {
+      botShop(g, u);
       if (g.t >= u.respawnAt) {
         const sp = spawnPos(u.team, u.slot);
         u.dead = false; u.x = sp.x; u.y = sp.y; u.px = u.x; u.py = u.y;
@@ -699,10 +740,10 @@
       return;
     }
     aggregate(g, u);
+    if (!u.isPlayer && (g.tick & 15) === 0) botShop(g, u);
     for (let i = 0; i < 3; i++) if (u.cd[i] > 0) u.cd[i] -= dt;
     if (u.atkCd > 0) u.atkCd -= dt;
     u.goldTotal += 0; addGold(u, 1.2 * dt);
-    u.tier = Math.min(CFG.maxTier, Math.floor(u.gold / CFG.goldPerTier));
     recalc(g, u);
 
     // ฟื้นเลือด
@@ -1105,6 +1146,6 @@
     navPoint: navPoint,
     createGame: createGame, step: step, castSkill: castSkill, canCast: canCast,
     pickEnemy: pickEnemy, enemiesIn: enemiesIn, alliedHeroes: alliedHeroes, canTarget: canTarget,
-    towerVuln: towerVuln, dist: dist, norm: norm, findFx: findFx, lowestAlly: lowestAlly, recalc: recalc
+    towerVuln: towerVuln, buy: buy, sell: sell, canShop: canShop, wantShop: wantShop, dist: dist, norm: norm, findFx: findFx, lowestAlly: lowestAlly, recalc: recalc
   };
 })(typeof window !== 'undefined' ? window : globalThis);
