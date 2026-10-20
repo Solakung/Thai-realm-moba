@@ -8,7 +8,8 @@
 
   const stageCv = $('stageCv'), stageCtx = stageCv.getContext('2d'), stageState = { side: 1 };
   let introEnd = 0;
-  let sel = { hero: TR.HEROES[0].id, emblem: null };
+  let sel = { hero: TR.HEROES[0].id, emblem: null, spell: 'heal' };
+  try { const sv = localStorage.getItem('tr_spell'); if (sv && TR.SPELL_BY_ID[sv]) sel.spell = sv; } catch (e) { /* ไม่เป็นไร */ }
   let g = null, acc = 0, lastTs = 0, paused = false, playing = false, hudT = 0, miniT = 0, camCache = null, endTimer = null;
   const keys = {}, queue = [];
   const stick = { active: false, id: null, dx: 0, dy: 0, ox: 0, oy: 0 };
@@ -85,7 +86,7 @@
     h.skills.forEach(function (s, i) {
       info.appendChild(el('div', 'sk', '<b>' + (i === 2 ? 'อัลติ' : 'สกิล ' + (i + 1)) + ' · ' + s.name + '</b> (' + s.cd + ' วิ) — ' + s.desc));
     });
-    buildEmblems();
+    buildEmblems(); buildSpells();
     const nm = $('stageName');
     nm.querySelector('.et').textContent = 'ยุค' + TR.ERAS[h.era].name;
     nm.querySelector('.nm').textContent = h.name;
@@ -130,6 +131,18 @@
     return { w: w, h: h, dpr: dpr };
   }
 
+  function buildSpells() {
+    const grid = $('spellGrid'); grid.innerHTML = '';
+    TR.SPELLS.forEach(function (sp) {
+      const b = document.createElement('button');
+      b.className = 'spbtn' + (sel.spell === sp.id ? ' sel' : '');
+      b.innerHTML = '<span class="ic">' + sp.icon + '</span>' + sp.name;
+      b.addEventListener('click', function () { sel.spell = sp.id; try { localStorage.setItem('tr_spell', sp.id); } catch (e) { /* ไม่เป็นไร */ } buildSpells(); });
+      grid.appendChild(b);
+    });
+    const sp = TR.SPELL_BY_ID[sel.spell];
+    $('spellInfo').innerHTML = '<b>' + sp.icon + ' ' + sp.name + '</b> · คูลดาวน์ ' + sp.cd + ' วิ<br>' + sp.desc;
+  }
   function buildEmblems() {
     const grid = $('emblemGrid');
     grid.innerHTML = '';
@@ -183,7 +196,7 @@
 
   function startGame() {
     if (endTimer) { clearTimeout(endTimer); endTimer = null; }
-    g = TR.Sim.createGame({ playerHero: sel.hero, playerEmblem: sel.emblem });
+    g = TR.Sim.createGame({ playerHero: sel.hero, playerEmblem: sel.emblem, playerSpell: sel.spell });
     window.TRGame = g;
     acc = 0; paused = false; playing = true; queue.length = 0; shopOpen = false; $('shop').hidden = true;
     $('menu').hidden = true; $('result').hidden = true; $('pauseBox').hidden = true;
@@ -191,6 +204,8 @@
     $('feed').innerHTML = '';
     document.body.classList.add('playing');
     buildSkillButtons(g.player.def);
+    const spd = TR.SPELL_BY_ID[g.player.spell];
+    $('spBtn').querySelector('.ic').textContent = spd.icon; $('spBtn').querySelector('.nm').textContent = spd.name;
     const em = TR.EMBLEMS[g.player.emblem];
     $('meName').innerHTML = g.player.def.name + ' <span style="color:' + em.color + '">· ใจ' + em.name + '</span>';
     banner('ยุค' + TR.ERAS[0].name + ' เริ่มแล้ว', TR.ERAS[0].note + ' · ฮีโร่ยุคนี้แข็งขึ้น: ' + heroesOfEra(0), 4500);
@@ -295,6 +310,8 @@
     if (e.code === 'KeyQ' || e.code === 'Digit1') queue.push(0);
     else if (e.code === 'KeyE' || e.code === 'Digit2') queue.push(1);
     else if (e.code === 'KeyR' || e.code === 'Digit3') queue.push(2);
+    else if (e.code === 'KeyF') castPlayerSpell();
+    else if (e.code === 'KeyC') recallPlayer();
     else if (e.code === 'KeyB') toggleShop();
     else if (e.code === 'Escape' && shopOpen) toggleShop(false);
     else if (e.code === 'KeyP' || e.code === 'Escape') togglePause();
@@ -387,6 +404,10 @@
   zone.addEventListener('pointerup', endStick);
   zone.addEventListener('pointercancel', endStick);
 
+  function castPlayerSpell() { if (g && playing && !paused) TR.Sim.castSpell(g, g.player); }
+  function recallPlayer() { if (!g || !playing || paused) return; const pl = g.player; if (pl.recall) TR.Sim.cancelRecall(g, pl); else TR.Sim.startRecall(g, pl); }
+  $('spBtn').addEventListener('pointerdown', function (e) { e.preventDefault(); castPlayerSpell(); });
+  $('rcBtn').addEventListener('pointerdown', function (e) { e.preventDefault(); recallPlayer(); });
   function readInput() {
     const pl = g.player;
     let dx = 0, dy = 0;
@@ -414,6 +435,9 @@
     const canBuy = TR.Sim.canShop(pl) && TR.ITEMS.some(function (it) { const n = TR.Sim.netCost(pl, it); return n != null && pl.gold >= n; });
     $('shopDot').hidden = !canBuy;
     if (shopOpen) renderShop(false);
+    const spb = $('spBtn'), sc = pl.spCd;
+    spb.classList.toggle('wait', sc > 0 || pl.dead); spb.querySelector('.cd').textContent = sc > 0 ? Math.ceil(sc) : '';
+    $('rcBtn').classList.toggle('wait', !!pl.recall); $('rcBtn').querySelector('.cd').textContent = pl.recall ? Math.max(0, Math.ceil(pl.recall.end - g.t)) : '';
     const btns = $('skills').children;
     for (let i = 0; i < btns.length; i++) {
       const cd = pl.cd[i], b = btns[i];

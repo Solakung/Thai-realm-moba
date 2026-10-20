@@ -4,7 +4,7 @@
   'use strict';
   const TR = (G.TR = G.TR || {});
 
-  TR.VERSION = '0.6.0';
+  TR.VERSION = '0.7.0';
 
   TR.CFG = {
     dt: 0.05,          // ตรรกะเกม 20 ครั้งต่อวินาที
@@ -29,6 +29,8 @@
     maxLevel: 10,
     levelBonus: 0.07,  // ต่อเลเวล: เลือดและดาเมจ
     shopSlots: 6,      // ช่องไอเทมต่อคน (ไอเทมแต่ละชิ้นซื้อได้ชิ้นเดียว)
+    critMul: 1.6,      // ดาเมจคริติคอลจากไอเทม
+    cdrCap: 0.4,       // ลดคูลดาวน์สกิลได้สูงสุด 40%
     shopRange: 230,    // ซื้อได้เมื่ออยู่ในระยะนี้จากฐาน หรือตอนตายรอเกิดใหม่
     laneTowers: [
       // ต่อเลน: ด่านหน้า → ค่ายกลาง ต้องพังตามลำดับ เลือดคงที่ทุกยุค
@@ -316,61 +318,121 @@
   TR.HEROES.forEach(function (h) { TR.HERO_BY_ID[h.id] = h; });
 
 
+  /* สเปลเสริม (เลือก 1 อย่างก่อนเริ่มแมตช์ กด F หรือแตะปุ่ม) และการกลับพระนคร (กด C)
+     ค่าทุกตัวแก้ที่นี่ ไม่ฝังในโค้ด */
+  TR.SPELLS = [
+    { id: 'heal',    name: 'ยาทิพย์',         icon: '🧪', cd: 100, desc: 'ฟื้นเลือดตัวเอง 25% และเพื่อนใกล้ ๆ 12%', self: 0.25, ally: 0.12, r: 140 },
+    { id: 'punish',  name: 'ฟาดป่า',          icon: '⚡', cd: 45,  desc: 'ดาเมจแรงใส่มอนป่า/มินเนียนใกล้ตัว 700 (+40 ต่อเลเวล) เหมาะตีบอสและมอนบัฟ', dmg: 700, perLv: 40, r: 120 },
+    { id: 'flash',   name: 'เหินฟ้า',         icon: '💨', cd: 100, desc: 'พุ่งไปข้างหน้าทันทีตามทิศที่หันอยู่', dist: 150 },
+    { id: 'sprint',  name: 'ลมปราณ',          icon: '🌪️', cd: 70,  desc: 'วิ่งเร็วขึ้น 40% นาน 4 วินาที', mul: 1.4, dur: 4 },
+    { id: 'purify',  name: 'ล้างอาถรรพ์',     icon: '🪷', cd: 80,  desc: 'ล้างสถานะเสียทั้งหมด และกันสถานะเสียต่อ 1.5 วินาที', dur: 1.5 },
+    { id: 'barrier', name: 'ผ้ายันต์กำบัง',   icon: '🧿', cd: 90,  desc: 'โล่กันดาเมจ 15% ของเลือดสูงสุด (+120) นาน 2.5 วินาที', pct: 0.15, flat: 120, dur: 2.5 },
+    { id: 'conch',   name: 'สังข์เสียงก้อง',  icon: '🐚', cd: 90,  desc: 'ศัตรูรอบตัวมึนงงสตัน 1 วินาที', r: 115, dur: 1 }
+  ];
+  TR.SPELL_BY_ID = {}; TR.SPELLS.forEach(function (sp) { TR.SPELL_BY_ID[sp.id] = sp; });
+  TR.RECALL = { name: 'กลับพระนคร', icon: '🏯', time: 6 };   // ร่ายค้าง (วินาที) ถูกขัดเมื่อโดนตี โดนสตัน ขยับ หรือใช้สกิล
+
   /* ร้านค้าไอเทม — ค่าสมดุลทั้งหมดอยู่ตรงนี้
-     6 สาย × 3 ชั้น: ชั้นบนประกอบจากชั้นล่างของสายเดียวกัน (ถ้ามีชั้นล่างอยู่แล้ว หักราคาชิ้นนั้นออก และใช้ช่องเดิม)
-     s: hp/dmg/atkSpd/speed/tower = เปอร์เซ็นต์เพิ่ม (0.1 = +10%), armor = ลดดาเมจที่ได้รับ (0.1 = ลด 10%), ls = ดูดเลือด
+     14 สาย × 3 ชั้น (42 ชิ้น): ชั้นบนประกอบจากชั้นล่างของสายเดียวกัน (ถ้ามีชั้นล่างอยู่แล้ว หักราคาชิ้นนั้นออก และใช้ช่องเดิม)
+     s: hp/dmg/atkSpd/speed/tower = เปอร์เซ็นต์เพิ่ม (0.1 = +10%), armor = ลดดาเมจที่ได้รับ (0.1 = ลด 10%), ls = ดูดเลือด, crit = โอกาสคริ (x1.6), pen = ทะลวงเกราะ, regen = ฟื้นเลือด/วินาที, cdr = ลดคูลดาวน์สกิล, jungle = ดาเมจใส่มอนป่า, gold = ทองที่ได้
      ค่าใน s เป็นค่าสะสมของชิ้นนั้น (ชั้นบนรวมของชั้นล่างไว้แล้ว) */
   TR.ITEM_LINES = [
-    { id: 'atk',   name: 'โจมตี',      icon: '🗡️' },
-    { id: 'spd',   name: 'ตีเร็ว',      icon: '🏹' },
-    { id: 'def',   name: 'ป้องกัน',     icon: '🛡️' },
-    { id: 'life',  name: 'ชีวิต',       icon: '📿' },
-    { id: 'move',  name: 'เคลื่อนที่',   icon: '👟' },
-    { id: 'siege', name: 'ทลายค่าย',    icon: '🔨' }
+    { id: 'atk', name: 'โจมตี', icon: '🗡️' },
+    { id: 'spd', name: 'ตีเร็ว', icon: '🏹' },
+    { id: 'crit', name: 'คมสังหาร', icon: '🎯' },
+    { id: 'pen', name: 'ทะลวงเกราะ', icon: '🔱' },
+    { id: 'vamp', name: 'ดูดเลือด', icon: '🦷' },
+    { id: 'def', name: 'ป้องกัน', icon: '🛡️' },
+    { id: 'wall', name: 'กำแพงเมือง', icon: '🧱' },
+    { id: 'life', name: 'ชีวิต', icon: '📿' },
+    { id: 'regen', name: 'ฟื้นฟู', icon: '🌿' },
+    { id: 'move', name: 'เคลื่อนที่', icon: '👟' },
+    { id: 'cdr', name: 'มนตรา', icon: '📜' },
+    { id: 'siege', name: 'ทลายค่าย', icon: '🔨' },
+    { id: 'jungle', name: 'ล่าป่า', icon: '🌲' },
+    { id: 'gold', name: 'ทรัพย์', icon: '💰' }
   ];
   TR.ITEMS = [
-    { id: 'atk1',   line: 'atk',   tier: 1, name: 'ดาบเหล็กไหล',    icon: '🗡️', cost: 450,  s: { dmg: 0.07 } },
-    { id: 'atk2',   line: 'atk',   tier: 2, name: 'ดาบทมิฬ',        icon: '🗡️', cost: 1050, s: { dmg: 0.15 } },
-    { id: 'atk3',   line: 'atk',   tier: 3, name: 'ดาบพิฆาตศึก',    icon: '⚔️', cost: 1900, s: { dmg: 0.26 } },
-    { id: 'spd1',   line: 'spd',   tier: 1, name: 'สายธนูเอ็นวัว',   icon: '🏹', cost: 450,  s: { atkSpd: 0.10 } },
-    { id: 'spd2',   line: 'spd',   tier: 2, name: 'ธนูไม้ประดู่',    icon: '🏹', cost: 1000, s: { atkSpd: 0.20, dmg: 0.03 } },
-    { id: 'spd3',   line: 'spd',   tier: 3, name: 'ศรสุริยัน',      icon: '☀️', cost: 1800, s: { atkSpd: 0.32, dmg: 0.06 } },
-    { id: 'def1',   line: 'def',   tier: 1, name: 'เกราะหนังช้าง',   icon: '🛡️', cost: 450,  s: { armor: 0.06, hp: 0.04 } },
-    { id: 'def2',   line: 'def',   tier: 2, name: 'เกราะเกล็ดมังกร', icon: '🛡️', cost: 1050, s: { armor: 0.12, hp: 0.10 } },
-    { id: 'def3',   line: 'def',   tier: 3, name: 'เกราะวชิรา',     icon: '🔰', cost: 1900, s: { armor: 0.18, hp: 0.18 } },
-    { id: 'life1',  line: 'life',  tier: 1, name: 'ผ้ายันต์ใจเพชร',  icon: '📿', cost: 450,  s: { hp: 0.10 } },
-    { id: 'life2',  line: 'life',  tier: 2, name: 'ตะกรุดดูดเลือด',  icon: '🩸', cost: 1000, s: { hp: 0.14, ls: 0.06 } },
-    { id: 'life3',  line: 'life',  tier: 3, name: 'ยันต์ราชสีห์',    icon: '🦁', cost: 1850, s: { hp: 0.20, ls: 0.10 } },
-    { id: 'move1',  line: 'move',  tier: 1, name: 'รองเท้าสายลม',    icon: '👟', cost: 400,  s: { speed: 0.06 } },
-    { id: 'move2',  line: 'move',  tier: 2, name: 'รองเท้าพญาครุฑ',  icon: '🥾', cost: 900,  s: { speed: 0.10, hp: 0.05 } },
-    { id: 'move3',  line: 'move',  tier: 3, name: 'ฉลองพระบาทเทพ',   icon: '🪽', cost: 1500, s: { speed: 0.14, hp: 0.08, atkSpd: 0.05 } },
-    { id: 'siege1', line: 'siege', tier: 1, name: 'ค้อนทลายค่าย',    icon: '🔨', cost: 450,  s: { tower: 0.20 } },
-    { id: 'siege2', line: 'siege', tier: 2, name: 'ขวานพังประตู',    icon: '🪓', cost: 1000, s: { tower: 0.40, dmg: 0.04 } },
-    { id: 'siege3', line: 'siege', tier: 3, name: 'ปืนใหญ่ทลายเมือง', icon: '💥', cost: 1800, s: { tower: 0.65, dmg: 0.08 } }
+    { id: 'atk1', line: 'atk', tier: 1, name: 'ดาบเหล็กไหล', icon: '🗡️', cost: 450, s: { dmg: 0.07 } },
+    { id: 'atk2', line: 'atk', tier: 2, name: 'ดาบทมิฬ', icon: '🗡️', cost: 1050, s: { dmg: 0.15 } },
+    { id: 'atk3', line: 'atk', tier: 3, name: 'ดาบพิฆาตศึก', icon: '⚔️', cost: 1900, s: { dmg: 0.26 } },
+    { id: 'spd1', line: 'spd', tier: 1, name: 'สายธนูเอ็นวัว', icon: '🏹', cost: 450, s: { atkSpd: 0.1 } },
+    { id: 'spd2', line: 'spd', tier: 2, name: 'ธนูไม้ประดู่', icon: '🏹', cost: 1000, s: { atkSpd: 0.2, dmg: 0.03 } },
+    { id: 'spd3', line: 'spd', tier: 3, name: 'ศรสุริยัน', icon: '☀️', cost: 1800, s: { atkSpd: 0.32, dmg: 0.06 } },
+    { id: 'crit1', line: 'crit', tier: 1, name: 'มีดหมอพราน', icon: '🔪', cost: 450, s: { crit: 0.1 } },
+    { id: 'crit2', line: 'crit', tier: 2, name: 'กฤชแทงใจ', icon: '🗡️', cost: 1050, s: { crit: 0.18, dmg: 0.04 } },
+    { id: 'crit3', line: 'crit', tier: 3, name: 'กฤชมรณะ', icon: '🎯', cost: 1850, s: { crit: 0.28, dmg: 0.06 } },
+    { id: 'pen1', line: 'pen', tier: 1, name: 'หอกซัดเจาะเกราะ', icon: '🔱', cost: 450, s: { pen: 0.05 } },
+    { id: 'pen2', line: 'pen', tier: 2, name: 'ง้าวทะลวงเกราะ', icon: '🪓', cost: 1050, s: { pen: 0.1, dmg: 0.03 } },
+    { id: 'pen3', line: 'pen', tier: 3, name: 'ตรีศูลทลายเกราะ', icon: '🔱', cost: 1850, s: { pen: 0.16, dmg: 0.06 } },
+    { id: 'vamp1', line: 'vamp', tier: 1, name: 'เขี้ยวเสือ', icon: '🦷', cost: 450, s: { ls: 0.06, dmg: 0.02 } },
+    { id: 'vamp2', line: 'vamp', tier: 2, name: 'เล็บกระทิงแดง', icon: '🩸', cost: 1000, s: { ls: 0.11, dmg: 0.04 } },
+    { id: 'vamp3', line: 'vamp', tier: 3, name: 'เขี้ยวนาคา', icon: '🐉', cost: 1800, s: { ls: 0.17, dmg: 0.06 } },
+    { id: 'def1', line: 'def', tier: 1, name: 'เกราะหนังช้าง', icon: '🛡️', cost: 450, s: { armor: 0.06, hp: 0.04 } },
+    { id: 'def2', line: 'def', tier: 2, name: 'เกราะเกล็ดมังกร', icon: '🛡️', cost: 1050, s: { armor: 0.12, hp: 0.1 } },
+    { id: 'def3', line: 'def', tier: 3, name: 'เกราะวชิรา', icon: '🔰', cost: 1900, s: { armor: 0.18, hp: 0.18 } },
+    { id: 'wall1', line: 'wall', tier: 1, name: 'โล่ไม้สัก', icon: '🪵', cost: 450, s: { hp: 0.12, armor: 0.02 } },
+    { id: 'wall2', line: 'wall', tier: 2, name: 'โล่เหล็กกล้า', icon: '🛡️', cost: 1000, s: { hp: 0.22, armor: 0.04 } },
+    { id: 'wall3', line: 'wall', tier: 3, name: 'ปราการวัดพระแก้ว', icon: '🏯', cost: 1800, s: { hp: 0.34, armor: 0.06 } },
+    { id: 'life1', line: 'life', tier: 1, name: 'ผ้ายันต์ใจเพชร', icon: '📿', cost: 450, s: { hp: 0.1 } },
+    { id: 'life2', line: 'life', tier: 2, name: 'ตะกรุดดูดเลือด', icon: '🩸', cost: 1000, s: { hp: 0.14, ls: 0.06 } },
+    { id: 'life3', line: 'life', tier: 3, name: 'ยันต์ราชสีห์', icon: '🦁', cost: 1850, s: { hp: 0.2, ls: 0.1 } },
+    { id: 'regen1', line: 'regen', tier: 1, name: 'สมุนไพรบำรุง', icon: '🌿', cost: 450, s: { regen: 0.004, hp: 0.04 } },
+    { id: 'regen2', line: 'regen', tier: 2, name: 'ยาหม้อใหญ่', icon: '🍵', cost: 1000, s: { regen: 0.008, hp: 0.08 } },
+    { id: 'regen3', line: 'regen', tier: 3, name: 'น้ำอมฤต', icon: '💧', cost: 1800, s: { regen: 0.013, hp: 0.12 } },
+    { id: 'move1', line: 'move', tier: 1, name: 'รองเท้าสายลม', icon: '👟', cost: 400, s: { speed: 0.06 } },
+    { id: 'move2', line: 'move', tier: 2, name: 'รองเท้าพญาครุฑ', icon: '🥾', cost: 900, s: { speed: 0.1, hp: 0.05 } },
+    { id: 'move3', line: 'move', tier: 3, name: 'ฉลองพระบาทเทพ', icon: '🪽', cost: 1500, s: { speed: 0.14, hp: 0.08, atkSpd: 0.05 } },
+    { id: 'cdr1', line: 'cdr', tier: 1, name: 'คัมภีร์มนตรา', icon: '📜', cost: 450, s: { cdr: 0.08, dmg: 0.02 } },
+    { id: 'cdr2', line: 'cdr', tier: 2, name: 'ตำราวิเศษ', icon: '📖', cost: 1050, s: { cdr: 0.14, dmg: 0.04 } },
+    { id: 'cdr3', line: 'cdr', tier: 3, name: 'พระคัมภีร์ไตรเพท', icon: '📚', cost: 1850, s: { cdr: 0.2, dmg: 0.06 } },
+    { id: 'siege1', line: 'siege', tier: 1, name: 'ค้อนทลายค่าย', icon: '🔨', cost: 450, s: { tower: 0.2 } },
+    { id: 'siege2', line: 'siege', tier: 2, name: 'ขวานพังประตู', icon: '🪓', cost: 1000, s: { tower: 0.4, dmg: 0.04 } },
+    { id: 'siege3', line: 'siege', tier: 3, name: 'ปืนใหญ่ทลายเมือง', icon: '💥', cost: 1800, s: { tower: 0.65, dmg: 0.08 } },
+    { id: 'jungle1', line: 'jungle', tier: 1, name: 'มีดพรานป่า', icon: '🔪', cost: 450, s: { jungle: 0.25 } },
+    { id: 'jungle2', line: 'jungle', tier: 2, name: 'ธนูล่าสัตว์', icon: '🏹', cost: 1000, s: { jungle: 0.5, speed: 0.03 } },
+    { id: 'jungle3', line: 'jungle', tier: 3, name: 'เขี้ยวพญาเสือ', icon: '🐯', cost: 1750, s: { jungle: 0.8, dmg: 0.05 } },
+    { id: 'gold1', line: 'gold', tier: 1, name: 'ถุงเงินพ่อค้า', icon: '👝', cost: 400, s: { gold: 0.05 } },
+    { id: 'gold2', line: 'gold', tier: 2, name: 'ตะกร้าทองคำ', icon: '🧺', cost: 900, s: { gold: 0.1, hp: 0.04 } },
+    { id: 'gold3', line: 'gold', tier: 3, name: 'ขุมทรัพย์เศรษฐี', icon: '🏺', cost: 1500, s: { gold: 0.16, hp: 0.08 } }
   ];
+  TR.ITEM_STATS = ['dmg', 'atkSpd', 'crit', 'pen', 'armor', 'hp', 'ls', 'regen', 'speed', 'cdr', 'tower', 'jungle', 'gold'];
   TR.ITEM_BY_ID = {};
   TR.ITEMS.forEach(function (it) { TR.ITEM_BY_ID[it.id] = it; });
   TR.itemAt = function (line, tier) { for (let i = 0; i < TR.ITEMS.length; i++) if (TR.ITEMS[i].line === line && TR.ITEMS[i].tier === tier) return TR.ITEMS[i]; return null; };
   // คำอธิบายสร้างจากค่าใน s (ไม่ต้องเขียนซ้ำ)
   TR.itemDesc = function (it) {
-    const L = { dmg: 'ดาเมจ', atkSpd: 'ตีเร็ว', hp: 'เลือด', speed: 'วิ่งเร็ว', tower: 'ดาเมจใส่ป้อม', armor: 'ลดดาเมจรับ', ls: 'ดูดเลือด' }, out = [];
-    ['dmg', 'atkSpd', 'armor', 'hp', 'ls', 'speed', 'tower'].forEach(function (k) { if (it.s[k]) out.push(L[k] + ' +' + Math.round(it.s[k] * 100) + '%'); });
+    const L = { dmg: 'ดาเมจ', atkSpd: 'ตีเร็ว', hp: 'เลือด', speed: 'วิ่งเร็ว', tower: 'ดาเมจใส่ป้อม', armor: 'ลดดาเมจรับ', ls: 'ดูดเลือด', crit: 'โอกาสคริติคอล', pen: 'ทะลวงเกราะ', regen: 'ฟื้นเลือด/วิ', cdr: 'ลดคูลดาวน์', jungle: 'ดาเมจใส่มอนป่า', gold: 'ทองที่ได้' }, out = [];
+    TR.ITEM_STATS.forEach(function (k) { if (it.s[k]) out.push(L[k] + ' +' + (k === 'regen' ? (it.s[k] * 100).toFixed(1) : Math.round(it.s[k] * 100)) + '%'); });
     return out.join(' · ');
   };
   // ลำดับสายที่บอทเก็บตามบทบาท (เก็บทีละสายจนครบชั้น 3 ถึงขยับไปสายถัดไป)
   TR.ITEM_BUILD = {
-    tank:     ['def', 'move', 'life', 'siege', 'atk', 'spd'],
-    fighter:  ['atk', 'move', 'life', 'def', 'siege', 'spd'],
-    assassin: ['move', 'atk', 'life', 'spd', 'siege', 'def'],
-    marksman: ['spd', 'atk', 'move', 'life', 'siege', 'def'],
-    mage:     ['move', 'atk', 'life', 'def', 'siege', 'spd'],
-    support:  ['move', 'life', 'def', 'spd', 'siege', 'atk']
+    tank:     ['def', 'wall', 'move', 'regen', 'cdr', 'siege', 'life', 'atk', 'vamp', 'spd', 'crit', 'pen', 'jungle', 'gold'],
+    fighter:  ['atk', 'vamp', 'move', 'def', 'crit', 'siege', 'life', 'pen', 'spd', 'wall', 'cdr', 'regen', 'jungle', 'gold'],
+    assassin: ['move', 'crit', 'pen', 'atk', 'vamp', 'siege', 'life', 'spd', 'def', 'cdr', 'wall', 'regen', 'jungle', 'gold'],
+    marksman: ['spd', 'crit', 'move', 'pen', 'vamp', 'siege', 'atk', 'life', 'def', 'cdr', 'wall', 'regen', 'jungle', 'gold'],
+    mage:     ['cdr', 'atk', 'move', 'life', 'pen', 'siege', 'def', 'regen', 'vamp', 'spd', 'crit', 'wall', 'jungle', 'gold'],
+    support:  ['move', 'regen', 'cdr', 'def', 'life', 'siege', 'wall', 'atk', 'vamp', 'spd', 'crit', 'pen', 'jungle', 'gold']
   };
+  TR.ITEM_BUILD_JUNGLE = ['jungle', 'move', 'atk', 'vamp', 'life', 'siege', 'def', 'crit', 'pen', 'cdr', 'regen', 'wall', 'spd', 'gold'];
 
   /* ประวัติอัปเดต — กล่องข้อความอัปเดตในเกมอ่านจากที่นี่
      ทุกครั้งที่อัปเดตเกม: เพิ่มรายการใหม่ไว้บนสุด และแก้ TR.VERSION ให้ตรงกัน
      ผู้เล่นที่ยังไม่เคยเห็นเวอร์ชันนั้นจะเห็นกล่องอัปเดตขึ้นเองตอนเปิดเกม */
   TR.CHANGELOG = [
+    {
+      version: '0.7.0',
+      date: '2026-10-20',
+      title: 'สเปลเสริม กลับพระนคร และไอเทม 42 ชิ้น',
+      items: [
+        'เลือกสเปลเสริมก่อนเริ่มแมตช์ 1 จาก 7: ยาทิพย์ ฟาดป่า เหินฟ้า ลมปราณ ล้างอาถรรพ์ ผ้ายันต์กำบัง สังข์เสียงก้อง กดปุ่ม F หรือแตะปุ่มข้างสกิล บอทใช้สเปลเองด้วย',
+        'กลับพระนคร (กด C หรือแตะปุ่ม 🏯): ยืนร่าย 6 วินาทีแล้วกลับฐาน ถ้าโดนตี โดนสตัน ขยับ หรือใช้สกิลจะถูกขัด บอทเลือดน้อยก็ใช้กลับบ้านเหมือนกัน',
+        'น้ำพุทิพย์หน้าฐานของทั้งสองทีม ยืนใกล้ ๆ ฟื้นเลือดเร็ว',
+        'ร้านค้าขยายจาก 18 เป็น 42 ชิ้น ใน 14 สาย: โจมตี ตีเร็ว คมสังหาร ทะลวงเกราะ ดูดเลือด ป้องกัน กำแพงเมือง ชีวิต ฟื้นฟู เคลื่อนที่ มนตรา ทลายค่าย ล่าป่า ทรัพย์ มีสเตตัสใหม่ เช่น โอกาสคริติคอล ทะลวงเกราะ ลดคูลดาวน์ ฟื้นเลือดต่อวินาที ดาเมจใส่มอนป่า ทองที่ได้เพิ่ม',
+        'ปุ่มข้อมูลไอเทมในร้านค้าเลื่อนตามจอ ไม่ต้องเลื่อนลงไปหา'
+      ]
+    },
     {
       version: '0.6.0',
       date: '2026-10-20',

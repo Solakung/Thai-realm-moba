@@ -21,6 +21,7 @@
     const ai = u.ai;
     if (g.t < ai.next) return;
     ai.next = g.t + 0.15 + (u.id % 5) * 0.01;
+    if (u.recall) return; // กำลังร่ายกลับพระนคร: ยืนนิ่ง
 
     const dir = u.team === 0 ? 1 : -1;
     const role = TR.ROLES[u.role];

@@ -822,6 +822,13 @@
         if (u.dash) spawnPart(x, y - 8, 0, 0, 0.3, 4.5, u.def.colors.accent, 'ghost');
         const hh = hh3 || 32 * sc / HERO_SC * 0.9;
         drawStatus(c, g, u, x, y, rt, hh);
+        if (u.recall) {
+          const pr = clamp((g.t - u.recall.start) / (u.recall.end - u.recall.start), 0, 1);
+          const gr = c.createLinearGradient(0, y - 80, 0, y); gr.addColorStop(0, 'rgba(128,216,255,0)'); gr.addColorStop(1, 'rgba(128,216,255,.55)');
+          c.fillStyle = gr; c.fillRect(x - 9, y - 80, 18, 80);
+          c.strokeStyle = '#80d8ff'; c.lineWidth = 2; c.beginPath(); c.ellipse(x, y, 17, 17 * ST.K, 0, -Math.PI / 2, -Math.PI / 2 + TAU * pr); c.stroke();
+          c.fillStyle = '#e1f7ff'; c.font = 'bold 6px sans-serif'; c.textAlign = 'center'; c.fillText(TR.RECALL.name, x, y + 14);
+        }
         if (u.casting) { c.globalAlpha = 0.5; c.strokeStyle = u.def.colors.accent; c.lineWidth = 1; c.beginPath(); c.ellipse(x, y, 11 + Math.sin(rt * 14), 4, 0, 0, TAU); c.stroke(); c.globalAlpha = 1; }
         let sh = 0; for (const e of u.fx) if (e.type === 'shield' && e.amt > 0 && e.until > g.t) sh += e.amt;
         const by = y - hh - 5;
@@ -831,6 +838,27 @@
         c.fillStyle = '#fff'; c.font = 'bold 5.4px sans-serif'; c.textAlign = 'center'; c.fillText(String(u.level), x - 13, by + 3.8);
         if (u === pl) { const bounce = Math.sin(rt * 5) * 1.5; poly(c, [x - 3.6, by - 8 + bounce, x + 3.6, by - 8 + bounce, x, by - 2.6 + bounce], '#ffeb3b', true); }
       }
+    }
+  }
+
+  /* ================= น้ำพุทิพย์หน้าฐาน (ฟื้นเลือดเร็วเมื่ออยู่ใกล้) ================= */
+  function drawFountains(c, g, rt) {
+    for (let t = 0; t < 2; t++) {
+      const x = t === 0 ? 100 : CFG.W - 100, y = CFG.baseY;
+      if (x < ST.camX - 90 || x > ST.camX + view.w + 90) continue;
+      circ(c, x, y, 58, 'rgba(60,40,30,.35)');
+      circ(c, x, y, 52, '#8d7b68'); circ(c, x, y, 46, 'rgba(110,200,235,.9)');
+      const p = 0.5 + 0.5 * Math.sin(rt * 2);
+      c.globalAlpha = 0.25 + 0.2 * p; circ(c, x, y, 36 + 4 * p, '#e1f7ff'); c.globalAlpha = 1;
+      c.strokeStyle = TEAM[t]; c.lineWidth = 2; c.globalAlpha = 0.7; c.beginPath(); c.arc(x, y, 52, 0, TAU); c.stroke(); c.globalAlpha = 1;
+      UP(c, y);
+      fillRR(c, x - 6, y - 12, 12, 12, 3, '#9e8e7c', true); fillRR(c, x - 3, y - 26, 6, 15, 3, '#b8a794', true);
+      for (let i = 0; i < 7; i++) {
+        const ph = (rt * 0.9 + i / 7) % 1, a = i / 7 * TAU + 0.3, r = ph * 26;
+        c.globalAlpha = 0.9 * (1 - ph); circ(c, x + Math.cos(a) * r, y - 26 - Math.sin(ph * Math.PI) * 18 + ph * 22, 1.7, '#d7f4ff');
+      }
+      c.globalAlpha = 1;
+      GT(c);
     }
   }
 
@@ -951,6 +979,7 @@
     if (RS.eraFade < 1) { drawGroundLayer(c, g, camX, camY, RS.eraPrev, 1, rt); drawGroundLayer(c, g, camX, camY, g.era, RS.eraFade, rt); }
     else drawGroundLayer(c, g, camX, camY, g.era, 1, rt);
     drawBases(c, g, rt);
+    drawFountains(c, g, rt);
     drawZones(c, g, rt);
     drawUnits(c, g, alpha, dt, rt, camX, camY);
     drawProjs(c, g);

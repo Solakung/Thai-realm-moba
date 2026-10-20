@@ -175,3 +175,18 @@ button.ghost, .card button:not(.primary) { background: var(--panel2); border: 1p
 
 .hbtns { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 #toast { position: fixed; left: 50%; top: 14%; transform: translateX(-50%); z-index: 60; background: rgba(12,14,20,.92); border: 1px solid var(--line); border-radius: 12px; padding: 10px 16px; font-size: 14px; max-width: 86vw; text-align: center; pointer-events: none; }
+
+/* สเปล / กลับพระนคร */
+#spBox { position: absolute; right: max(14px, env(safe-area-inset-right)); bottom: calc(max(14px, env(safe-area-inset-bottom)) + 92px); display: flex; gap: 10px; pointer-events: auto; }
+.spb { position: relative; width: 52px; height: 52px; border-radius: 50%; background: var(--panel2); border: 2px solid #80d8ff; overflow: hidden; padding: 0; touch-action: none; color: #fff; }
+.spb .ic { position: absolute; top: 5px; left: 0; right: 0; text-align: center; font-size: 19px; line-height: 1; }
+.spb .nm { position: absolute; inset: auto 1px 4px; font-size: 8px; line-height: 1.05; text-align: center; }
+.spb .key { position: absolute; top: 1px; right: 5px; font: 700 9px monospace; color: var(--gold); }
+.spb .cd { position: absolute; inset: 0; background: rgba(0,0,0,.68); display: none; align-items: center; justify-content: center; font: 700 16px monospace; }
+.spb.wait .cd { display: flex; } .spb:active { transform: scale(.94); }
+#spellGrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.spbtn { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 6px 2px; color: #fff; text-align: center; font-size: 11px; }
+.spbtn .ic { display: block; font-size: 20px; } .spbtn.sel { border-color: #80d8ff; background: rgba(128,216,255,.14); }
+#spellInfo { margin-top: 6px; font-size: 12px; color: var(--dim); min-height: 32px; }
+#shopInfo { position: sticky; bottom: 0; background: rgba(12,18,28,.97); }
+@media (max-height: 460px) { #spBox { bottom: calc(max(8px, env(safe-area-inset-bottom)) + 72px); } .spb { width: 44px; height: 44px; } .spb .ic { font-size: 16px; top: 3px; } }
