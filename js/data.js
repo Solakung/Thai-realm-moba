@@ -4,7 +4,7 @@
   'use strict';
   const TR = (G.TR = G.TR || {});
 
-  TR.VERSION = '0.11.0';
+  TR.VERSION = '0.12.0';
 
   TR.CFG = {
     dt: 0.05,          // ตรรกะเกม 20 ครั้งต่อวินาที
@@ -115,12 +115,12 @@
 
   // ค่าตั้งต้นของบทบาท (งบพลังรวมเท่ากัน: ได้ด้านหนึ่งเสียอีกด้าน)
   TR.ROLES = {
-    tank:     { name: 'แทงค์',    hp: 3600, atk: 78,  as: 0.9,  range: 30,  speed: 66, armor: 0.35, radius: 9 },
-    fighter:  { name: 'นักสู้',   hp: 2800, atk: 108, as: 1.0,  range: 32,  speed: 74, armor: 0.25, radius: 8 },
-    mage:     { name: 'เมจ',      hp: 1800, atk: 90,  as: 0.8,  range: 130, speed: 70, armor: 0.10, radius: 7 },
-    marksman: { name: 'มือปืน',   hp: 1800, atk: 95,  as: 1.1,  range: 160, speed: 68, armor: 0.10, radius: 7 },
-    assassin: { name: 'แอสซาซิน', hp: 2000, atk: 100, as: 1.0,  range: 30,  speed: 88, armor: 0.12, radius: 7 },
-    support:  { name: 'ซัพพอร์ต', hp: 2300, atk: 55,  as: 1.0,  range: 110, speed: 74, armor: 0.15, radius: 8 }
+    tank:     { name: 'แทงค์',    hp: 3600, atk: 78,  as: 0.9,  range: 30,  speed: 66, armor: 0.35, mres: 0.25, radius: 9 },
+    fighter:  { name: 'นักสู้',   hp: 2800, atk: 108, as: 1.0,  range: 32,  speed: 74, armor: 0.25, mres: 0.18, radius: 8 },
+    mage:     { name: 'เมจ',      hp: 1800, atk: 90,  as: 0.8,  range: 130, speed: 70, armor: 0.10, mres: 0.15, radius: 7 },
+    marksman: { name: 'มือปืน',   hp: 1800, atk: 95,  as: 1.1,  range: 160, speed: 68, armor: 0.10, mres: 0.08, radius: 7 },
+    assassin: { name: 'แอสซาซิน', hp: 2000, atk: 100, as: 1.0,  range: 30,  speed: 88, armor: 0.12, mres: 0.08, radius: 7 },
+    support:  { name: 'ซัพพอร์ต', hp: 2300, atk: 55,  as: 1.0,  range: 110, speed: 74, armor: 0.15, mres: 0.15, radius: 8 }
   };
 
   // ตัวคูณปรับสมดุลรายฮีโร่ (จากผลรันบอทหลายรอบ) hp/dmg 1 = ปกติ
@@ -157,6 +157,7 @@
   TR.HEROES = [
     // ---------- สุโขทัย ----------
     { id: 'nakdab', name: 'นักดาบอาสา', era: 0, role: 'fighter',
+      passive: { id: 'nakdab', name: 'ใจนักสู้', desc: 'ตีปกติครั้งที่ 4 ของทุกชุดแรงขึ้น 60%' }, skillMag: false, basicMag: false,
       strength: 'ประชิดตัวดี มีสกิลตอบโต้', weakness: 'ไม่มีสกิลหนี',
       colors: { body: '#c0392b', accent: '#f1c40f', hair: '#4e342e' },
       skills: [
@@ -171,6 +172,7 @@
           fx: [{ k: 'buff', who: 'self', dur: 5, lifesteal: 0.3, ccImmune: true, dmgMul: 1.1 }] }
       ] },
     { id: 'phran', name: 'พรานป่า', era: 0, role: 'marksman',
+      passive: { id: 'phran', name: 'ตาเหยี่ยวพราน', desc: 'ดาเมจใส่เป้าที่ถูกชะลอหรือถูกตรึงเพิ่ม 15%' }, skillMag: false, basicMag: false,
       strength: 'ยิงไกล วางกับดักคุมเลน', weakness: 'ประชิดแล้วเปราะ ช้าลงตอนวางกับดัก',
       colors: { body: '#2e7d32', accent: '#a1887f', hair: '#3e2723' },
       skills: [
@@ -185,6 +187,7 @@
           fx: [{ k: 'cone', range: 170, n: 7, spread: 50, dmg: 95, speed: 240 }] }
       ] },
     { id: 'mohya', name: 'หมอยาสมุนไพร', era: 0, role: 'support',
+      passive: { id: 'mohya', name: 'กลิ่นสมุนไพร', desc: 'เพื่อนในระยะ 180 ฟื้นเลือดช้า ๆ 0.8% ต่อวินาที' }, skillMag: true, basicMag: false,
       strength: 'ฮีลต่อเนื่อง ล้างสถานะลบ', weakness: 'แทบไม่มีดาเมจ ต้องอยู่ใกล้เป้าหมาย',
       colors: { body: '#7cb342', accent: '#fff8e1', hair: '#5d4037' },
       skills: [
@@ -200,6 +203,7 @@
       ] },
     // ---------- อยุธยา ----------
     { id: 'kwan', name: 'ควาญช้างศึก', era: 1, role: 'tank',
+      passive: { id: 'kwan', name: 'ผิวหนาช้างศึก', desc: 'เลือดต่ำกว่าครึ่ง ได้เกราะเพิ่ม 10% และวิ่งเร็วขึ้น 10%' }, skillMag: false, basicMag: false,
       strength: 'ทนมาก พังป้อมไว', weakness: 'ช้า โดนยิงไกลทุบ',
       colors: { body: '#8d6e63', accent: '#ffb300', hair: '#37474f' },
       skills: [
@@ -214,6 +218,7 @@
           fx: [{ k: 'nova', r: 100, dmg: 260, stun: 0.6 }, { k: 'buff', who: 'self', dur: 6, towerMul: 1.6 }] }
       ] },
     { id: 'mothamma', name: 'หมอธรรม', era: 1, role: 'mage',
+      passive: { id: 'mothamma', name: 'ธาตุยันต์สามชั้น', desc: 'ร่ายสกิลครบ 3 ครั้ง ครั้งถัดไปแรงขึ้น 30%' }, skillMag: true, basicMag: true,
       strength: 'ดาเมจกลุ่ม คุมพื้นที่', weakness: 'เลือดน้อย โดนประชิดแล้วจบ',
       colors: { body: '#6a1b9a', accent: '#ffeb3b', hair: '#212121' },
       skills: [
@@ -228,6 +233,7 @@
           fx: [{ k: 'zone', range: 140, r: 70, dur: 3, tick: 0.5, dmg: 100, channel: true }] }
       ] },
     { id: 'muay', name: 'นักมวยคาดเชือก', era: 1, role: 'fighter',
+      passive: { id: 'muay', name: 'หมัดไม่หยุด', desc: 'ตีโดนต่อเนื่องได้ตีเร็วขึ้นทีละ 5% (ซ้อนได้ 5 ชั้น)' }, skillMag: false, basicMag: false,
       strength: 'คอมโบต่อเนื่อง ติดมึน', weakness: 'ระยะสั้นมาก ถูกคุมแล้วคอมโบขาด',
       colors: { body: '#ef6c00', accent: '#ffffff', hair: '#212121' },
       skills: [
@@ -243,6 +249,7 @@
       ] },
     // ---------- ยุคสงคราม ----------
     { id: 'seri', name: 'เสรีไทย', era: 2, role: 'marksman',
+      passive: { id: 'seri', name: 'ยิงจากที่ซ่อน', desc: 'ตีและยิงสกิลขณะอยู่ในพุ่มไม้ ดาเมจเพิ่ม 25%' }, skillMag: false, basicMag: false,
       strength: 'ยิงไกล ซุ่มในพุ่ม', weakness: 'ถูกตอบโต้ได้ถ้าโดนจับตำแหน่ง',
       colors: { body: '#33691e', accent: '#cfd8dc', hair: '#455a64' },
       skills: [
@@ -257,6 +264,7 @@
           fx: [{ k: 'mark', range: 300, dur: 4, mul: 0.1 }] }
       ] },
     { id: 'yai', name: 'ผู้ใหญ่บ้านพิทักษ์', era: 2, role: 'tank',
+      passive: { id: 'yai', name: 'พ่อเมือง', desc: 'เพื่อนในระยะ 220 ได้เกราะเพิ่ม 5%' }, skillMag: false, basicMag: false,
       strength: 'ล่อเป้า แบ่งดาเมจแทนเพื่อน', weakness: 'ดาเมจต่ำ ต้องมีเพื่อนอยู่ใกล้',
       colors: { body: '#5d4037', accent: '#ffd54f', hair: '#8d6e63' },
       skills: [
@@ -271,6 +279,7 @@
           fx: [{ k: 'buff', who: 'allies', r: 150, dur: 5, armorAdd: 0.2 }] }
       ] },
     { id: 'spy', name: 'สายลับเงา', era: 2, role: 'assassin',
+      passive: { id: 'spy', name: 'แทงข้างหลัง', desc: 'โจมตีเป้าที่หันหลังให้ ดาเมจเพิ่ม 30%' }, skillMag: false, basicMag: false,
       strength: 'เก็บเป้าเดียวที่เลือดน้อย', weakness: 'เปราะมาก โดนคุมแล้วจบ',
       colors: { body: '#263238', accent: '#b71c1c', hair: '#000000' },
       skills: [
@@ -286,6 +295,7 @@
       ] },
     // ---------- ปัจจุบัน ----------
     { id: 'mae', name: 'แม่ค้าริมทาง', era: 3, role: 'support',
+      passive: { id: 'mae', name: 'ค้าขายคล่อง', desc: 'รายได้ทอง +12% และได้ทองเพิ่ม 2 ต่อวินาที' }, skillMag: true, basicMag: false,
       strength: 'ฮีลและบัฟให้ทีม', weakness: 'ดาเมจต่ำ โดนจับก่อนเสมอ',
       colors: { body: '#ec407a', accent: '#fff59d', hair: '#4e342e' },
       skills: [
@@ -300,6 +310,7 @@
           fx: [{ k: 'heal', who: 'all', r: 130, pct: 0.22, hot: 5, cleanse: true }] }
       ] },
     { id: 'win', name: 'วินมอเตอร์ไซค์', era: 3, role: 'assassin',
+      passive: { id: 'win', name: 'ซิ่งไม่ลดเกียร์', desc: 'วิ่งต่อเนื่องได้ความเร็วเพิ่มสูงสุด 15%' }, skillMag: false, basicMag: false,
       strength: 'เร็ว ชนแล้วถอยไว', weakness: 'เลือดต่ำ ดาเมจต่อครั้งน้อย',
       colors: { body: '#ff7043', accent: '#212121', hair: '#212121' },
       skills: [
@@ -314,6 +325,7 @@
           fx: [{ k: 'dash', dist: 110, dmg: 130, toTarget: true, range: 140, repeat: 3, gap: 0.3, w: 16 }] }
       ] },
     { id: 'chang', name: 'ช่างไฟนักประดิษฐ์', era: 3, role: 'mage',
+      passive: { id: 'chang', name: 'ไฟช็อตสะสม', desc: 'สกิลโดนเป้าเดิม 3 ครั้งใน 5 วินาที ระเบิดช็อตดาเมจเวทและมึน 0.4 วินาที' }, skillMag: true, basicMag: true,
       strength: 'ดาเมจลูกโซ่ วางอุปกรณ์ล่วงหน้า', weakness: 'อุปกรณ์ถูกทำลายได้ เลือดต่ำ',
       colors: { body: '#fdd835', accent: '#455a64', hair: '#263238' },
       skills: [
@@ -385,7 +397,9 @@
     { id: 'cdr', name: 'มนตรา', icon: '📜' },
     { id: 'siege', name: 'ทลายค่าย', icon: '🔨' },
     { id: 'jungle', name: 'ล่าป่า', icon: '🌲' },
-    { id: 'gold', name: 'ทรัพย์', icon: '💰' }
+    { id: 'gold', name: 'ทรัพย์', icon: '💰' },
+    { id: 'mpen', name: 'ทะลวงเวท', icon: '🔮' },
+    { id: 'ward', name: 'ต้านเวท', icon: '🧿' }
   ];
   TR.ITEMS = [
     { id: 'atk1', line: 'atk', tier: 1, name: 'ดาบเหล็กไหล', icon: '🗡️', cost: 450, s: { dmg: 0.07 } },
@@ -429,33 +443,73 @@
     { id: 'jungle3', line: 'jungle', tier: 3, name: 'เขี้ยวพญาเสือ', icon: '🐯', cost: 1750, s: { jungle: 0.8, dmg: 0.05 } },
     { id: 'gold1', line: 'gold', tier: 1, name: 'ถุงเงินพ่อค้า', icon: '👝', cost: 400, s: { gold: 0.05 } },
     { id: 'gold2', line: 'gold', tier: 2, name: 'ตะกร้าทองคำ', icon: '🧺', cost: 900, s: { gold: 0.1, hp: 0.04 } },
-    { id: 'gold3', line: 'gold', tier: 3, name: 'ขุมทรัพย์เศรษฐี', icon: '🏺', cost: 1500, s: { gold: 0.16, hp: 0.08 } }
+    { id: 'gold3', line: 'gold', tier: 3, name: 'ขุมทรัพย์เศรษฐี', icon: '🏺', cost: 1500, s: { gold: 0.16, hp: 0.08 } },
+    { id: 'mpen1', line: 'mpen', tier: 1, name: 'ลูกแก้วเลือนราง', icon: '🔮', cost: 450, s: { mpen: 0.05, dmg: 0.02 } },
+    { id: 'mpen2', line: 'mpen', tier: 2, name: 'ผลึกทะลวงมนตรา', icon: '💎', cost: 1050, s: { mpen: 0.1, dmg: 0.04 } },
+    { id: 'mpen3', line: 'mpen', tier: 3, name: 'แก้วจินดามณี', icon: '🔮', cost: 1850, s: { mpen: 0.16, dmg: 0.07 } },
+    { id: 'ward1', line: 'ward', tier: 1, name: 'ผ้าประเจียด', icon: '🧣', cost: 450, s: { mres: 0.06, hp: 0.04 } },
+    { id: 'ward2', line: 'ward', tier: 2, name: 'ตะกรุดต้านเวท', icon: '🧿', cost: 1000, s: { mres: 0.12, hp: 0.08 } },
+    { id: 'ward3', line: 'ward', tier: 3, name: 'พระเครื่องกันคุณไสย', icon: '📿', cost: 1800, s: { mres: 0.2, hp: 0.12 } }
   ];
-  TR.ITEM_STATS = ['dmg', 'atkSpd', 'crit', 'pen', 'armor', 'hp', 'ls', 'regen', 'speed', 'cdr', 'tower', 'jungle', 'gold'];
+  TR.ITEM_STATS = ['dmg', 'atkSpd', 'crit', 'pen', 'mpen', 'armor', 'mres', 'hp', 'ls', 'regen', 'speed', 'cdr', 'tower', 'jungle', 'gold'];
+
+  // พลังแฝง (passive) และไอเทมใช้งาน (active) ของไอเทมชั้น 3 — sim.js อ่านจาก u.itmFx
+  TR.ITEM_FX = {
+    atk3:   { passive: 'พิฆาต', desc: 'ตีปกติใส่เป้าที่เลือดต่ำกว่า 30% ดาเมจเพิ่ม 25%' },
+    spd3:   { passive: 'แสงสุริยัน', desc: 'ตีปกติโดน ชะลอเป้า 15% นาน 1.5 วินาที' },
+    crit3:  { passive: 'คมกริบ', desc: 'ติดคริเพิ่มดาเมจคริอีก 30%' },
+    pen3:   { passive: 'ฉีกเกราะ', desc: 'ตีปกติโดน ลดเกราะเป้า 3% ซ้อนได้ 5 ชั้น นาน 4 วินาที' },
+    vamp3:  { passive: 'อิ่มเลือด', desc: 'ปราบฮีโร่ศัตรู ฟื้นเลือด 12% ของเลือดสูงสุด' },
+    def3:   { active: 'ยันต์กันภัย', cd: 60, desc: 'กดใช้: เกราะกั้น 18% ของเลือดสูงสุด 3 วินาที', icon: '🔰' },
+    wall3:  { passive: 'ปราการสะท้อน', desc: 'สะท้อน 10% ของดาเมจจากการตีปกติที่โดนกลับไปหาผู้ตี' },
+    life3:  { passive: 'ชีวิตที่สอง', cd: 180, desc: 'โดนดาเมจตายครั้งแรก รอดด้วยเลือด 25% และอมตะ 1.5 วินาที (คูลดาวน์ 180 วินาที)' },
+    regen3: { active: 'น้ำอมฤต', cd: 90, desc: 'กดใช้: ฟื้นเลือด 35% ของเลือดสูงสุดใน 4 วินาที', icon: '💧' },
+    move3:  { active: 'เหินเวหา', cd: 60, desc: 'กดใช้: วิ่งเร็วขึ้น 45% นาน 3 วินาที และไม่ติดชะลอ', icon: '🪽' },
+    cdr3:   { passive: 'คาถาแฝงดาบ', desc: 'ใช้สกิลแล้ว ตีปกติครั้งถัดไป (ภายใน 4 วินาที) เพิ่มดาเมจเวท 80' },
+    siege3: { passive: 'ลูกปืนกระจาย', desc: 'ตีปกติใส่ลูกกระจ๊อก ระเบิดกระจาย 40% ให้ลูกกระจ๊อกรอบข้าง' },
+    jungle3:{ passive: 'ล่าสดใหม่', desc: 'ปราบมอนป่า ฟื้นเลือด 12% และได้ทองเพิ่ม 40' },
+    gold3:  { passive: 'เศรษฐีนุ่งขาว', desc: 'ปราบลูกกระจ๊อกได้ทองเพิ่ม 8' },
+    mpen3:  { passive: 'ทลายมนตรา', desc: 'สกิลโดนศัตรู ชะลอ 12% นาน 1 วินาที' },
+    ward3:  { active: 'ล้างคุณไสย', cd: 70, desc: 'กดใช้: ล้างสถานะคุม และลดดาเมจเวทที่ได้รับ 50% นาน 2.5 วินาที', icon: '🧿' }
+  };
   TR.ITEM_BY_ID = {};
   TR.ITEMS.forEach(function (it) { TR.ITEM_BY_ID[it.id] = it; });
   TR.itemAt = function (line, tier) { for (let i = 0; i < TR.ITEMS.length; i++) if (TR.ITEMS[i].line === line && TR.ITEMS[i].tier === tier) return TR.ITEMS[i]; return null; };
   // คำอธิบายสร้างจากค่าใน s (ไม่ต้องเขียนซ้ำ)
   TR.itemDesc = function (it) {
-    const L = { dmg: 'ดาเมจ', atkSpd: 'ตีเร็ว', hp: 'เลือด', speed: 'วิ่งเร็ว', tower: 'ดาเมจใส่ป้อม', armor: 'ลดดาเมจรับ', ls: 'ดูดเลือด', crit: 'โอกาสคริติคอล', pen: 'ทะลวงเกราะ', regen: 'ฟื้นเลือด/วิ', cdr: 'ลดคูลดาวน์', jungle: 'ดาเมจใส่มอนป่า', gold: 'ทองที่ได้' }, out = [];
+    const L = { mpen: 'ทะลวงเวท', mres: 'ต้านเวท', dmg: 'ดาเมจ', atkSpd: 'ตีเร็ว', hp: 'เลือด', speed: 'วิ่งเร็ว', tower: 'ดาเมจใส่ป้อม', armor: 'ลดดาเมจรับ', ls: 'ดูดเลือด', crit: 'โอกาสคริติคอล', pen: 'ทะลวงเกราะ', regen: 'ฟื้นเลือด/วิ', cdr: 'ลดคูลดาวน์', jungle: 'ดาเมจใส่มอนป่า', gold: 'ทองที่ได้' }, out = [];
     TR.ITEM_STATS.forEach(function (k) { if (it.s[k]) out.push(L[k] + ' +' + (k === 'regen' ? (it.s[k] * 100).toFixed(1) : Math.round(it.s[k] * 100)) + '%'); });
+    const fx = TR.ITEM_FX[it.id];
+    if (fx) out.push((fx.active ? '⚡ ใช้งาน ' + fx.active + ' (คูลดาวน์ ' + fx.cd + ' วิ)' : '✦ ' + fx.passive) + ': ' + fx.desc);
     return out.join(' · ');
   };
   // ลำดับสายที่บอทเก็บตามบทบาท (เก็บทีละสายจนครบชั้น 3 ถึงขยับไปสายถัดไป)
   TR.ITEM_BUILD = {
-    tank:     ['def', 'wall', 'move', 'regen', 'cdr', 'siege', 'life', 'atk', 'vamp', 'spd', 'crit', 'pen', 'jungle', 'gold'],
-    fighter:  ['atk', 'vamp', 'siege', 'move', 'def', 'crit', 'life', 'pen', 'spd', 'wall', 'cdr', 'regen', 'jungle', 'gold'],
-    assassin: ['move', 'crit', 'siege', 'pen', 'atk', 'vamp', 'life', 'spd', 'def', 'cdr', 'wall', 'regen', 'jungle', 'gold'],
-    marksman: ['spd', 'crit', 'siege', 'move', 'pen', 'vamp', 'atk', 'life', 'def', 'cdr', 'wall', 'regen', 'jungle', 'gold'],
-    mage:     ['cdr', 'atk', 'move', 'life', 'pen', 'siege', 'def', 'regen', 'vamp', 'spd', 'crit', 'wall', 'jungle', 'gold'],
-    support:  ['move', 'regen', 'cdr', 'def', 'life', 'siege', 'wall', 'atk', 'vamp', 'spd', 'crit', 'pen', 'jungle', 'gold']
+    tank:     ['def', 'wall', 'move', 'regen', 'cdr', 'ward', 'siege', 'life', 'atk', 'vamp', 'spd', 'crit', 'pen', 'mpen', 'jungle', 'gold'],
+    fighter:  ['atk', 'vamp', 'siege', 'move', 'def', 'ward', 'crit', 'life', 'pen', 'spd', 'wall', 'cdr', 'regen', 'mpen', 'jungle', 'gold'],
+    assassin: ['move', 'crit', 'siege', 'pen', 'atk', 'vamp', 'life', 'spd', 'def', 'ward', 'cdr', 'wall', 'regen', 'mpen', 'jungle', 'gold'],
+    marksman: ['spd', 'crit', 'siege', 'move', 'pen', 'vamp', 'atk', 'life', 'def', 'ward', 'cdr', 'wall', 'regen', 'mpen', 'jungle', 'gold'],
+    mage:     ['cdr', 'mpen', 'atk', 'move', 'life', 'ward', 'siege', 'def', 'regen', 'vamp', 'spd', 'crit', 'pen', 'wall', 'jungle', 'gold'],
+    support:  ['move', 'regen', 'cdr', 'def', 'ward', 'life', 'siege', 'wall', 'atk', 'vamp', 'spd', 'crit', 'pen', 'mpen', 'jungle', 'gold']
   };
-  TR.ITEM_BUILD_JUNGLE = ['jungle', 'move', 'atk', 'vamp', 'life', 'siege', 'def', 'crit', 'pen', 'cdr', 'regen', 'wall', 'spd', 'gold'];
+  TR.ITEM_BUILD_JUNGLE = ['jungle', 'move', 'atk', 'vamp', 'life', 'siege', 'def', 'ward', 'crit', 'pen', 'cdr', 'regen', 'wall', 'spd', 'mpen', 'gold'];
 
   /* ประวัติอัปเดต — กล่องข้อความอัปเดตในเกมอ่านจากที่นี่
      ทุกครั้งที่อัปเดตเกม: เพิ่มรายการใหม่ไว้บนสุด และแก้ TR.VERSION ให้ตรงกัน
      ผู้เล่นที่ยังไม่เคยเห็นเวอร์ชันนั้นจะเห็นกล่องอัปเดตขึ้นเองตอนเปิดเกม */
   TR.CHANGELOG = [
+    {
+      version: '0.12.0',
+      date: '2026-10-21',
+      title: 'ดาเมจเวท พลังติดตัวฮีโร่ และไอเทมใช้งาน/พลังแฝง',
+      items: [
+        'แยกดาเมจกายภาพ/ดาเมจเวท: สกิลของเมจ ซัพพอร์ต และบางฮีโร่เป็นดาเมจเวท ลดด้วย "ต้านเวท" แทนเกราะ (ตัวเลขสีม่วง) แทงค์/นักสู้ต้านเวทกลาง ๆ มือปืนกับแอสซาซินต้านเวทต่ำ',
+        'ไอเทมสายใหม่ 2 สาย: ทะลวงเวท (ลดต้านเวทเป้า) และต้านเวท (เกราะเวท) รวมเป็น 16 สาย 48 ชิ้น',
+        'ฮีโร่ทั้ง 12 มี "พลังติดตัว" ของตัวเอง เช่น นักดาบตีที่ 4 แรงขึ้น, แม่ค้าได้ทองเพิ่ม, วินมอเตอร์ยิ่งวิ่งยิ่งเร็ว, ช่างไฟสะสมไฟช็อตแล้วสตัน ดูได้ในหน้าเลือกฮีโร่',
+        'ไอเทมชั้น 3 ทุกสายมีเอฟเฟกต์พิเศษ: 4 ชิ้นเป็นปุ่มกดใช้ได้ (ยันต์กันภัย, น้ำอมฤต, เหินเวหา, ล้างคุณไสย — ปุ่ม G/H/T/Y) ที่เหลือเป็นพลังแฝง เช่น ชุบชีวิต ฉีกเกราะ สะท้อนดาเมจ ดูดเลือดตอนฆ่า',
+        'บอทใช้ไอเทมกดใช้เองตามสถานการณ์ และคำอธิบายในร้านค้าบอกเอฟเฟกต์ครบ'
+      ]
+    },
     {
       version: '0.11.0',
       date: '2026-10-21',

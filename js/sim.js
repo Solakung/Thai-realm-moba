@@ -127,7 +127,7 @@
 
   function mkUnit(g, o) {
     const u = Object.assign({ id: g.idc++, x: 0, y: 0, dead: false, fx: [], face: [1, 0], atkCd: 0, radius: 8, flash: 0,
-      baseArmor: 0, m: { speed: 1, armor: 0, dmg: 1, ls: 0, tower: 1, stun: false, root: false, slow: 0, blind: false, stealth: false, atkSpd: 1 } }, o);
+      baseArmor: 0, m: { speed: 1, armor: 0, dmg: 1, ls: 0, tower: 1, stun: false, root: false, slow: 0, blind: false, stealth: false, atkSpd: 1, mres: 0 } }, o);
     u.px = u.x; u.py = u.y;
     g.units.push(u);
     return u;
@@ -141,7 +141,7 @@
     const sp = spawnPos(team, slot);
     const u = mkUnit(g, {
       type: 'hero', def: def, team: team, role: def.role, emblem: emblem, isPlayer: isPlayer, slot: slot,
-      x: sp.x, y: sp.y, hp: 1, maxHp: 1, radius: r.radius, baseArmor: r.armor,
+      x: sp.x, y: sp.y, hp: 1, maxHp: 1, radius: r.radius, baseArmor: r.armor, baseMres: r.mres || 0, itmFx: {}, itemCd: {},
       level: 1, xp: 0, gold: 0, items: [], itm: zeroItm(), cd: [0, 0, 0], spell: 'heal', spCd: 0, sl: [0, 0, 0], atkHold: false, atkBuf: -99, atkType: null, lockT: null, prio: 'near', autoSkill: !isPlayer, atkMode: 'auto', recall: null, hurtT: -99, input: { dx: 0, dy: 0 }, kills: 0, deaths: 0, cs: 0,
       bush: -1, revealT: 0, hid: [false, false], streak: 0, mkN: 0, mkT: -99, lastHitTeam: -1, stDmg: 0, stTwr: 0, stTaken: 0, stHeal: 0, stTowers: 0, stMon: 0, assists: 0, recent: {}, greedCount: 0, greedReady: false, decoyCd: 0, untarget: 0, still: 0, lastHeroHit: -99, auraT: 0,
       respawnAt: 0, casting: null, dash: null, aiTarget: null, nextMul: 0, goldTotal: 0,
@@ -165,6 +165,7 @@
     const t = zeroItm();
     u.items.forEach(function (id) { const s = TR.ITEM_BY_ID[id].s; Object.keys(s).forEach(function (k) { t[k] += s[k]; }); });
     u.itm = t;
+    const fx = {}; u.items.forEach(function (id) { if (TR.ITEM_FX[id]) fx[id] = true; }); u.itmFx = fx;
   }
   // ชิ้นของสายเดียวกันที่ถืออยู่ (ถ้ามี)
   function ownedInLine(u, line) {
@@ -213,7 +214,7 @@
     for (let n = 0; n < 4; n++) { const id = botNextItem(u); if (!id || !buy(g, u, id)) break; }
   }
 
-  function goldMul(u) { return (TR.EMBLEMS[u.emblem].goldMul || 1) * (1 + (u.itm ? u.itm.gold : 0)); }
+  function goldMul(u) { return (TR.EMBLEMS[u.emblem].goldMul || 1) * (1 + (u.itm ? u.itm.gold : 0)) * (u.def && u.def.passive && u.def.passive.id === 'mae' ? 1.12 : 1); }
   function recalc(g, u) {
     const r = TR.ROLES[u.role], em = TR.EMBLEMS[u.emblem];
     const lv = 1 + CFG.levelBonus * (u.level - 1);
@@ -226,9 +227,21 @@
     u.baseSpeed = r.speed;
   }
 
+  // พลังติดตัวที่ปรับค่าสถานะ (เกราะ/ความเร็ว/ตีเร็ว)
+  function heroPassiveStats(g, u, m) {
+    const pid = u.def.passive && u.def.passive.id;
+    if (pid === 'kwan' && u.hp < u.maxHp * 0.5) { m.armor += 0.1; m.speed *= 1.1; }
+    else if (pid === 'muay' && u.pStack > 0 && u.pT > g.t) m.atkSpd *= 1 + 0.05 * u.pStack;
+    else if (pid === 'win' && u.run > 0) m.speed *= 1 + Math.min(0.15, 0.03 * u.run);
+    // พ่อเมือง: เพื่อนใกล้ ๆ ได้เกราะ
+    for (const y of g.units) {
+      if (y.type !== 'hero' || y.dead || y.team !== u.team || y === u || !y.def.passive || y.def.passive.id !== 'yai') continue;
+      if (Math.hypot(y.x - u.x, y.y - u.y) <= 220) { m.armor += 0.05; break; }
+    }
+  }
   function aggregate(g, u) {
     const t = g.t;
-    const m = { speed: 1, armor: 0, dmg: 1, ls: 0, tower: 1, stun: false, root: false, slow: 0, blind: false, stealth: false, atkSpd: 1 };
+    const m = { speed: 1, armor: 0, dmg: 1, ls: 0, tower: 1, stun: false, root: false, slow: 0, blind: false, stealth: false, atkSpd: 1, mres: 0 };
     let imm = false;
     for (let i = u.fx.length - 1; i >= 0; i--) {
       const e = u.fx[i];
@@ -241,6 +254,7 @@
         case 'buff':
           if (e.speedMul) m.speed *= e.speedMul;
           if (e.armorAdd) m.armor += e.armorAdd;
+          if (e.mresAdd) m.mres += e.mresAdd;
           if (e.dmgMul) m.dmg *= e.dmgMul;
           if (e.lifesteal) m.ls += e.lifesteal;
           if (e.towerMul) m.tower *= e.towerMul;
@@ -251,10 +265,11 @@
       }
     }
     if (imm) { m.stun = false; m.root = false; m.slow = 0; }
-    m.armor += u.baseArmor;
+    m.armor += u.baseArmor; m.mres += u.baseMres || 0;
     if (u.type === 'hero') {
       const em = TR.EMBLEMS[u.emblem];
-      m.armor += (em.armorAdd || 0) + u.itm.armor;
+      m.armor += (em.armorAdd || 0) + u.itm.armor; m.mres += u.itm.mres;
+      heroPassiveStats(g, u, m);
       m.speed *= (em.speedMul || 1) * (1 + u.itm.speed);
       m.ls += u.itm.ls; m.atkSpd *= 1 + u.itm.atkSpd; m.tower *= 1 + u.itm.tower;
     }
@@ -358,6 +373,56 @@
     return out;
   }
 
+  /* ---------- พลังติดตัวฮีโร่ + เอฟเฟกต์ไอเทม ---------- */
+  function passiveDmg(g, src, dst, o) {
+    let mul = 1;
+    const pid = src.def.passive && src.def.passive.id;
+    if (pid === 'nakdab' && o.basic) { src.pN = (src.pN || 0) + 1; if (src.pN >= 4) { src.pN = 0; mul *= 1.6; } }
+    else if (pid === 'phran' && dst.m && (dst.m.slow > 0 || dst.m.root)) mul *= 1.15;
+    else if (pid === 'seri' && src.bush >= 0) mul *= 1.25;
+    else if (pid === 'spy' && dst.face) {
+      const vx = src.x - dst.x, vy = src.y - dst.y, l = Math.hypot(vx, vy) || 1;
+      if ((vx * dst.face[0] + vy * dst.face[1]) / l < -0.3) mul *= 1.3;
+    }
+    if (o.basic && src.itmFx && src.itmFx.atk3 && dst.hp / dst.maxHp < 0.3) mul *= 1.25;
+    return mul;
+  }
+  function onHitEffects(g, src, dst, d, o) {
+    // ปราการสะท้อน
+    if (dst.type === 'hero' && dst.itmFx && dst.itmFx.wall3 && o.basic && src.type !== 'tower' && !dst.dead)
+      hit(g, dst, src, d * 0.1, { raw: true, noCounter: true, extra: true });
+    if (src.type !== 'hero') return;
+    const F = src.itmFx || {};
+    const pid = src.def.passive && src.def.passive.id;
+    if (o.basic) {
+      if (F.spd3 && dst.type !== 'tower') addFx(dst, { type: 'slow', tag: 'spd3' + src.id, pct: 0.15, until: g.t + 1.5 });
+      if (F.pen3 && dst.type === 'hero') {
+        const tag = 'shred' + src.id; let cur = null;
+        for (const e of dst.fx) if (e.tag === tag) cur = e;
+        const n = Math.min(5, (cur ? cur.n : 0) + 1);
+        addFx(dst, { type: 'buff', tag: tag, n: n, armorAdd: -0.03 * n, until: g.t + 4 });
+      }
+      if (F.cdr3 && src.sbT > g.t) { src.sbT = 0; hit(g, src, dst, 80, { raw: true, mag: true, extra: true }); }
+      if (F.siege3 && dst.type === 'minion') {
+        for (const e of g.units) if (e !== dst && e.type === 'minion' && e.team === dst.team && !e.dead && Math.hypot(e.x - dst.x, e.y - dst.y) < 90) hit(g, src, e, d * 0.4, { raw: true, extra: true });
+      }
+      if (pid === 'muay') { src.pStack = Math.min(5, (src.pT > g.t ? src.pStack : 0) + 1); src.pT = g.t + 3; }
+    }
+    if (o.skill) {
+      if (F.mpen3 && dst.type !== 'tower') addFx(dst, { type: 'slow', tag: 'mpen3' + src.id, pct: 0.12, until: g.t + 1 });
+      if (pid === 'chang' && dst.type === 'hero') {
+        if (src.shT && g.t - src.shT < 5) src.shN++; else src.shN = 1;
+        src.shT = g.t;
+        if (src.shN >= 3) {
+          src.shN = 0;
+          hit(g, src, dst, Math.min(260, dst.maxHp * 0.05), { raw: true, mag: true, extra: true });
+          addFx(dst, { type: 'stun', until: g.t + 0.4 });
+          ring(g, dst.x, dst.y, 30, '#80d8ff', 0.3);
+        }
+      }
+    }
+  }
+
   /* ---------- ความเสียหาย ---------- */
   function hit(g, src, dst, base, o) {
     o = o || {};
@@ -366,6 +431,7 @@
     let d = base;
     if (!o.raw && src) {
       d *= (src.dmgBase || 1) * (src.m ? src.m.dmg : 1) * (o.mul || 1);
+      if (src.type === 'hero') d *= passiveDmg(g, src, dst, o);
       if (src.type === 'hero' && src.emblem === 'kro' && dst.hp / dst.maxHp < 0.4) d *= 1.1;
       if (dst.type === 'tower') {
         d *= (src.m ? src.m.tower : 1) * (src.type === 'minion' ? (src.cannon ? CFG.cannon.towerMul : 0.4) : 1);
@@ -373,7 +439,7 @@
       }
       if (src.itm) {
         if (dst.type === 'monster' && src.itm.jungle) d *= 1 + src.itm.jungle;
-        if (o.basic && src.itm.crit > 0 && g.rand() < src.itm.crit) d *= CFG.critMul;
+        if (o.basic && src.itm.crit > 0 && g.rand() < src.itm.crit) d *= CFG.critMul + (src.itmFx && src.itmFx.crit3 ? 0.3 : 0);
       }
       const mk = findFx(dst, 'mark');
       if (mk && src.team === mk.team) d *= 1 + mk.mul;
@@ -385,7 +451,8 @@
       ring(g, dst.x, dst.y, 26, '#ffd54f', 0.25);
       hit(g, dst, src, ctr.dmg, { noCounter: true });
     }
-    d *= 1 - clamp(dst.m.armor - (src && src.itm ? src.itm.pen : 0), -0.5, 0.85);
+    const mag = !!(src && src.type === 'hero' && (o.mag != null ? o.mag : (o.skill ? src.def.skillMag : (o.basic ? src.def.basicMag : false))));
+    d *= 1 - clamp(mag ? dst.m.mres - (src.itm ? src.itm.mpen : 0) : dst.m.armor - (src && src.itm ? src.itm.pen : 0), -0.5, 0.85);
     const lk = findFx(dst, 'link');
     if (lk && lk.by && !lk.by.dead && lk.by !== dst) {
       const sh = d * lk.share; d -= sh;
@@ -399,7 +466,7 @@
     if (src && src.type === 'hero') {
       if (dst.type === 'hero') { src.stDmg += d; dst.recent[src.id] = { u: src, t: g.t }; } else if (dst.type === 'tower') src.stTwr += d;
     }
-    if (VIS && (dst.type === 'hero' || dst.type === 'tower' || (src && src.isPlayer)) && g.fx.length < 150) g.fx.push({ k: 'dmg', x: dst.x + (g.rand() - 0.5) * 8, y: dst.y - 22, v: Math.round(d), c: dst.type === 'hero' ? (dst.team === 0 ? '#ff8a80' : '#fff59d') : '#ffffff', t0: g.t, dur: 0.8, big: dst.type === 'hero' || (src && src.isPlayer) });
+    if (VIS && (dst.type === 'hero' || dst.type === 'tower' || (src && src.isPlayer)) && g.fx.length < 150) g.fx.push({ k: 'dmg', x: dst.x + (g.rand() - 0.5) * 8, y: dst.y - 22, v: Math.round(d), c: mag ? '#b388ff' : (dst.type === 'hero' ? (dst.team === 0 ? '#ff8a80' : '#fff59d') : '#ffffff'), t0: g.t, dur: 0.8, big: dst.type === 'hero' || (src && src.isPlayer) });
     if (src) {
       if (src.m && src.m.ls > 0 && !src.dead) { const b4 = src.hp; src.hp = Math.min(src.maxHp, src.hp + d * src.m.ls); if (src.type === 'hero') src.stHeal += src.hp - b4; }
       if (src.type === 'hero') src.revealT = g.t + CFG.bush.reveal;
@@ -407,6 +474,7 @@
       if (src.type === 'hero') { const st = findFxStealth(src); if (st && !o.keepStealth) removeFx(src, st); }
     }
     dst.lastAttacker = src; if (dst.type === 'tower') dst.lastHurt = g.t;
+    if (src && !o.extra && dst.hp > 0) onHitEffects(g, src, dst, d, o);
     if (dst.type === 'monster' && src) { dst.aggroBy = src; dst.aggroT = g.t; }
     if (dst.hp <= 0) kill(g, dst, src, o);
     return d;
@@ -491,6 +559,10 @@
 
   function kill(g, dst, src, o) {
     if (dst.dead) return;
+    if (dst.type === 'hero' && dst.itmFx && dst.itmFx.life3 && (dst.itemCd.life3 || 0) <= g.t) {
+      dst.itemCd.life3 = g.t + 180; dst.hp = dst.maxHp * 0.25; dst.untarget = g.t + 1.5;
+      ring(g, dst.x, dst.y, 44, '#fff59d', 0.6); return;
+    }
     dst.dead = true; dst.hp = 0; dst.dieT = g.t;
     if (VIS) g.fx.push({ k: 'burst', x: dst.x, y: dst.y, c: dst.type === 'tower' ? '#bcaaa4' : (dst.team === 0 ? '#64b5f6' : '#ef5350'), n: dst.type === 'minion' ? 6 : (dst.type === 'hero' ? 14 : 24), t0: g.t, dur: 0.8 });
     if (dst.type === 'hero') {
@@ -503,6 +575,7 @@
         announceKill(g, killer, dst);
         for (const id in dst.recent) { const r = dst.recent[id]; if (r.u !== killer && r.u.team === killer.team && g.t - r.t <= 10) r.u.assists++; }
         addGold(killer, 300); addXp(g, killer, 150);
+        if (killer.itmFx && killer.itmFx.vamp3) healUnit(g, killer, killer.maxHp * 0.12);
         for (const a of alliedHeroes(g, killer.team, dst.x, dst.y, 260)) if (a !== killer) { addGold(a, 60); addXp(g, a, 60); }
       } else if ((dst.team === 0 || dst.team === 1) && !(src && src.type === 'monster')) { g.score[1 - dst.team]++; }
       g.events.push({ k: 'kill', killer: killer ? killer.def.name : (src && src.type === 'monster' ? TR.MONSTERS[src.kind].name : (src && src.type === 'tower' ? 'ป้อม' : 'มินเนียน')),
@@ -512,7 +585,7 @@
       for (const a of alliedHeroes(g, 1 - dst.team, dst.x, dst.y, 260)) addXp(g, a, 14);
       if (src && src.type === 'hero') {
         const gm = goldMul(src);
-        addGold(src, 20 * gm);
+        addGold(src, 20 * gm + (src.itmFx && src.itmFx.gold3 ? 8 : 0));
         src.cs++;
         if (o && o.basic && src.emblem === 'lob') { src.greedCount++; if (src.greedCount >= 3) { src.greedCount = 0; src.greedReady = true; } }
       }
@@ -532,7 +605,8 @@
         }
       } else if (src && src.type === 'hero') {
         src.stMon++;
-        addGold(src, M.gold * goldMul(src)); addXp(g, src, M.xp);
+        addGold(src, M.gold * goldMul(src) + (src.itmFx && src.itmFx.jungle3 ? 40 : 0)); addXp(g, src, M.xp);
+        if (src.itmFx && src.itmFx.jungle3) healUnit(g, src, src.maxHp * 0.12);
         for (const a of alliedHeroes(g, src.team, dst.x, dst.y, 240)) if (a !== src) addXp(g, a, 30);
         const until = g.t + CFG.buffDur;
         if (M.buff === 'dmg') addFx(src, { type: 'buff', tag: 'jb_dmg', until: until, dmgMul: 1.12 });
@@ -569,6 +643,36 @@
     }
   }
   function canSpell(g, u) { return !g.over && !u.dead && u.spCd <= 0 && !u.casting && !u.dash && !(u.m.stun && u.spell !== 'purify'); }
+  /* ---------- ไอเทมใช้งาน ---------- */
+  const ACTIVE_IDS = ['def3', 'regen3', 'move3', 'ward3'];
+  function itemActives(u) { return ACTIVE_IDS.filter(function (id) { return u.itmFx && u.itmFx[id]; }); }
+  function itemCdLeft(g, u, id) { return Math.max(0, (u.itemCd[id] || 0) - g.t); }
+  function useItem(g, u, id) {
+    if (g.over || u.dead || !u.itmFx || !u.itmFx[id] || itemCdLeft(g, u, id) > 0) return false;
+    if (u.m.stun && id !== 'ward3') return false;
+    const F = TR.ITEM_FX[id];
+    switch (id) {
+      case 'def3': addFx(u, { type: 'shield', tag: 'it_def3', amt: u.maxHp * 0.18, until: g.t + 3 }); ring(g, u.x, u.y, 36, '#ffd54f', 0.5); break;
+      case 'regen3': addFx(u, { type: 'hot', tag: 'it_regen3', perSec: u.maxHp * 0.35 / 4, until: g.t + 4 }); ring(g, u.x, u.y, 30, '#81c784', 0.5); break;
+      case 'move3':
+        for (let i = u.fx.length - 1; i >= 0; i--) if (u.fx[i].type === 'slow' || u.fx[i].type === 'root') u.fx.splice(i, 1);
+        addFx(u, { type: 'buff', tag: 'it_move3', speedMul: 1.45, until: g.t + 3 }); ring(g, u.x, u.y, 30, '#80d8ff', 0.4); break;
+      case 'ward3':
+        for (let i = u.fx.length - 1; i >= 0; i--) if (SPELL_NEG.indexOf(u.fx[i].type) >= 0) u.fx.splice(i, 1);
+        addFx(u, { type: 'buff', tag: 'it_ward3', mresAdd: 0.5, until: g.t + 2.5 }); ring(g, u.x, u.y, 30, '#b388ff', 0.5); break;
+    }
+    u.itemCd[id] = g.t + F.cd;
+    return true;
+  }
+  // บอทใช้ไอเทมตามสถานการณ์ง่าย ๆ
+  function botItems(g, u) {
+    if (u.dead) return;
+    const hp = u.hp / u.maxHp, hurt = g.t - u.hurtT < 2;
+    if (u.itmFx.def3 && hurt && hp < 0.55) useItem(g, u, 'def3');
+    if (u.itmFx.regen3 && hp < 0.5) useItem(g, u, 'regen3');
+    if (u.itmFx.move3 && ((hurt && hp < 0.35) || u.m.slow > 0.2 || u.m.root)) useItem(g, u, 'move3');
+    if (u.itmFx.ward3 && (u.m.stun || u.m.root || (u.m.slow > 0.3 && hurt))) useItem(g, u, 'ward3');
+  }
   function castSpell(g, u) {
     if (!canSpell(g, u)) return false;
     const sp = TR.SPELL_BY_ID[u.spell]; if (!sp) return false;
@@ -705,6 +809,8 @@
     if (aim) u.face = [aim.dx, aim.dy];
     if (u.nextMul) { ctx.mul *= u.nextMul; u.nextMul = 0; }
     if (u.greedReady) { ctx.mul *= 1.08; u.greedReady = false; }
+    if (u.def.passive && u.def.passive.id === 'mothamma') { u.pC = (u.pC || 0) + 1; if (u.pC >= 3) { u.pC = 0; ctx.mul *= 1.3; ring(g, u.x, u.y, 24, '#ffd54f', 0.3); } }
+    if (u.itmFx && u.itmFx.cdr3) u.sbT = g.t + 4;
     cancelRecall(g, u);
     u.cd[slot] = sk.cd * (1 - CFG.skillCd * (u.sl[slot] - 1)) * (1 - Math.min(CFG.cdrCap, u.itm ? u.itm.cdr : 0));
     u.lastCast = g.t;
@@ -1056,6 +1162,16 @@
     u.hp = Math.min(u.maxHp, u.hp + u.maxHp * ((inBase ? 0.08 : 0.004 * (em.regenMul || 1)) + u.itm.regen) * dt);
     for (const e of u.fx) if (e.type === 'hot') u.hp = Math.min(u.maxHp, u.hp + e.perSec * dt);
 
+    // พลังติดตัวฮีโร่
+    const pid = u.def.passive && u.def.passive.id;
+    if (pid === 'mae') addGold(u, 2 * dt);
+    else if (pid === 'mohya') {
+      u.pAura = (u.pAura || 0) - dt;
+      if (u.pAura <= 0) { u.pAura = 0.5; for (const a of alliedHeroes(g, u.team, u.x, u.y, 180)) healUnit(g, a, a.maxHp * 0.008 * 0.5); }
+    } else if (pid === 'win') {
+      if (u.input.dx || u.input.dy) u.run = Math.min(5, (u.run || 0) + dt); else u.run = 0;
+    }
+    if (!u.isPlayer && (g.tick & 7) === 5) botItems(g, u);
     // พลังแฝง: หลง = ภาพลวง
     if (u.decoyCd > 0) u.decoyCd -= dt;
     if (u.emblem === 'long' && u.decoyCd <= 0 && u.hp / u.maxHp < 0.3) {
@@ -1471,7 +1587,7 @@
 
   TR.Sim = {
     navPoint: navPoint,
-    createGame: createGame, hit: hit, kill: kill, signal: signal, sigFor: sigFor, callSurrender: callSurrender, botWantsSurrender: botWantsSurrender, bushAt: bushAt, step: step, upgradeSkill: upgradeSkill, canUpgrade: canUpgrade, skillPts: skillPts, skillAim: skillAim, skillMul: skillMul, castSpell: castSpell, startRecall: startRecall, cancelRecall: cancelRecall, castSkill: castSkill, canCast: canCast,
+    createGame: createGame, useItem: useItem, itemActives: itemActives, itemCdLeft: itemCdLeft, hit: hit, kill: kill, signal: signal, sigFor: sigFor, callSurrender: callSurrender, botWantsSurrender: botWantsSurrender, bushAt: bushAt, step: step, upgradeSkill: upgradeSkill, canUpgrade: canUpgrade, skillPts: skillPts, skillAim: skillAim, skillMul: skillMul, castSpell: castSpell, startRecall: startRecall, cancelRecall: cancelRecall, castSkill: castSkill, canCast: canCast,
     pickEnemy: pickEnemy, enemiesIn: enemiesIn, alliedHeroes: alliedHeroes, canTarget: canTarget,
     towerVuln: towerVuln, buy: buy, sell: sell, canShop: canShop, netCost: netCost, ownedInLine: ownedInLine, wantShop: wantShop, dist: dist, norm: norm, findFx: findFx, lowestAlly: lowestAlly, recalc: recalc
   };

@@ -266,3 +266,5 @@ button.ghost, .card button:not(.primary) { background: var(--panel2); border: 1p
 @keyframes annPop { from { transform: translateX(-50%) scale(1.6); } to { transform: translateX(-50%) scale(1); } }
 @media (max-height: 460px) { #banner.ann { font-size: 20px; } #banner.ann.big { font-size: 26px; } }
 #surMsg { min-height: 16px; margin: 4px 0; }
+
+#itBox { position: absolute; inset: 0; pointer-events: none; } .itb { border-color: #ffd54f; } .itb .ic { font-size: 22px; }

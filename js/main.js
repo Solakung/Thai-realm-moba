@@ -83,6 +83,7 @@
     function el(tag, cls, html) { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
     info.appendChild(el('h2', '', h.name));
     info.appendChild(el('div', 'tags', 'ยุค' + TR.ERAS[h.era].name + ' · ' + TR.ROLES[h.role].name + ' · ยุครุ่งเรือง +' + Math.round((CFG.peak - 1) * 100) + '% ตอนยุคของตัวเอง'));
+    if (h.passive) info.appendChild(el('div', 'sk', '<b>✨ พลังติดตัว · ' + h.passive.name + '</b> — ' + h.passive.desc));
     info.appendChild(el('div', 'sw', '<b class="g">จุดแข็ง</b> ' + h.strength + '<br><b class="w">จุดอ่อน</b> ' + h.weakness));
     h.skills.forEach(function (s, i) {
       info.appendChild(el('div', 'sk', '<b>' + (i === 2 ? 'อัลติ' : 'สกิล ' + (i + 1)) + ' · ' + s.name + '</b> (' + s.cd + ' วิ) — ' + s.desc));
@@ -251,6 +252,39 @@
     set($('atkMin'), g1, y0, SM); set($('atkTwr'), g1 + SM + 6 * f, y0, SM);
     const spX = g1 + SM + 6 * f + SM / 2 + SP / 2 + 16 * f;
     set($('spBtn'), spX, M + SP / 2, SP); set($('rcBtn'), spX + SP + 8 * f, M + SP / 2, SP);
+    itPos = { x: spX, y: M + SP + 10 * f + SP / 2, size: SP, step: SP + 8 * f };
+    layoutItems();
+  }
+  // ไอเทมใช้งาน: ปุ่มซ้อนอยู่เหนือปุ่มสเปล/กลับพระนคร
+  var itPos, IT_KEYS = ['KeyG', 'KeyH', 'KeyT', 'KeyY'], IT_LBL = ['G', 'H', 'T', 'Y'];
+  function layoutItems() {
+    if (!itPos) return;
+    const bs = $('itBox').children;
+    for (let i = 0; i < bs.length; i++) { const b = bs[i], size = itPos.size; b.style.width = b.style.height = size + 'px'; b.style.right = (itPos.x + i * itPos.step - size / 2) + 'px'; b.style.bottom = (itPos.y - size / 2) + 'px'; }
+  }
+  function syncItems(pl) {
+    const ids = TR.Sim.itemActives(pl), key = ids.join(',');
+    const box = $('itBox');
+    if (box.dataset.k !== key) {
+      box.dataset.k = key; box.innerHTML = '';
+      ids.forEach(function (id, i) {
+        const fx = TR.ITEM_FX[id], b = document.createElement('button');
+        b.className = 'spb itb'; b.setAttribute('aria-label', fx.active); b.dataset.id = id;
+        b.innerHTML = '<span class="ic">' + fx.icon + '</span><span class="nm">' + fx.active + '</span><span class="key">' + IT_LBL[i] + '</span><span class="cd"></span>';
+        b.addEventListener('pointerdown', function (e) { e.preventDefault(); useItemKey(i); });
+        box.appendChild(b);
+      });
+      layoutItems();
+    }
+    const bs = box.children;
+    for (let i = 0; i < bs.length; i++) {
+      const left = TR.Sim.itemCdLeft(g, pl, bs[i].dataset.id);
+      bs[i].classList.toggle('wait', left > 0 || pl.dead); bs[i].querySelector('.cd').textContent = left > 0 ? Math.ceil(left) : '';
+    }
+  }
+  function useItemKey(i) {
+    if (!g || !playing || paused) return;
+    const ids = TR.Sim.itemActives(g.player); if (ids[i]) TR.Sim.useItem(g, g.player, ids[i]);
   }
   window.addEventListener('resize', function () { layoutCtl(); layoutMini(); });
   function layoutMini() {
@@ -545,6 +579,7 @@
     else if (e.code === 'KeyX') atkPress('tower', true, $('atkTwr'));
     else if (e.code === 'KeyF') castPlayerSpell();
     else if (e.code === 'KeyC') recallPlayer();
+    else if (IT_KEYS.indexOf(e.code) >= 0) useItemKey(IT_KEYS.indexOf(e.code));
     else if (e.code === 'KeyB') toggleShop();
     else if (e.code === 'Escape' && shopOpen) toggleShop(false);
     else if (e.code === 'KeyP' || e.code === 'Escape') togglePause();
@@ -744,6 +779,7 @@
     const dead = !!pl.dead;
     if (wasDead && !dead) TR.Render.clearCam();
     wasDead = dead; $('specHint').hidden = !dead;
+    syncItems(pl);
     const spb = $('spBtn'), sc = pl.spCd;
     spb.classList.toggle('wait', sc > 0 || pl.dead); spb.querySelector('.cd').textContent = sc > 0 ? Math.ceil(sc) : '';
     $('rcBtn').classList.toggle('wait', !!pl.recall); $('rcBtn').querySelector('.cd').textContent = pl.recall ? Math.max(0, Math.ceil(pl.recall.end - g.t)) : '';
