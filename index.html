@@ -23,6 +23,8 @@
       <span id="clock"></span>
       <span id="score"></span>
     </div>
+    <div id="quick" hidden></div>
+    <div id="specHint" hidden>ตายแล้ว · ลากจอหรือแตะมินิแมพเพื่อดูสนามรบ · แตะตัวฮีโร่เพื่อติดตาม</div>
     <canvas id="mini" width="352" height="132"></canvas>
     <div id="feed"></div>
     <div id="banner"></div>
@@ -36,7 +38,10 @@
     <button id="shopBtn" aria-label="ร้านค้า">🛒<span id="shopDot" hidden></span></button>
     <div id="shop" hidden>
       <div class="shop-head"><b>🛒 ร้านค้า</b><span id="shopGold"></span><span id="shopWhere"></span><button id="shopClose" aria-label="ปิด">✕</button></div>
+      <div class="blab">ที่ถืออยู่</div>
       <div id="shopOwned"></div>
+      <div class="blab">เซ็ตไอเทมของฉัน <button id="buildReset" class="ghost">ใช้เซ็ตแนะนำ</button></div>
+      <div id="shopBuild"></div>
       <div id="shopList"></div>
       <div id="shopInfo"></div>
     </div>

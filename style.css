@@ -217,3 +217,20 @@ button.ghost, .card button:not(.primary) { background: var(--panel2); border: 1p
 .cbtn.img .ic, .cbtn.img .nm, .spb.img .ic, .spb.img .nm { display: none; }
 .cbtn.sm.img { border: 2px solid #ffd54f; box-shadow: 0 2px 6px rgba(0,0,0,.6); }
 .spb.img { border-color: #80d8ff; }
+
+/* ---------- ไอเทมแนะนำลอยซ้ายจอ / เซ็ตไอเทม / กล้องตอนตาย ---------- */
+#hud > #mini { pointer-events: auto; touch-action: none; }
+#quick { position: absolute; left: max(10px, env(safe-area-inset-left)); top: 100px; display: flex; flex-direction: column; gap: 5px; pointer-events: none; }
+#quick .qi { pointer-events: auto; width: 46px; height: 46px; border-radius: 10px; border: 2px solid #546e7a; background: rgba(12,18,28,.82); color: #fff; padding: 0; position: relative; touch-action: none; }
+#quick .qi .ic { position: absolute; left: 0; right: 0; top: 3px; text-align: center; font-size: 22px; line-height: 1.1; }
+#quick .qi .co { position: absolute; left: 0; right: 0; bottom: 1px; text-align: center; font: 700 11px monospace; color: #ffd54f; text-shadow: 0 1px 2px #000; }
+#quick .qi.can { border-color: #ffd54f; box-shadow: 0 0 10px rgba(255,213,79,.7); animation: upPulse .7s infinite alternate; }
+#quick .qi.ready { border-color: #81c784; } #quick .qi.poor { opacity: .6; } #quick .qi.poor .co { color: #ef9a9a; } #quick .qi.no { opacity: .35; }
+#specHint { position: absolute; left: 50%; top: 48px; transform: translateX(-50%); background: rgba(0,0,0,.65); border: 1px solid var(--line); border-radius: 8px; padding: 5px 12px; font-size: 12px; pointer-events: none; white-space: nowrap; }
+.blab { display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: var(--dim); margin: 2px 0 4px; }
+.blab button { font-size: 11px; padding: 3px 8px; }
+#shopBuild { display: flex; gap: 6px; margin-bottom: 8px; }
+#shopBuild .slot { flex: 1; height: 38px; border: 1px dashed var(--line); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 20px; background: rgba(255,255,255,.03); color: var(--dim); }
+#shopBuild .slot.on { border-style: solid; border-color: #4dd0e1; background: rgba(77,208,225,.1); cursor: pointer; color: #fff; }
+#shopInfo button.alt { background: rgba(255,255,255,.1); color: #fff; font-weight: 600; padding: 8px 10px; border: 1px solid var(--line); }
+@media (max-height: 460px) { #quick { top: 88px; gap: 4px; } #quick .qi { width: 40px; height: 40px; } #quick .qi .ic { font-size: 19px; top: 2px; } #quick .qi .co { font-size: 10px; } #specHint { font-size: 11px; top: 36px; } #shopBuild .slot { height: 28px; font-size: 16px; } #shopInfo { flex-wrap: wrap; } }

@@ -183,7 +183,7 @@
   }
 
   /* ---------- ตั้งค่าการควบคุม (เก็บในเครื่อง) ---------- */
-  const CTL_DEF = { atkMode: 'button', prio: 'near', dragAim: true, mouseAim: !!(window.matchMedia && matchMedia('(pointer:fine)').matches), autoSkill: false, size: 1 };
+  const CTL_DEF = { atkMode: 'button', prio: 'near', dragAim: true, mouseAim: !!(window.matchMedia && matchMedia('(pointer:fine)').matches), autoSkill: false, size: 1, autoBuy: true, mini: 1 };
   let ctl = Object.assign({}, CTL_DEF);
   try { const sv = JSON.parse(localStorage.getItem('tr_ctl') || 'null'); if (sv) Object.keys(CTL_DEF).forEach(function (k) { if (sv[k] !== undefined) ctl[k] = sv[k]; }); } catch (e) { /* ไม่เป็นไร */ }
   const CTL_ROWS = [
@@ -192,12 +192,14 @@
     { k: 'dragAim', t: 'การเล็งสกิล', opts: [[true, 'แตะ = ออโต้ / ลาก = เล็ง'], [false, 'แตะอย่างเดียว (ออโต้)']], d: 'ลากนิ้วออกจากปุ่มสกิลเพื่อเล็งทิศหรือจุด ปล่อยเพื่อใช้ ลากไกลสุดเพื่อยกเลิก' },
     { k: 'mouseAim', t: 'เมาส์เล็งสกิล (คอมพิวเตอร์)', opts: [[true, 'เปิด'], [false, 'ปิด']], d: 'กด Q/E/R แล้วสกิลพุ่งไปทางเมาส์ ปิดไว้จะเล็งเป้าใกล้สุดให้เอง' },
     { k: 'autoSkill', t: 'อัปเลเวลสกิลอัตโนมัติ', opts: [[false, 'เลือกเอง'], [true, 'อัตโนมัติ']], d: 'เลเวลขึ้นได้แต้มสกิล 1 แต้ม กดลูกศร ▲ บนปุ่มสกิลเพื่ออัป' },
+    { k: 'autoBuy', t: 'ซื้อไอเทมตามเซ็ตอัตโนมัติ', opts: [[true, 'เปิด'], [false, 'ปิด']], d: 'ตอนอยู่ที่ฐานหรือตอนตาย ระบบซื้อไอเทมในเซ็ตของคุณให้ตามลำดับเมื่อเงินพอ (จัดเซ็ตได้ในร้านค้า) ปิดไว้จะซื้อเองหรือแตะไอเทมแนะนำด้านซ้ายจอ' },
+    { k: 'mini', t: 'ขนาดมินิแมพ', opts: [[0.8, 'เล็ก'], [1, 'กลาง'], [1.3, 'ใหญ่']], d: 'แตะหรือลากบนมินิแมพเพื่อแอบดูจุดอื่น (ปล่อยแล้วกลับมาที่ตัวเอง) ตอนตายจะค้างตำแหน่งไว้ให้' },
     { k: 'size', t: 'ขนาดปุ่ม', opts: [[0.85, 'เล็ก'], [1, 'กลาง'], [1.18, 'ใหญ่']], d: '' }
   ];
   function saveCtl() { try { localStorage.setItem('tr_ctl', JSON.stringify(ctl)); } catch (e) { /* ไม่เป็นไร */ } }
   function applyCtl() {
     if (g && g.player) { const pl = g.player; pl.atkMode = ctl.atkMode; pl.prio = ctl.prio; pl.autoSkill = !!ctl.autoSkill; }
-    layoutCtl();
+    layoutCtl(); layoutMini();
   }
   function buildCtlRows() {
     const box = $('ctlRows'); box.innerHTML = '';
@@ -239,7 +241,21 @@
     const spX = g1 + SM + 6 * f + SM / 2 + SP / 2 + 16 * f;
     set($('spBtn'), spX, M + SP / 2, SP); set($('rcBtn'), spX + SP + 8 * f, M + SP / 2, SP);
   }
-  window.addEventListener('resize', layoutCtl);
+  window.addEventListener('resize', function () { layoutCtl(); layoutMini(); });
+  function layoutMini() {
+    const base = Math.round((window.innerHeight <= 460 ? 150 : 214) * ctl.mini), rs = 'max(10px, env(safe-area-inset-right))';
+    mini.style.width = base + 'px'; mini.style.height = Math.round(base * 0.375) + 'px';
+    mini.width = base * 2; mini.height = Math.round(base * 0.75);
+    $('pauseBtn').style.right = 'calc(' + rs + ' + ' + (base + 10) + 'px)'; $('shopBtn').style.right = 'calc(' + rs + ' + ' + (base + 50) + 'px)';
+    $('feed').style.top = (Math.round(base * 0.375) + (window.innerHeight <= 460 ? 10 : 16)) + 'px';
+  }
+  // แตะ/ลากมินิแมพ: แอบดูจุดอื่น (ตอนตายจะค้างไว้)
+  let miniDrag = null;
+  function miniMove(e) { const w = TR.Render.minimapToWorld(mini, e.clientX, e.clientY); TR.Render.setCamFree(w.x, w.y); }
+  mini.addEventListener('pointerdown', function (e) { if (!g || !playing) return; e.preventDefault(); try { mini.setPointerCapture(e.pointerId); } catch (x) { /* ไม่เป็นไร */ } miniDrag = e.pointerId; miniMove(e); });
+  mini.addEventListener('pointermove', function (e) { if (miniDrag === e.pointerId) miniMove(e); });
+  const miniEnd = function (e) { if (miniDrag !== e.pointerId) return; miniDrag = null; if (g && !g.player.dead) TR.Render.clearCam(); };
+  mini.addEventListener('pointerup', miniEnd); mini.addEventListener('pointercancel', miniEnd);
   function setIcon(el, motif, size) {
     const u = TR.SkillIcon && TR.SkillIcon.urlMotif ? TR.SkillIcon.urlMotif(motif, size || 96) : '';
     if (u) { el.style.backgroundImage = 'url(' + u + ')'; el.classList.add('img'); }
@@ -318,10 +334,13 @@
       queue.push({ slot: i, aim: { dx: dx / len, dy: dy / len, k: Math.max(0.2, Math.min(1, len / Math.max(1, spec.range))) } });
     } else queue.push({ slot: i });
   }
-  // แตะ/คลิกที่ศัตรูเพื่อล็อกเป้า (ฮีโร่และมอนป่า) แตะซ้ำเพื่อปลด
+  // ตอนตาย: ลากจอเลื่อนดูสนามรบ แตะฮีโร่เพื่อติดตาม / ตอนมีชีวิต: แตะศัตรูเพื่อล็อกเป้า แตะซ้ำเพื่อปลด
+  let pan = null;
   canvas.addEventListener('pointerdown', function (e) {
     if (!g || !playing || paused || e.button > 0) return;
-    const w = TR.Render.screenToWorld(canvas, e.clientX, e.clientY), pl = g.player;
+    const pl = g.player;
+    if (pl.dead) { pan = { id: e.pointerId, x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, moved: false }; try { canvas.setPointerCapture(e.pointerId); } catch (x) { /* ไม่เป็นไร */ } return; }
+    const w = TR.Render.screenToWorld(canvas, e.clientX, e.clientY);
     let best = null, bd = 34;
     for (const u of g.units) {
       if (u.dead || u.team === pl.team || (u.type !== 'hero' && u.type !== 'monster')) continue;
@@ -330,6 +349,22 @@
     }
     if (best) pl.lockT = pl.lockT === best ? null : best;
   });
+  canvas.addEventListener('pointermove', function (e) {
+    if (!pan || e.pointerId !== pan.id) return;
+    if (!pan.moved && Math.hypot(e.clientX - pan.sx, e.clientY - pan.sy) < 8) return;
+    pan.moved = true;
+    const a = TR.Render.screenToWorld(canvas, pan.x, pan.y), b = TR.Render.screenToWorld(canvas, e.clientX, e.clientY);
+    TR.Render.panCam(b.x - a.x, b.y - a.y); pan.x = e.clientX; pan.y = e.clientY;
+  });
+  const panEnd = function (e) {
+    if (!pan || e.pointerId !== pan.id) return;
+    const was = pan; pan = null;
+    if (was.moved || !g) return;
+    const w = TR.Render.screenToWorld(canvas, e.clientX, e.clientY); let best = null, bd = 44;
+    for (const u of g.units) { if (u.dead || u.type !== 'hero') continue; const d = Math.hypot(u.x - w.x, u.y - (w.y + 12)); if (d < bd) { bd = d; best = u; } }
+    if (best) { TR.Render.followUnit(best); toast('กำลังดู ' + best.def.name + (best.team === g.player.team ? ' (ฝั่งเรา)' : ' (ศัตรู)')); }
+  };
+  canvas.addEventListener('pointerup', panEnd); canvas.addEventListener('pointercancel', panEnd);
 
   function startGame() {
     if (endTimer) { clearTimeout(endTimer); endTimer = null; }
@@ -340,7 +375,7 @@
     $('hud').hidden = false; $('pauseBtn').style.display = 'block';
     $('feed').innerHTML = '';
     document.body.classList.add('playing');
-    buildSkillButtons(g.player.def); applyCtl();
+    buildSkillButtons(g.player.def); applyCtl(); build = loadBuild(g.player); quickSig = ''; wasDead = false; TR.Render.clearCam();
     const spd = TR.SPELL_BY_ID[g.player.spell];
     $('spBtn').querySelector('.ic').textContent = spd.icon; $('spBtn').querySelector('.nm').textContent = spd.name; $('spBtn').classList.remove('img'); $('spBtn').style.backgroundImage = ''; setIcon($('spBtn'), 'sp_' + spd.id);
     const em = TR.EMBLEMS[g.player.emblem];
@@ -461,6 +496,64 @@
   document.addEventListener('visibilitychange', function () { if (document.hidden && playing && !paused) togglePause(); });
   window.addEventListener('contextmenu', function (e) { if (playing) e.preventDefault(); });
 
+  /* ---------- เซ็ตไอเทมของฉัน + ไอเทมแนะนำลอยซ้ายจอ + ซื้ออัตโนมัติ ---------- */
+  let build = [], quickSig = '';
+  function defaultBuild(pl) { return (TR.ITEM_BUILD[pl.role] || TR.ITEM_BUILD.fighter).slice(0, CFG.shopSlots).map(function (l) { return TR.itemAt(l, 3).id; }); }
+  function loadBuild(pl) {
+    try { const sv = JSON.parse(localStorage.getItem('tr_build_' + pl.def.id) || 'null'); if (Array.isArray(sv) && sv.length && sv.every(function (id) { return TR.ITEM_BY_ID[id]; })) return sv.slice(0, CFG.shopSlots); } catch (e) { /* ไม่เป็นไร */ }
+    return defaultBuild(pl);
+  }
+  function saveBuild() { try { localStorage.setItem('tr_build_' + g.player.def.id, JSON.stringify(build)); } catch (e) { /* ไม่เป็นไร */ } quickSig = ''; }
+  function buildAdd(id) {
+    const it = TR.ITEM_BY_ID[id], i = build.findIndex(function (b) { return TR.ITEM_BY_ID[b].line === it.line; });
+    if (i >= 0) build[i] = id; else if (build.length >= CFG.shopSlots) { toast('เซ็ตเต็มแล้ว (' + CFG.shopSlots + ' สาย) เอาของเดิมออกก่อน'); return; } else build.push(id);
+    saveBuild();
+  }
+  function buildRemove(id) { build = build.filter(function (b) { return b !== id; }); saveBuild(); }
+  function buildFront(id) { build = [id].concat(build.filter(function (b) { return b !== id; })); saveBuild(); }
+  // ขั้นถัดไปของแต่ละสายในเซ็ต (ชั้นที่เหลือต่อจากที่ถืออยู่) เรียงตามลำดับเซ็ต
+  function buildSteps(pl) {
+    const out = [];
+    build.forEach(function (id) {
+      const t = TR.ITEM_BY_ID[id], have = TR.Sim.ownedInLine(pl, t.line), tier = have ? have.tier : 0;
+      if (tier >= t.tier) return;
+      out.push(TR.itemAt(t.line, tier + 1));
+    });
+    return out;
+  }
+  function autoBuy(pl) {
+    if (!ctl.autoBuy || !TR.Sim.canShop(pl)) return;
+    for (let n = 0; n < 6; n++) {
+      const st = buildSteps(pl)[0]; if (!st) return;
+      const net = TR.Sim.netCost(pl, st); if (net == null || pl.gold < net) return;
+      if (!TR.Sim.buy(g, pl, st.id)) return;
+      toast('🛒 ซื้อ ' + st.name + ' ให้ตามเซ็ต'); shopSig = '';
+    }
+  }
+  function renderQuick(pl) {
+    const steps = buildSteps(pl).slice(0, 4), can = TR.Sim.canShop(pl);
+    const sig = steps.map(function (st) { const n = TR.Sim.netCost(pl, st); return st.id + ':' + (n == null ? 'x' : (pl.gold >= n ? 1 : 0)); }).join(',') + '|' + can;
+    if (sig === quickSig) return; quickSig = sig;
+    const box = $('quick'); box.innerHTML = '';
+    steps.forEach(function (st) {
+      const n = TR.Sim.netCost(pl, st), afford = n != null && pl.gold >= n;
+      const b = document.createElement('button');
+      b.className = 'qi' + (n == null ? ' no' : (afford ? (can ? ' can' : ' ready') : ' poor'));
+      b.innerHTML = '<span class="ic">' + st.icon + '</span><span class="co">' + (n == null ? '—' : n) + '</span>';
+      b.title = st.name;
+      b.addEventListener('pointerdown', function (e) {
+        e.preventDefault(); e.stopPropagation();
+        const cur = g.player, net = TR.Sim.netCost(cur, st);
+        if (net == null) { toast(st.name + ': ซื้อไม่ได้ (ช่องเต็ม)'); return; }
+        if (!TR.Sim.canShop(cur)) { toast(ctl.autoBuy ? 'ไม่อยู่ที่ฐาน — ระบบจะซื้อ ' + st.name + ' ให้เมื่อกลับถึงฐาน (กด C กลับพระนคร)' : 'ต้องอยู่ที่ฐานหรือตอนตายถึงจะซื้อได้'); return; }
+        if (cur.gold < net) { toast('เงินไม่พอ ' + st.name + ' ขาดอีก ' + Math.ceil(net - cur.gold)); return; }
+        if (TR.Sim.buy(g, cur, st.id)) { toast('🛒 ซื้อ ' + st.name); quickSig = ''; shopSig = ''; }
+      });
+      box.appendChild(b);
+    });
+    box.hidden = !steps.length;
+  }
+
   /* ---------- ร้านค้า ---------- */
   let shopOpen = false, shopSig = '', shopSel = null;
   function toggleShop(force) {
@@ -473,7 +566,7 @@
     const pl = g.player, can = TR.Sim.canShop(pl);
     $('shopGold').textContent = '💰 ' + Math.floor(pl.gold);
     $('shopWhere').textContent = can ? 'ซื้อ/ขายได้ตอนนี้' : 'ซื้อได้เมื่ออยู่ที่ฐานหรือตอนตาย';
-    const sig = pl.items.join(',') + '|' + can + '|' + (shopSel || '') + '|' + Math.floor(pl.gold / 50);
+    const sig = pl.items.join(',') + '|' + can + '|' + (shopSel || '') + '|' + Math.floor(pl.gold / 50) + '|' + build.join(',');
     if (!force && sig === shopSig) return;
     shopSig = sig;
     const own = $('shopOwned'); own.innerHTML = '';
@@ -482,6 +575,13 @@
       d.className = 'slot' + (id ? ' on' : ''); d.textContent = id ? TR.ITEM_BY_ID[id].icon : '';
       if (id) { d.title = 'แตะเพื่อเลือก: ' + TR.ITEM_BY_ID[id].name; d.addEventListener('click', function () { shopSel = id; renderShop(true); }); }
       own.appendChild(d);
+    }
+    const bb = $('shopBuild'); bb.innerHTML = '';
+    for (let i = 0; i < CFG.shopSlots; i++) {
+      const id = build[i], d = document.createElement('div');
+      d.className = 'slot' + (id ? ' on' : ''); d.textContent = id ? TR.ITEM_BY_ID[id].icon : '＋';
+      if (id) { d.title = TR.ITEM_BY_ID[id].name; d.addEventListener('click', function () { shopSel = id; renderShop(true); }); }
+      bb.appendChild(d);
     }
     const list = $('shopList'); list.innerHTML = '';
     TR.ITEM_LINES.forEach(function (ln) {
@@ -505,7 +605,12 @@
     if (have) { btn.textContent = 'ขาย +' + Math.floor(it.cost * 0.7); btn.disabled = !can; btn.addEventListener('click', function () { if (TR.Sim.sell(g, pl, it.id)) renderShop(true); }); }
     else { btn.textContent = net == null ? 'ซื้อไม่ได้' : 'ซื้อ ' + net; btn.disabled = !can || net == null || pl.gold < net; btn.addEventListener('click', function () { if (TR.Sim.buy(g, pl, it.id)) renderShop(true); }); }
     info.appendChild(btn);
+    const inB = build.indexOf(it.id) >= 0, bt = document.createElement('button'); bt.className = 'alt';
+    bt.textContent = inB ? '− เอาออกจากเซ็ต' : '＋ เพิ่มเข้าเซ็ต'; bt.addEventListener('click', function () { if (inB) buildRemove(it.id); else buildAdd(it.id); renderShop(true); });
+    info.appendChild(bt);
+    if (inB && build[0] !== it.id) { const fb = document.createElement('button'); fb.className = 'alt'; fb.textContent = '⇧ ซื้อก่อน'; fb.addEventListener('click', function () { buildFront(it.id); renderShop(true); }); info.appendChild(fb); }
   }
+  $('buildReset').addEventListener('click', function () { if (!g) return; build = defaultBuild(g.player); saveBuild(); renderShop(true); toast('ใช้เซ็ตแนะนำของสาย' + TR.ROLES[g.player.role].name + ' แล้ว'); });
   $('shopBtn').addEventListener('click', function () { toggleShop(); });
   $('shopClose').addEventListener('click', function () { toggleShop(false); });
 
@@ -561,6 +666,7 @@
   }
 
   /* ---------- HUD ---------- */
+  let wasDead = false;
   function updateHud() {
     const pl = g.player, era = TR.ERAS[g.era];
     const toNext = g.era < TR.ERAS.length - 1 ? Math.max(0, (g.era + 1) * CFG.eraLen - g.t) : -1;
@@ -574,7 +680,11 @@
     $('meInfo').textContent = 'Lv ' + pl.level + ' · ทอง ' + Math.floor(pl.gold) + ' · ฆ่า ' + pl.kills + '/' + pl.deaths + (pl.peak ? ' · ยุครุ่งเรือง' : '');
     const canBuy = TR.Sim.canShop(pl) && TR.ITEMS.some(function (it) { const n = TR.Sim.netCost(pl, it); return n != null && pl.gold >= n; });
     $('shopDot').hidden = !canBuy;
+    autoBuy(pl); renderQuick(pl);
     if (shopOpen) renderShop(false);
+    const dead = !!pl.dead;
+    if (wasDead && !dead) TR.Render.clearCam();
+    wasDead = dead; $('specHint').hidden = !dead;
     const spb = $('spBtn'), sc = pl.spCd;
     spb.classList.toggle('wait', sc > 0 || pl.dead); spb.querySelector('.cd').textContent = sc > 0 ? Math.ceil(sc) : '';
     $('rcBtn').classList.toggle('wait', !!pl.recall); $('rcBtn').querySelector('.cd').textContent = pl.recall ? Math.max(0, Math.ceil(pl.recall.end - g.t)) : '';

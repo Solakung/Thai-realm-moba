@@ -327,7 +327,7 @@
   }
 
   /* ================= สถานะภาพ (ต่อเฟรม) ================= */
-  const RS = { use3d: false, fa: {}, g: null, cam: { x: 0, y: 0, init: false }, parts: [], vf: {}, ph: {}, mv: {}, last: 0, fire: {}, fall: {}, dust: {}, eraPrev: 0, eraFade: 1, eraSeen: 0, rt: 0, fxSeen: new WeakSet() };
+  const RS = { free: null, follow: null, use3d: false, fa: {}, g: null, cam: { x: 0, y: 0, init: false }, parts: [], vf: {}, ph: {}, mv: {}, last: 0, fire: {}, fall: {}, dust: {}, eraPrev: 0, eraFade: 1, eraSeen: 0, rt: 0, fxSeen: new WeakSet() };
   const tileCache = {};
 
   function resetState(g) {
@@ -1006,6 +1006,9 @@
     const pl = g.player;
     let tx = CFG.W / 2, ty = CFG.H / 2;
     if (pl) { tx = pl.px + (pl.x - pl.px) * alpha; ty = pl.py + (pl.y - pl.py) * alpha; }
+    if (RS.follow && !RS.follow.dead) { tx = RS.follow.px + (RS.follow.x - RS.follow.px) * alpha; ty = RS.follow.py + (RS.follow.y - RS.follow.py) * alpha; }
+    else if (RS.follow) RS.follow = null;
+    if (RS.free) { tx = RS.free.x; ty = RS.free.y; }
     const cam = RS.cam;
     if (!cam.init) { cam.x = tx; cam.y = ty; cam.init = true; }
     else { const f = 1 - Math.exp(-dt * 9); cam.x += (tx - cam.x) * f; cam.y += (ty - cam.y) * f; }
@@ -1041,33 +1044,72 @@
     return { camX: camX, camY: camY, vw: view.w, vh: view.h };
   }
 
-  /* ================= มินิแมพ ================= */
+  /* ================= มินิแมพ + กล้องอิสระ ================= */
+  function setCamFree(x, y) { RS.follow = null; RS.free = { x: clamp(x, 0, CFG.W), y: clamp(y, 0, CFG.H) }; }
+  function panCam(dx, dy) { // dx,dy เป็นหน่วยโลก (ลากแล้วจอเลื่อนตามนิ้ว)
+    if (!RS.free) RS.free = { x: RS.cam.x, y: RS.cam.y };
+    RS.follow = null; RS.free.x = clamp(RS.free.x - dx, 0, CFG.W); RS.free.y = clamp(RS.free.y - dy, 0, CFG.H);
+  }
+  function followUnit(u) { RS.free = null; RS.follow = u; }
+  function clearCam() { RS.free = null; RS.follow = null; }
+  function camMode() { return RS.follow ? 'follow' : (RS.free ? 'free' : 'me'); }
+  function minimapToWorld(el, clientX, clientY) {
+    const r = el.getBoundingClientRect();
+    return { x: clamp((clientX - r.left) / r.width, 0, 1) * CFG.W, y: clamp((clientY - r.top) / r.height, 0, 1) * CFG.H };
+  }
   function drawMinimap(c, g, w, h, cam) {
     c.setTransform(1, 0, 0, 1, 0, 0);
-    c.fillStyle = '#0e141b'; c.fillRect(0, 0, w, h);
-    const sx = w / CFG.W, sy = h / CFG.H;
+    const sx = w / CFG.W, sy = h / CFG.H, k = w / 352;
     const E = TR.ERAS[g.era];
-    c.fillStyle = '#16212c'; c.fillRect(0, 0, w, h);
-    c.strokeStyle = E.lane; c.globalAlpha = 0.85; c.lineWidth = Math.max(2, h * 0.07); c.lineCap = 'round';
+    const bgG = c.createLinearGradient(0, 0, 0, h); bgG.addColorStop(0, '#1b2a37'); bgG.addColorStop(1, '#101a23');
+    c.fillStyle = bgG; c.fillRect(0, 0, w, h);
+    // ป่าข้างเลน (จางๆ)
+    c.fillStyle = 'rgba(70,120,70,.16)';
+    for (const y of [(CFG.lanes[0].y + CFG.lanes[1].y) / 2, (CFG.lanes[1].y + CFG.lanes[2].y) / 2]) c.fillRect(300 * sx, (y - 110) * sy, (CFG.W - 600) * sx, 220 * sy);
+    c.strokeStyle = E.lane; c.globalAlpha = 0.9; c.lineWidth = Math.max(2.5 * k, h * 0.07); c.lineCap = 'round'; c.lineJoin = 'round';
     for (const L of CFG.lanes) { c.beginPath(); c.moveTo(180 * sx, L.y * sy); c.lineTo((CFG.W - 180) * sx, L.y * sy); c.stroke(); }
-    for (const bx of [100, CFG.W - 100]) for (const l of [0, 2]) { c.beginPath(); c.moveTo(bx * sx, CFG.baseY * sy); c.quadraticCurveTo((bx + (bx < 500 ? 200 : -200)) * sx, CFG.baseY * sy, (bx < 500 ? CFG.laneEntry : CFG.W - CFG.laneEntry) * sx, CFG.lanes[l].y * sy); c.stroke(); }
-    c.globalAlpha = 0.55; c.fillStyle = '#7d8896';
+    for (const bx of [100, CFG.W - 100]) for (const l of [0, 2]) {
+      const dir = bx < 500 ? 1 : -1, ex = bx + dir * CFG.laneEntry;
+      c.beginPath(); c.moveTo(bx * sx, CFG.baseY * sy); c.quadraticCurveTo((bx + dir * 200) * sx, CFG.baseY * sy, ex * sx, CFG.lanes[l].y * sy); c.stroke();
+    }
+    c.globalAlpha = 0.5; c.fillStyle = '#7d8896';
     for (const wl of TR.WALLS) c.fillRect(wl.x1 * sx, wl.y1 * sy, Math.max(1, (wl.x2 - wl.x1) * sx), Math.max(1.4, (wl.y2 - wl.y1) * sy));
     c.globalAlpha = 1;
+    // บ่อน้ำทิพย์ที่ฐาน
+    for (let t = 0; t < 2; t++) { const fx = (t === 0 ? 100 : CFG.W - 100) * sx, fy = CFG.baseY * sy; c.fillStyle = 'rgba(79,195,247,.25)'; c.beginPath(); c.arc(fx, fy, 15 * k, 0, TAU); c.fill(); c.strokeStyle = TEAM[t]; c.lineWidth = 1.4 * k; c.stroke(); }
+    const me = g.player;
+    // ลำดับวาด: ป้อม → มอนป่า → ลูกกระจ๊อก → ฮีโร่
+    for (const u of g.units) {
+      if (u.type !== 'tower') continue;
+      const x = u.x * sx, y = u.y * sy, s2 = (u.king ? 9 : 6) * k;
+      if (u.dead) { c.globalAlpha = 0.5; c.strokeStyle = '#78909c'; c.lineWidth = 1 * k; c.strokeRect(x - s2 / 2, y - s2 / 2, s2, s2); c.beginPath(); c.moveTo(x - s2 / 2, y - s2 / 2); c.lineTo(x + s2 / 2, y + s2 / 2); c.moveTo(x + s2 / 2, y - s2 / 2); c.lineTo(x - s2 / 2, y + s2 / 2); c.stroke(); c.globalAlpha = 1; continue; }
+      c.fillStyle = TEAM[u.team]; c.beginPath();
+      if (u.king) { c.moveTo(x, y - s2 * .7); c.lineTo(x + s2 * .6, y); c.lineTo(x, y + s2 * .7); c.lineTo(x - s2 * .6, y); } else { c.moveTo(x, y - s2 * .6); c.lineTo(x + s2 * .5, y + s2 * .45); c.lineTo(x - s2 * .5, y + s2 * .45); }
+      c.closePath(); c.fill(); c.strokeStyle = '#000'; c.lineWidth = 0.8 * k; c.stroke();
+      if (u.hp < u.maxHp * 0.999) { const f = Math.max(0, u.hp / u.maxHp); c.fillStyle = 'rgba(0,0,0,.6)'; c.fillRect(x - s2, y + s2 * .62, s2 * 2, 2 * k); c.fillStyle = f > 0.5 ? '#66bb6a' : (f > 0.25 ? '#ffca28' : '#ef5350'); c.fillRect(x - s2, y + s2 * .62, s2 * 2 * f, 2 * k); }
+    }
     for (const u of g.units) {
       if (u.dead) continue;
       const x = u.x * sx, y = u.y * sy;
-      if (u.type === 'tower') { c.fillStyle = TEAM[u.team]; const s = u.king ? 7 : 4.6; c.fillRect(x - s / 2, y - s / 2, s, s); c.strokeStyle = '#000'; c.lineWidth = 0.6; c.strokeRect(x - s / 2, y - s / 2, s, s); }
-      else if (u.type === 'monster' && u.kind === 'boss') { c.fillStyle = '#e53935'; c.beginPath(); c.arc(x, y, 4.4, 0, TAU); c.fill(); c.strokeStyle = '#fff'; c.lineWidth = 1; c.stroke(); }
-      else if (u.type === 'monster') { c.fillStyle = TR.MONSTERS[u.kind].buff ? '#ffd54f' : '#ff9800'; c.beginPath(); c.arc(x, y, TR.MONSTERS[u.kind].buff ? 2.4 : 1.7, 0, TAU); c.fill(); }
-      else if (u.type === 'minion') { c.fillStyle = TEAM[u.team]; c.globalAlpha = 0.8; c.fillRect(x - 0.7, y - 0.7, 1.5, 1.5); c.globalAlpha = 1; }
-      else if (u.type === 'hero') {
-        if (u.m.stealth && g.player && u.team !== g.player.team) continue;
-        const me = u === g.player;
-        c.fillStyle = me ? '#ffeb3b' : TEAM[u.team]; c.beginPath(); c.arc(x, y, me ? 3.4 : 2.7, 0, TAU); c.fill(); c.strokeStyle = '#000'; c.lineWidth = 0.7; c.stroke();
-      }
+      if (u.type === 'monster' && u.kind === 'boss') { c.fillStyle = '#e53935'; c.beginPath(); c.arc(x, y, 5.4 * k, 0, TAU); c.fill(); c.strokeStyle = '#fff'; c.lineWidth = 1.2 * k; c.stroke(); }
+      else if (u.type === 'monster') { const buff = TR.MONSTERS[u.kind].buff; c.fillStyle = buff ? '#ffd54f' : '#ff9800'; c.beginPath(); c.arc(x, y, (buff ? 3.2 : 2.2) * k, 0, TAU); c.fill(); if (buff) { c.strokeStyle = '#000'; c.lineWidth = 0.8 * k; c.stroke(); } }
+      else if (u.type === 'minion') { c.fillStyle = TEAM[u.team]; c.globalAlpha = 0.85; c.fillRect(x - 1 * k, y - 1 * k, 2 * k, 2 * k); c.globalAlpha = 1; }
     }
-    if (cam) { c.strokeStyle = 'rgba(255,255,255,0.7)'; c.lineWidth = 1; c.strokeRect(cam.camX * sx, cam.camY * sy, cam.vw * sx, cam.vh * sy); }
+    for (const u of g.units) {
+      if (u.type !== 'hero') continue;
+      if (u.m && u.m.stealth && me && u.team !== me.team) continue;
+      const isMe = u === me, x = u.x * sx, y = u.y * sy, r = (isMe ? 5.6 : 4.8) * k;
+      if (u.dead) { c.globalAlpha = 0.65; c.strokeStyle = '#9e9e9e'; c.lineWidth = 1.4 * k; c.beginPath(); c.moveTo(x - r * .7, y - r * .7); c.lineTo(x + r * .7, y + r * .7); c.moveTo(x + r * .7, y - r * .7); c.lineTo(x - r * .7, y + r * .7); c.stroke(); c.globalAlpha = 1; continue; }
+      c.fillStyle = TEAM[u.team]; c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
+      c.fillStyle = (u.def && u.def.colors && u.def.colors.accent) || '#fff'; c.beginPath(); c.arc(x, y, r * 0.58, 0, TAU); c.fill();
+      c.strokeStyle = isMe ? '#fff' : '#000'; c.lineWidth = (isMe ? 1.6 : 0.9) * k; c.beginPath(); c.arc(x, y, r, 0, TAU); c.stroke();
+      if (isMe) { c.strokeStyle = 'rgba(255,235,59,.75)'; c.lineWidth = 1 * k; c.beginPath(); c.arc(x, y, r + 3 * k, 0, TAU); c.stroke(); }
+      if (u.hp < u.maxHp * 0.35 && !isMe) { c.strokeStyle = '#ff1744'; c.lineWidth = 1.2 * k; c.beginPath(); c.arc(x, y, r + 2 * k, 0, TAU); c.stroke(); }
+    }
+    if (cam) {
+      c.fillStyle = 'rgba(255,255,255,0.07)'; c.fillRect(cam.camX * sx, cam.camY * sy, cam.vw * sx, cam.vh * sy);
+      c.strokeStyle = RS.free || RS.follow ? '#ffeb3b' : 'rgba(255,255,255,0.75)'; c.lineWidth = 1.2 * k; c.strokeRect(cam.camX * sx, cam.camY * sy, cam.vw * sx, cam.vh * sy);
+    }
   }
 
   /* ไอคอนฮีโร่ในเมนู (ท่ายืนนิ่ง หายใจเบา ๆ) */
@@ -1230,5 +1272,5 @@
     const vg = c.createLinearGradient(0, h * 0.7, 0, h); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.45)'); c.fillStyle = vg; c.fillRect(0, h * 0.7, w, h * 0.3);
   }
 
-  TR.Render = { setAim: setAim, screenToWorld: screenToWorld, is3d: function () { return !!RS.use3d; }, setMode3d: setMode3d, setTilt: setTilt, tilt: ST, drawStage: drawStage, stageReset: stageReset, _rig: rig, view: view, resize: resize, draw: draw, drawMinimap: drawMinimap, drawHeroIcon: drawHeroIcon, TEAM: TEAM };
+  TR.Render = { setAim: setAim, screenToWorld: screenToWorld, is3d: function () { return !!RS.use3d; }, setMode3d: setMode3d, setTilt: setTilt, tilt: ST, drawStage: drawStage, stageReset: stageReset, _rig: rig, view: view, resize: resize, draw: draw, drawMinimap: drawMinimap, setCamFree: setCamFree, panCam: panCam, followUnit: followUnit, clearCam: clearCam, camMode: camMode, minimapToWorld: minimapToWorld, drawHeroIcon: drawHeroIcon, TEAM: TEAM };
 })(typeof window !== 'undefined' ? window : globalThis);
