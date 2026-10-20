@@ -136,10 +136,26 @@
     u.items.forEach(function (id) { const s = TR.ITEM_BY_ID[id].s; Object.keys(s).forEach(function (k) { t[k] += s[k]; }); });
     u.itm = t;
   }
+  // ชิ้นของสายเดียวกันที่ถืออยู่ (ถ้ามี)
+  function ownedInLine(u, line) {
+    for (let i = 0; i < u.items.length; i++) if (TR.ITEM_BY_ID[u.items[i]].line === line) return TR.ITEM_BY_ID[u.items[i]];
+    return null;
+  }
+  // ราคาจริงหลังหักชิ้นล่างของสายเดียวกัน (null = ซื้อไม่ได้)
+  function netCost(u, it) {
+    const have = ownedInLine(u, it.line);
+    if (have && have.tier >= it.tier) return null;
+    if (!have && u.items.length >= CFG.shopSlots) return null;
+    return it.cost - (have ? have.cost : 0);
+  }
   function buy(g, u, id) {
     const it = TR.ITEM_BY_ID[id];
-    if (!it || !canShop(u) || u.items.indexOf(id) >= 0 || u.items.length >= CFG.shopSlots || u.gold < it.cost) return false;
-    u.gold -= it.cost; u.items.push(id); sumItems(u); recalc(g, u);
+    if (!it || !canShop(u)) return false;
+    const c = netCost(u, it);
+    if (c == null || u.gold < c) return false;
+    const have = ownedInLine(u, it.line);
+    if (have) u.items.splice(u.items.indexOf(have.id), 1);
+    u.gold -= c; u.items.push(id); sumItems(u); recalc(g, u);
     return true;
   }
   function sell(g, u, id) {
@@ -149,19 +165,22 @@
     return true;
   }
 
-  // บอทเลือกไอเทมชิ้นถัดไปตามบทบาท (ที่ยังไม่มีและเงินพอ)
-  function botNextItem(u, needGold) {
+  // บอท: เก็บทีละสายตามลำดับของบทบาท ถ้าเงินไม่พอจะเก็บเงินรอ (ไม่ซื้อสายอื่นแทรก)
+  function botNextItem(u) {
     const list = TR.ITEM_BUILD[u.role] || TR.ITEM_BUILD.fighter;
     for (let i = 0; i < list.length; i++) {
-      if (u.items.indexOf(list[i]) >= 0) continue;
-      return (!needGold || u.gold >= TR.ITEM_BY_ID[list[i]].cost) ? list[i] : null;
+      const have = ownedInLine(u, list[i]), tier = have ? have.tier : 0;
+      if (tier >= 3) continue;
+      if (!have && u.items.length >= CFG.shopSlots) continue;
+      const it = TR.itemAt(list[i], tier + 1);
+      return netCost(u, it) != null && u.gold >= netCost(u, it) ? it.id : null;
     }
     return null;
   }
-  function wantShop(u) { return u.items.length < CFG.shopSlots && !!botNextItem(u, true); }
+  function wantShop(u) { return !!botNextItem(u); }
   function botShop(g, u) {
     if (u.isPlayer || !canShop(u)) return;
-    for (let n = 0; n < 3; n++) { const id = botNextItem(u, true); if (!id || !buy(g, u, id)) break; }
+    for (let n = 0; n < 4; n++) { const id = botNextItem(u); if (!id || !buy(g, u, id)) break; }
   }
 
   function recalc(g, u) {
@@ -1146,6 +1165,6 @@
     navPoint: navPoint,
     createGame: createGame, step: step, castSkill: castSkill, canCast: canCast,
     pickEnemy: pickEnemy, enemiesIn: enemiesIn, alliedHeroes: alliedHeroes, canTarget: canTarget,
-    towerVuln: towerVuln, buy: buy, sell: sell, canShop: canShop, wantShop: wantShop, dist: dist, norm: norm, findFx: findFx, lowestAlly: lowestAlly, recalc: recalc
+    towerVuln: towerVuln, buy: buy, sell: sell, canShop: canShop, netCost: netCost, ownedInLine: ownedInLine, wantShop: wantShop, dist: dist, norm: norm, findFx: findFx, lowestAlly: lowestAlly, recalc: recalc
   };
 })(typeof window !== 'undefined' ? window : globalThis);

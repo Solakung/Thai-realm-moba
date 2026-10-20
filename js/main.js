@@ -148,7 +148,26 @@
   }
 
   /* ---------- เริ่ม/จบเกม ---------- */
+  /* โหมดกราฟิก: '3d' = กล้องเอียง+โมเดล poly (ค่าเริ่มต้น) / '2d' = มุมบนตรงแบบเดิม ใช้ตุ๊กตา 2D เบากว่า */
+  let gfx = '3d';
+  try { if (localStorage.getItem('tr_gfx') === '2d') gfx = '2d'; } catch (e) { /* ไม่เป็นไร */ }
   function fit() { TR.Render.resize(canvas, window.innerWidth, window.innerHeight); }
+  function applyGfx(mode, save) {
+    gfx = mode === '2d' ? '2d' : '3d';
+    TR.Render.setTilt(gfx === '3d' ? 0.74 : 1); TR.Render.setMode3d(gfx === '3d');
+    if (gfx === '3d' && !TR.Render.is3d()) gfx = '2d';
+    $('gfxMode').textContent = gfx === '3d' ? '3D' : '2D คลาสสิก';
+    if (save) { try { localStorage.setItem('tr_gfx', gfx); } catch (e) { /* ไม่เป็นไร */ } }
+    fit(); slowN = 0; ftEma = 0;
+  }
+  let toastT = 0;
+  function toast(msg) { const t = $('toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(function () { t.hidden = true; }, 4200); }
+  // ตรวจความลื่น: ถ้าเวลาวาดเฉลี่ยสูงต่อเนื่อง ~3 วินาที สลับเป็น 2D ให้เอง (ไม่บันทึกเป็นค่าถาวร)
+  let ftEma = 0, slowN = 0;
+  function watchPerf(ms) {
+    ftEma = ftEma ? ftEma * 0.9 + ms * 0.1 : ms;
+    if (gfx === '3d' && ftEma > 24) { if (++slowN > 180) { applyGfx('2d', false); toast('เครื่องดูหนัก — สลับเป็นกราฟิก 2D ให้อัตโนมัติ (เปลี่ยนกลับได้ที่เมนู)'); } } else slowN = Math.max(0, slowN - 2);
+  }
 
   function buildSkillButtons(def) {
     const box = $('skills');
@@ -286,7 +305,7 @@
   window.addEventListener('contextmenu', function (e) { if (playing) e.preventDefault(); });
 
   /* ---------- ร้านค้า ---------- */
-  let shopOpen = false, shopSig = '';
+  let shopOpen = false, shopSig = '', shopSel = null;
   function toggleShop(force) {
     if (!playing || !g || g.over) return;
     shopOpen = force === undefined ? !shopOpen : force;
@@ -296,26 +315,39 @@
   function renderShop(force) {
     const pl = g.player, can = TR.Sim.canShop(pl);
     $('shopGold').textContent = '💰 ' + Math.floor(pl.gold);
-    $('shopWhere').textContent = can ? 'ซื้อ/ขายได้ตอนนี้' : 'ซื้อได้เมื่ออยู่ที่ฐานหรือตอนตาย (ขายคืน 70%)';
-    const sig = pl.items.join(',') + '|' + can + '|' + TR.ITEMS.map(function (it) { return pl.gold >= it.cost ? 1 : 0; }).join('');
+    $('shopWhere').textContent = can ? 'ซื้อ/ขายได้ตอนนี้' : 'ซื้อได้เมื่ออยู่ที่ฐานหรือตอนตาย';
+    const sig = pl.items.join(',') + '|' + can + '|' + (shopSel || '') + '|' + Math.floor(pl.gold / 50);
     if (!force && sig === shopSig) return;
     shopSig = sig;
     const own = $('shopOwned'); own.innerHTML = '';
     for (let i = 0; i < CFG.shopSlots; i++) {
       const id = pl.items[i], d = document.createElement('div');
       d.className = 'slot' + (id ? ' on' : ''); d.textContent = id ? TR.ITEM_BY_ID[id].icon : '';
-      if (id) { d.title = 'แตะเพื่อขาย: ' + TR.ITEM_BY_ID[id].name; d.addEventListener('click', function () { if (TR.Sim.sell(g, pl, id)) renderShop(true); }); }
+      if (id) { d.title = 'แตะเพื่อเลือก: ' + TR.ITEM_BY_ID[id].name; d.addEventListener('click', function () { shopSel = id; renderShop(true); }); }
       own.appendChild(d);
     }
     const list = $('shopList'); list.innerHTML = '';
-    TR.ITEMS.forEach(function (it) {
-      const have = pl.items.indexOf(it.id) >= 0, afford = pl.gold >= it.cost && pl.items.length < CFG.shopSlots;
-      const b = document.createElement('button');
-      b.className = 'sitem' + (have ? ' have' : (afford && can ? ' can' : ' no'));
-      b.innerHTML = '<span class="ic">' + it.icon + '</span><span class="tx"><span class="nm">' + it.name + (have ? ' ✓' : '') + '</span><br><span class="ds">' + it.desc + '</span></span><span class="co">' + it.cost + '</span>';
-      b.addEventListener('click', function () { if (!have && TR.Sim.buy(g, pl, it.id)) renderShop(true); });
-      list.appendChild(b);
+    TR.ITEM_LINES.forEach(function (ln) {
+      const lb = document.createElement('div'); lb.className = 'sline'; lb.textContent = ln.icon + ' ' + ln.name; list.appendChild(lb);
+      for (let t = 1; t <= 3; t++) {
+        const it = TR.itemAt(ln.id, t), have = pl.items.indexOf(it.id) >= 0, net = TR.Sim.netCost(pl, it);
+        const afford = net != null && pl.gold >= net;
+        const b = document.createElement('button');
+        b.className = 'sitem' + (have ? ' have' : (afford && can ? ' can' : (net == null ? ' no' : ''))) + (shopSel === it.id ? ' sel' : '');
+        b.innerHTML = '<span class="ic">' + it.icon + '</span><span class="nm">' + it.name + '</span><span class="co">' + (have ? '✓' : (net == null ? '—' : net)) + '</span>';
+        b.addEventListener('click', function () { shopSel = it.id; renderShop(true); });
+        list.appendChild(b);
+      }
     });
+    const info = $('shopInfo');
+    if (!shopSel) { info.textContent = 'แตะไอเทมเพื่อดูรายละเอียด · แต่ละสายอัปเกรดต่อกันได้ ชั้นบนหักราคาชิ้นล่างที่มี'; return; }
+    const it = TR.ITEM_BY_ID[shopSel], have = pl.items.indexOf(it.id) >= 0, net = TR.Sim.netCost(pl, it);
+    const lower = TR.Sim.ownedInLine(pl, it.line);
+    info.innerHTML = '<span class="tx"><b>' + it.icon + ' ' + it.name + '</b> (ชั้น ' + it.tier + ')<br>' + TR.itemDesc(it) + (lower && !have && net != null ? ' · ต่อยอดจาก ' + lower.name : '') + '</span>';
+    const btn = document.createElement('button');
+    if (have) { btn.textContent = 'ขาย +' + Math.floor(it.cost * 0.7); btn.disabled = !can; btn.addEventListener('click', function () { if (TR.Sim.sell(g, pl, it.id)) renderShop(true); }); }
+    else { btn.textContent = net == null ? 'ซื้อไม่ได้' : 'ซื้อ ' + net; btn.disabled = !can || net == null || pl.gold < net; btn.addEventListener('click', function () { if (TR.Sim.buy(g, pl, it.id)) renderShop(true); }); }
+    info.appendChild(btn);
   }
   $('shopBtn').addEventListener('click', function () { toggleShop(); });
   $('shopClose').addEventListener('click', function () { toggleShop(false); });
@@ -379,7 +411,7 @@
     $('meHp').style.width = (100 * hp / pl.maxHp) + '%';
     $('meHpText').textContent = pl.dead ? 'ฟื้นใน ' + Math.max(0, Math.ceil(pl.respawnAt - g.t)) + ' วิ' : Math.ceil(hp) + ' / ' + Math.ceil(pl.maxHp);
     $('meInfo').textContent = 'Lv ' + pl.level + ' · ทอง ' + Math.floor(pl.gold) + ' · ฆ่า ' + pl.kills + '/' + pl.deaths + (pl.peak ? ' · ยุครุ่งเรือง' : '');
-    const canBuy = TR.ITEMS.some(function (it) { return pl.items.indexOf(it.id) < 0 && pl.gold >= it.cost; }) && pl.items.length < CFG.shopSlots && TR.Sim.canShop(pl);
+    const canBuy = TR.Sim.canShop(pl) && TR.ITEMS.some(function (it) { const n = TR.Sim.netCost(pl, it); return n != null && pl.gold >= n; });
     $('shopDot').hidden = !canBuy;
     if (shopOpen) renderShop(false);
     const btns = $('skills').children;
@@ -410,7 +442,9 @@
       handleEvents();
     }
     lastTs = ts;
+    const dt0 = performance.now();
     camCache = TR.Render.draw(ctx, g, paused ? 1 : acc / CFG.dt);
+    if (!paused) watchPerf(performance.now() - dt0);
     if (ts - hudT > 100) { hudT = ts; updateHud(); }
     if (ts - miniT > 200) { miniT = ts; TR.Render.drawMinimap(mctx, g, mini.width, mini.height, camCache); }
   }
@@ -423,6 +457,8 @@
   $('resumeBtn').addEventListener('click', togglePause);
   $('quitBtn').addEventListener('click', toMenu);
   $('updBtn').addEventListener('click', showUpdate);
+  $('gfxBtn').addEventListener('click', function () { applyGfx(gfx === '3d' ? '2d' : '3d', true); });
+  applyGfx(gfx, false);
   $('updClose').addEventListener('click', closeUpdate);
   window.addEventListener('resize', fit);
 

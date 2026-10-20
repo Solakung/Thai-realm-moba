@@ -161,10 +161,17 @@ button.ghost, .card button:not(.primary) { background: var(--panel2); border: 1p
 #shopOwned { display: flex; gap: 6px; margin-bottom: 8px; }
 #shopOwned .slot { flex: 1; height: 38px; border: 1px dashed var(--line); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 20px; background: rgba(255,255,255,.03); }
 #shopOwned .slot.on { border-style: solid; background: rgba(255,200,80,.1); cursor: pointer; }
-#shopList { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
-.sitem { display: flex; gap: 8px; align-items: center; text-align: left; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; color: #fff; }
-.sitem .ic { font-size: 22px; } .sitem .tx { flex: 1; min-width: 0; } .sitem .nm { font-weight: 700; font-size: 13px; } .sitem .ds { font-size: 11px; color: var(--dim); line-height: 1.25; }
-.sitem .co { color: var(--gold); font-weight: 800; font-size: 13px; }
-.sitem.no { opacity: .45; } .sitem.have { border-color: #4caf50; } .sitem.can { border-color: var(--gold); }
-@media (max-height: 460px) { #shopBtn { top: 4px; right: calc(max(10px, env(safe-area-inset-right)) + 182px); } #shop { top: 38px; max-height: calc(100% - 46px); } #shopList { grid-template-columns: repeat(3, 1fr); } .sitem { padding: 4px 6px; } .sitem .ds { font-size: 10px; } }
-@media (max-width: 520px) { #shopList { grid-template-columns: 1fr; } }
+#shopList { display: grid; grid-template-columns: 62px repeat(3, 1fr); gap: 5px; align-items: stretch; }
+.sline { display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--dim); font-weight: 700; }
+.sitem { display: flex; flex-direction: column; align-items: center; gap: 1px; text-align: center; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 4px 3px; color: #fff; min-width: 0; }
+.sitem .ic { font-size: 19px; line-height: 1.1; } .sitem .nm { font-weight: 700; font-size: 11px; line-height: 1.15; } .sitem .co { color: var(--gold); font-weight: 800; font-size: 11px; }
+.sitem .t { font-size: 9px; color: var(--dim); }
+.sitem.no { opacity: .45; } .sitem.have { border-color: #4caf50; background: rgba(76,175,80,.12); } .sitem.can { border-color: var(--gold); } .sitem.sel { outline: 2px solid #fff; }
+#shopInfo { margin-top: 8px; min-height: 44px; font-size: 12px; display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,.04); border-radius: 8px; padding: 6px 10px; }
+#shopInfo .tx { flex: 1; } #shopInfo b { font-size: 13px; }
+#shopInfo button { background: linear-gradient(#f6c453, #e29a1f); color: #1b1405; border: 0; border-radius: 8px; padding: 8px 14px; font-weight: 800; }
+#shopInfo button:disabled { opacity: .4; }
+@media (max-height: 460px) { #shopBtn { top: 4px; right: calc(max(10px, env(safe-area-inset-right)) + 182px); } #shop { top: 38px; max-height: calc(100% - 46px); padding: 6px 8px; } #shopOwned .slot { height: 28px; font-size: 16px; } #shopList { gap: 3px; } .sitem { flex-direction: row; gap: 4px; padding: 3px 5px; text-align: left; } .sitem .nm { font-size: 10px; flex: 1; } .sitem .ic { font-size: 15px; } .sitem .co { font-size: 10px; } .sitem .t { display: none; } #shopInfo { margin-top: 5px; min-height: 34px; padding: 3px 8px; } }
+
+.hbtns { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+#toast { position: fixed; left: 50%; top: 14%; transform: translateX(-50%); z-index: 60; background: rgba(12,14,20,.92); border: 1px solid var(--line); border-radius: 12px; padding: 10px 16px; font-size: 14px; max-width: 86vw; text-align: center; pointer-events: none; }

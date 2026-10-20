@@ -156,8 +156,9 @@
 
   const CROUCH = { 'hpA.rx': -0.75, 'knA.rx': 1.2, 'hpA.rz': 0.28, 'hpB.rx': -0.75, 'knB.rx': 1.2, 'hpB.rz': -0.28 };
   const LUNGE = { 'hpA.rx': -0.95, 'knA.rx': 0.95, 'hpA.rz': 0.2, 'hpB.rx': 0.55, 'knB.rx': 0.15, 'hpB.rz': -0.2 };
-  function runPose(t) {
-    const ph = t * 11, s = Math.sin(ph), c = Math.cos(ph);
+  function runPose(t) { return runPoseAt(t * 11); }
+  function runPoseAt(ph) {
+    const s = Math.sin(ph), c = Math.cos(ph);
     return arr({
       'root.y': Math.abs(Math.sin(ph)) * 1.4, 'root.rx': 0.14, 'root.ry': 0, 'torso.ry': -s * 0.25, 'torso.rx': 0.1, 'head.ry': s * 0.1,
       'hpA.rx': s * 0.95 - 0.1, 'knA.rx': 0.5 + Math.max(0, -c) * 1.1, 'hpA.rz': 0.08,
@@ -248,6 +249,7 @@
       [2.6, {}]
     ], { fx: [{ t: 0.42, k: 'hit' }, { t: 0.82, k: 'hit' }, { t: 1.3, k: 'ring' }], noTrail: true });
 
+    A.cast = staffCast;
     if (style === 'melee') { A.slash = melee(0); A.spin = spin(0); A.guard = guard; A.flex = flex; A.run = run; }
     else if (style === 'bow') { A.shoot = bow; A.flex = flex; A.guard = guard; A.run = run; }
     else if (style === 'gun') { A.shoot = gun; A.flex = flex; A.guard = guard; A.run = run; }
@@ -258,6 +260,6 @@
   const ACTS = {};
   function actsFor(style) { return ACTS[style] || (ACTS[style] = buildActs(style)); }
 
-  TR.S3D = { mMul: mMul, rotM: rotM, mLocal: mLocal, mApply: mApply, H: H, sh: sh, shHex: shHex, box: box, frustum: frustum, prism: prism, sphere: sphere, gem: gem, scl: scl, place: place,
+  TR.S3D = { runPoseAt: runPoseAt, mMul: mMul, rotM: rotM, mLocal: mLocal, mApply: mApply, H: H, sh: sh, shHex: shHex, box: box, frustum: frustum, prism: prism, sphere: sphere, gem: gem, scl: scl, place: place,
     NAMES: NAMES, IDX: IDX, PARENT: PARENT, KEYS: KEYS, KI: KI, arr: arr, evalAct: evalAct, actsFor: actsFor, clamp: clamp, ease: ease, easeO: easeO, TAU: TAU, PI: PI, rgbCache: rgbCache };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

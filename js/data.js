@@ -4,7 +4,7 @@
   'use strict';
   const TR = (G.TR = G.TR || {});
 
-  TR.VERSION = '0.5.0';
+  TR.VERSION = '0.6.0';
 
   TR.CFG = {
     dt: 0.05,          // ตรรกะเกม 20 ครั้งต่อวินาที
@@ -317,27 +317,54 @@
 
 
   /* ร้านค้าไอเทม — ค่าสมดุลทั้งหมดอยู่ตรงนี้
-     hp/dmg/atkSpd/speed/tower = เปอร์เซ็นต์เพิ่ม (0.1 = +10%), armor = ลดดาเมจที่ได้รับ (0.1 = ลด 10%), ls = ดูดเลือด */
+     6 สาย × 3 ชั้น: ชั้นบนประกอบจากชั้นล่างของสายเดียวกัน (ถ้ามีชั้นล่างอยู่แล้ว หักราคาชิ้นนั้นออก และใช้ช่องเดิม)
+     s: hp/dmg/atkSpd/speed/tower = เปอร์เซ็นต์เพิ่ม (0.1 = +10%), armor = ลดดาเมจที่ได้รับ (0.1 = ลด 10%), ls = ดูดเลือด
+     ค่าใน s เป็นค่าสะสมของชิ้นนั้น (ชั้นบนรวมของชั้นล่างไว้แล้ว) */
+  TR.ITEM_LINES = [
+    { id: 'atk',   name: 'โจมตี',      icon: '🗡️' },
+    { id: 'spd',   name: 'ตีเร็ว',      icon: '🏹' },
+    { id: 'def',   name: 'ป้องกัน',     icon: '🛡️' },
+    { id: 'life',  name: 'ชีวิต',       icon: '📿' },
+    { id: 'move',  name: 'เคลื่อนที่',   icon: '👟' },
+    { id: 'siege', name: 'ทลายค่าย',    icon: '🔨' }
+  ];
   TR.ITEMS = [
-    { id: 'blade',  name: 'ดาบเหล็กไหล',     icon: '🗡️', cost: 700, desc: 'ดาเมจ +12%',                     s: { dmg: 0.12 } },
-    { id: 'bow',    name: 'สายธนูเอ็นวัว',    icon: '🏹', cost: 700, desc: 'ตีเร็ว +18%',                     s: { atkSpd: 0.18 } },
-    { id: 'hide',   name: 'เกราะหนังช้าง',    icon: '🛡️', cost: 650, desc: 'ลดดาเมจที่ได้รับ 10% เลือด +6%',   s: { armor: 0.10, hp: 0.06 } },
-    { id: 'amulet', name: 'ผ้ายันต์ใจเพชร',   icon: '📿', cost: 700, desc: 'เลือดสูงสุด +20%',                 s: { hp: 0.20 } },
-    { id: 'boots',  name: 'รองเท้าสายลม',     icon: '👟', cost: 500, desc: 'วิ่งเร็ว +9%',                    s: { speed: 0.09 } },
-    { id: 'blood',  name: 'ตะกรุดดูดเลือด',   icon: '🩸', cost: 800, desc: 'ดูดเลือด 10% ของดาเมจที่ทำ',        s: { ls: 0.10 } },
-    { id: 'hammer', name: 'ค้อนทลายค่าย',     icon: '🔨', cost: 750, desc: 'ดาเมจใส่ป้อมและราชธานี +35%',       s: { tower: 0.35 } },
-    { id: 'drum',   name: 'กลองศึก',          icon: '🥁', cost: 800, desc: 'ดาเมจ +6% ตีเร็ว +8% วิ่งเร็ว +4%', s: { dmg: 0.06, atkSpd: 0.08, speed: 0.04 } }
+    { id: 'atk1',   line: 'atk',   tier: 1, name: 'ดาบเหล็กไหล',    icon: '🗡️', cost: 450,  s: { dmg: 0.07 } },
+    { id: 'atk2',   line: 'atk',   tier: 2, name: 'ดาบทมิฬ',        icon: '🗡️', cost: 1050, s: { dmg: 0.15 } },
+    { id: 'atk3',   line: 'atk',   tier: 3, name: 'ดาบพิฆาตศึก',    icon: '⚔️', cost: 1900, s: { dmg: 0.26 } },
+    { id: 'spd1',   line: 'spd',   tier: 1, name: 'สายธนูเอ็นวัว',   icon: '🏹', cost: 450,  s: { atkSpd: 0.10 } },
+    { id: 'spd2',   line: 'spd',   tier: 2, name: 'ธนูไม้ประดู่',    icon: '🏹', cost: 1000, s: { atkSpd: 0.20, dmg: 0.03 } },
+    { id: 'spd3',   line: 'spd',   tier: 3, name: 'ศรสุริยัน',      icon: '☀️', cost: 1800, s: { atkSpd: 0.32, dmg: 0.06 } },
+    { id: 'def1',   line: 'def',   tier: 1, name: 'เกราะหนังช้าง',   icon: '🛡️', cost: 450,  s: { armor: 0.06, hp: 0.04 } },
+    { id: 'def2',   line: 'def',   tier: 2, name: 'เกราะเกล็ดมังกร', icon: '🛡️', cost: 1050, s: { armor: 0.12, hp: 0.10 } },
+    { id: 'def3',   line: 'def',   tier: 3, name: 'เกราะวชิรา',     icon: '🔰', cost: 1900, s: { armor: 0.18, hp: 0.18 } },
+    { id: 'life1',  line: 'life',  tier: 1, name: 'ผ้ายันต์ใจเพชร',  icon: '📿', cost: 450,  s: { hp: 0.10 } },
+    { id: 'life2',  line: 'life',  tier: 2, name: 'ตะกรุดดูดเลือด',  icon: '🩸', cost: 1000, s: { hp: 0.14, ls: 0.06 } },
+    { id: 'life3',  line: 'life',  tier: 3, name: 'ยันต์ราชสีห์',    icon: '🦁', cost: 1850, s: { hp: 0.20, ls: 0.10 } },
+    { id: 'move1',  line: 'move',  tier: 1, name: 'รองเท้าสายลม',    icon: '👟', cost: 400,  s: { speed: 0.06 } },
+    { id: 'move2',  line: 'move',  tier: 2, name: 'รองเท้าพญาครุฑ',  icon: '🥾', cost: 900,  s: { speed: 0.10, hp: 0.05 } },
+    { id: 'move3',  line: 'move',  tier: 3, name: 'ฉลองพระบาทเทพ',   icon: '🪽', cost: 1500, s: { speed: 0.14, hp: 0.08, atkSpd: 0.05 } },
+    { id: 'siege1', line: 'siege', tier: 1, name: 'ค้อนทลายค่าย',    icon: '🔨', cost: 450,  s: { tower: 0.20 } },
+    { id: 'siege2', line: 'siege', tier: 2, name: 'ขวานพังประตู',    icon: '🪓', cost: 1000, s: { tower: 0.40, dmg: 0.04 } },
+    { id: 'siege3', line: 'siege', tier: 3, name: 'ปืนใหญ่ทลายเมือง', icon: '💥', cost: 1800, s: { tower: 0.65, dmg: 0.08 } }
   ];
   TR.ITEM_BY_ID = {};
   TR.ITEMS.forEach(function (it) { TR.ITEM_BY_ID[it.id] = it; });
-  // ลำดับที่บอทซื้อ (ตามบทบาท) — ซื้อชิ้นแรกที่ยังไม่มีและเงินพอ
+  TR.itemAt = function (line, tier) { for (let i = 0; i < TR.ITEMS.length; i++) if (TR.ITEMS[i].line === line && TR.ITEMS[i].tier === tier) return TR.ITEMS[i]; return null; };
+  // คำอธิบายสร้างจากค่าใน s (ไม่ต้องเขียนซ้ำ)
+  TR.itemDesc = function (it) {
+    const L = { dmg: 'ดาเมจ', atkSpd: 'ตีเร็ว', hp: 'เลือด', speed: 'วิ่งเร็ว', tower: 'ดาเมจใส่ป้อม', armor: 'ลดดาเมจรับ', ls: 'ดูดเลือด' }, out = [];
+    ['dmg', 'atkSpd', 'armor', 'hp', 'ls', 'speed', 'tower'].forEach(function (k) { if (it.s[k]) out.push(L[k] + ' +' + Math.round(it.s[k] * 100) + '%'); });
+    return out.join(' · ');
+  };
+  // ลำดับสายที่บอทเก็บตามบทบาท (เก็บทีละสายจนครบชั้น 3 ถึงขยับไปสายถัดไป)
   TR.ITEM_BUILD = {
-    tank:     ['boots', 'hide', 'amulet', 'hammer', 'blood', 'drum'],
-    fighter:  ['blade', 'boots', 'blood', 'hide', 'hammer', 'drum'],
-    assassin: ['boots', 'blade', 'blood', 'drum', 'hammer', 'hide'],
-    marksman: ['bow', 'blade', 'boots', 'blood', 'hammer', 'hide'],
-    mage:     ['boots', 'blade', 'amulet', 'drum', 'hammer', 'hide'],
-    support:  ['boots', 'amulet', 'hide', 'drum', 'hammer', 'blade']
+    tank:     ['def', 'move', 'life', 'siege', 'atk', 'spd'],
+    fighter:  ['atk', 'move', 'life', 'def', 'siege', 'spd'],
+    assassin: ['move', 'atk', 'life', 'spd', 'siege', 'def'],
+    marksman: ['spd', 'atk', 'move', 'life', 'siege', 'def'],
+    mage:     ['move', 'atk', 'life', 'def', 'siege', 'spd'],
+    support:  ['move', 'life', 'def', 'spd', 'siege', 'atk']
   };
 
   /* ประวัติอัปเดต — กล่องข้อความอัปเดตในเกมอ่านจากที่นี่
@@ -345,12 +372,23 @@
      ผู้เล่นที่ยังไม่เคยเห็นเวอร์ชันนั้นจะเห็นกล่องอัปเดตขึ้นเองตอนเปิดเกม */
   TR.CHANGELOG = [
     {
+      version: '0.6.0',
+      date: '2026-10-20',
+      title: 'มุมมองแบบ MOBA 3D และไอเทมเป็นสาย',
+      items: [
+        'ไอเทมแบ่งเป็น 6 สาย (โจมตี ตีเร็ว ป้องกัน ชีวิต เคลื่อนที่ ทลายค่าย) สายละ 3 ชั้น ชั้นบนต่อยอดจากชั้นล่าง หักราคาชิ้นที่มีอยู่และใช้ช่องเดิม (ร้านค้าเปลี่ยนเป็นตารางสาย × ชั้น แตะเพื่อดูรายละเอียดแล้วกดซื้อ)',
+        'กล้องเอียงแบบเกม MOBA ทั่วไป: พื้นเอียงเป็นมุมเฉียง วงสกิลเป็นวงรีบนพื้น ตัวละคร ป้อม และต้นไม้ตั้งตรง การเล่นและการคำนวณไม่เปลี่ยน',
+        'ฮีโร่ มินเนียน มอนป่า และบอสเป็นโมเดล 3D low-poly ในสนามรบ หันหน้าตามทิศที่เดิน มีท่าเดิน ตี ร่ายสกิล และล้มตาย',
+        'ตั้งค่าภาพได้ในหน้าเมนู: 3D เอียง (ค่าเริ่มต้น) หรือ 2D คลาสสิก ถ้าเครื่องช้าเกมจะสลับไปใช้ตัวละคร 2D ให้เอง'
+      ]
+    },
+    {
       version: '0.5.0',
       date: '2026-10-20',
       title: 'ร้านค้าไอเทม',
       items: [
         'เพิ่มร้านค้า: ทองที่หามาได้ใช้ซื้อไอเทมแทนระบบ "ขั้นทอง" อัตโนมัติเดิม ซื้อ/ขายได้เมื่ออยู่ที่ฐานหรือตอนตายรอเกิดใหม่ เปิดจากปุ่ม 🛒 หรือกดปุ่ม B (มีจุดสีส้มเมื่อมีเงินพอซื้อ)',
-        'ไอเทม 8 ชนิด ถือได้ 6 ช่อง ชิ้นละ 1 อัน: ดาบเหล็กไหล สายธนูเอ็นวัว เกราะหนังช้าง ผ้ายันต์ใจเพชร รองเท้าสายลม ตะกรุดดูดเลือด ค้อนทลายค่าย (ดาเมจใส่ป้อม) กลองศึก ขายคืนได้ 70%',
+        'ไอเทม 18 ชิ้น แบ่งเป็น 6 สาย (โจมตี ตีเร็ว ป้องกัน ชีวิต เคลื่อนที่ ทลายค่าย) สายละ 3 ชั้น ชั้นบนต่อยอดจากชั้นล่าง หักราคาชิ้นที่มีอยู่และใช้ช่องเดิม ถือได้ 6 ช่อง ขายคืน 70%',
         'บอทซื้อไอเทมเองตามบทบาท และกลับฐานไปซื้อเมื่อมีเงินพอ',
         'ค่าไอเทมทั้งหมดอยู่ที่ TR.ITEMS ใน js/data.js ใช้ปรับสมดุลได้โดยไม่ต้องแก้โค้ด'
       ]

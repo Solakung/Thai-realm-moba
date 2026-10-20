@@ -7,6 +7,11 @@
   const TR = G.TR, CFG = TR.CFG;
   const VIEW_H = 360;                       // ความสูงที่มองเห็นเป็นหน่วยโลก (กว้างขยายตามอัตราส่วนจอ)
   const view = { w: 640, h: VIEW_H, z: 2, cw: 1280, ch: 720 };
+  /* มุมกล้องแบบ MOBA: พื้นถูกยุบแกน y ด้วย K (K=1 คือมุมบนตรง ๆ แบบเดิม) ส่วนตัวละคร/ป้อม/ต้นไม้ตั้งตรง
+     K = sin(มุมเงยกล้อง) — ค่า 0.74 ≈ เงย 48° ใกล้เคียงเกม MOBA ทั่วไป */
+  const ST = { K: 1, camX: 0, camY: 0 };
+  function GT(c) { c.setTransform(view.z, 0, 0, view.z * ST.K, -ST.camX * view.z, -ST.camY * ST.K * view.z); }       // พื้น (ถูกยุบ)
+  function UP(c, y) { c.setTransform(view.z, 0, 0, view.z, -ST.camX * view.z, view.z * (y * (ST.K - 1) - ST.camY * ST.K)); } // ของตั้งตรงที่ยืนอยู่ที่ y บนพื้น
   const TEAM = ['#4c8dff', '#ff5a4f', '#ffb74d'], TEAM_DARK = ['#1f4fbf', '#b3261e', '#a36a1e'], TEAM_LIGHT = ['#b7d3ff', '#ffc2bd', '#ffe0b2'];
   const OUT = 'rgba(28,18,12,0.85)';
   const TAU = Math.PI * 2;
@@ -322,20 +327,21 @@
   }
 
   /* ================= สถานะภาพ (ต่อเฟรม) ================= */
-  const RS = { g: null, cam: { x: 0, y: 0, init: false }, parts: [], vf: {}, ph: {}, mv: {}, last: 0, fire: {}, dust: {}, eraPrev: 0, eraFade: 1, eraSeen: 0, rt: 0, fxSeen: new WeakSet() };
+  const RS = { use3d: false, fa: {}, g: null, cam: { x: 0, y: 0, init: false }, parts: [], vf: {}, ph: {}, mv: {}, last: 0, fire: {}, dust: {}, eraPrev: 0, eraFade: 1, eraSeen: 0, rt: 0, fxSeen: new WeakSet() };
   const tileCache = {};
 
   function resetState(g) {
-    RS.g = g; RS.cam.init = false; RS.parts.length = 0; RS.vf = {}; RS.ph = {}; RS.mv = {}; RS.fire = {}; RS.dust = {}; RS.eraSeen = g.era; RS.eraPrev = g.era; RS.eraFade = 1; RS.fxSeen = new WeakSet();
+    RS.g = g; RS.cam.init = false; RS.parts.length = 0; RS.vf = {}; RS.fa = {}; RS.ph = {}; RS.mv = {}; RS.fire = {}; RS.dust = {}; RS.eraSeen = g.era; RS.eraPrev = g.era; RS.eraFade = 1; RS.fxSeen = new WeakSet();
   }
 
+  function setTilt(k) { ST.K = k; view.h = VIEW_H / k; }
   function resize(canvas, cssW, cssH) {
     const dpr = Math.min(G.devicePixelRatio || 1, 2);
     let cw = Math.max(320, Math.round(cssW * dpr)), ch = Math.max(180, Math.round(cssH * dpr));
     const maxPix = 2.6e6;
     if (cw * ch > maxPix) { const k = Math.sqrt(maxPix / (cw * ch)); cw = Math.round(cw * k); ch = Math.round(ch * k); }
     canvas.width = cw; canvas.height = ch;
-    view.cw = cw; view.ch = ch; view.z = ch / VIEW_H; view.w = cw / view.z; view.h = VIEW_H;
+    view.cw = cw; view.ch = ch; view.z = ch / VIEW_H; view.w = cw / view.z; view.h = VIEW_H / ST.K;
     for (const k in tileCache) delete tileCache[k];
     return view;
   }
@@ -499,7 +505,11 @@
       if (top > camY + view.h || top + ROAD_H < camY) continue;
       for (let x = x0; x < camX + view.w + 1; x += TILE) c.drawImage(rt0, x, top, TILE + 0.6, ROAD_H);
     }
-    // ของประดับ (ข้างทาง/ป่าระหว่างเลน)
+    c.globalAlpha = 1;
+  }
+
+  // ของประดับ (ข้างทาง/ป่าระหว่างเลน) — ตั้งตรง จึงเรียงลำดับร่วมกับตัวละคร
+  function collectProps(list, camX, camY, era, alpha) {
     const CELL = 70;
     for (let cx = Math.floor(camX / CELL) - 1; cx < (camX + view.w) / CELL + 1; cx++) {
       for (let cy = Math.floor(camY / CELL) - 1; cy < (camY + view.h) / CELL + 2; cy++) {
@@ -510,10 +520,9 @@
         for (const L of CFG.lanes) if (Math.abs(py - L.y) < 74) bad = true;
         if ((px < 300 || px > CFG.W - 300) && Math.abs(py - CFG.baseY) < 330) bad = true;
         if (bad || py < 20 || py > CFG.H - 10 || px < 10 || px > CFG.W - 10) continue;
-        drawProp(c, propKind(era, hv * 2 - 1 + (hv * 7 % 1) * 0.0, cx + cy), px, py, hash(cx + cy * 131), rt);
+        list.push({ prop: { kind: propKind(era, hv * 2 - 1 + (hv * 7 % 1) * 0.0, cx + cy), x: px, y: py, hv: hash(cx + cy * 131) }, y: py, alpha: alpha });
       }
     }
-    c.globalAlpha = 1;
   }
 
   function drawBases(c, g, rt) {
@@ -656,6 +665,16 @@
   }
 
   /* ================= หน่วยทั้งหมด ================= */
+  const HS3 = 1.28; // ขนาดโมเดล 3D ในสนาม
+  const ERA_AMB = [[90, 50, 110], [90, 40, 70], [40, 50, 60], [50, 60, 150]];
+  function faceAng(u, dt) {
+    const t = Math.atan2(u.face[0], u.face[1]);
+    let a = RS.fa[u.id]; if (a == null) a = t;
+    const d = ((t - a + Math.PI * 3) % TAU) - Math.PI;
+    a += d * (1 - Math.exp(-14 * dt)); RS.fa[u.id] = a;
+    return a;
+  }
+  function setMode3d(on) { RS.use3d = !!on && !!(TR.Stage3D && TR.Stage3D.drawFigure); }
   function unitAnim(u, g, dt, alpha) {
     const id = u.id;
     const spd = Math.hypot(u.x - u.px, u.y - u.py) / CFG.dt;
@@ -697,7 +716,7 @@
     const list = [];
     for (const u of g.units) {
       const ix = u.px + (u.x - u.px) * alpha, iy = u.py + (u.y - u.py) * alpha;
-      if (ix < camX - 70 || ix > camX + view.w + 70 || iy < camY - 80 || iy > camY + view.h + 70) continue;
+      if (ix < camX - 70 || ix > camX + view.w + 70 || iy < camY - 80 || iy > camY + view.h + 140) continue;
       if (u.dead) {
         const age = g.t - (u.dieT == null ? -99 : u.dieT);
         if (u.type === 'tower') { list.push({ u: u, x: ix, y: iy }); continue; }
@@ -706,14 +725,17 @@
       list.push({ u: u, x: ix, y: iy });
     }
     for (const w of TR.WALLS) {
-      if (w.x2 < camX - 40 || w.x1 > camX + view.w + 40 || w.y2 < camY - 60 || w.y1 > camY + view.h + 60) continue;
+      if (w.x2 < camX - 40 || w.x1 > camX + view.w + 40 || w.y2 < camY - 60 || w.y1 > camY + view.h + 100) continue;
       list.push({ wall: w, y: w.y2 });
     }
+    if (RS.eraFade < 1) { collectProps(list, camX, camY, RS.eraPrev, 1 - RS.eraFade); collectProps(list, camX, camY, g.era, RS.eraFade); } else collectProps(list, camX, camY, g.era, 1);
     list.sort(function (a, b) { return a.y - b.y; });
 
     for (const it of list) {
-      if (it.wall) { drawWall(c, it.wall, g.era, rt); continue; }
+      if (it.prop) { UP(c, it.y); c.globalAlpha = it.alpha; const pp = it.prop; drawProp(c, pp.kind, pp.x, pp.y, pp.hv, rt); c.globalAlpha = 1; continue; }
+      if (it.wall) { UP(c, it.wall.y2); drawWall(c, it.wall, g.era, rt); continue; }
       const u = it.u, x = it.x, y = it.y;
+      UP(c, y);
       if (u.type === 'tower') {
         // จับจังหวะยิง: cdAtk เพิ่มขึ้น = เพิ่งยิง
         const prev = RS.fire['p' + u.id] || 0;
@@ -733,15 +755,21 @@
         const ap = u.lastAtk != null ? (rt - u.lastAtk) / 0.35 : 9;
         const lunge = ap >= 0 && ap < 1 ? Math.sin(ap * Math.PI) : 0, jaw = lunge;
         const pop = u.spawnT != null && g.t - u.spawnT < 0.5 ? ease((g.t - u.spawnT) / 0.5) : 1;
+        const MU = RS.use3d && TR.Units3D ? TR.Units3D.model(u.kind) : null;
+        if (MU) {
+          const al = u.dead ? Math.max(0, 1 - Math.max(0, age - 0.4) / 0.6) : pop;
+          TR.Stage3D.drawFigure(c, MU, { id: u.id, rt: rt, mv: an.mv, ph: an.ph, atkP: ap, castP: 9, dead: u.dead ? Math.min(1, age * 1.4) : 0 }, { x: x, y: y, facing: faceAng(u, dt), pitch: Math.asin(ST.K), scale: u.kind === 'boss' ? HS3 : HS3 * 1.2, alpha: al, flash: u.flash > g.t, amb: ERA_AMB[g.era] });
+        } else {
         c.save(); c.translate(x, y);
         if (u.dead) { c.globalAlpha = 1 - age; c.scale(1 + age * 0.15, 1 - age * 0.3); }
         else if (pop < 1) { c.globalAlpha = pop; c.scale(0.6 + 0.4 * pop, 0.6 + 0.4 * pop); }
         c.scale(an.vf, 1);
         drawMonster(c, u, u.flash > g.t ? FLASHK : IDENT, rt, an.vf, lunge, jaw);
         c.restore();
+        }
         if (!u.dead) {
           const M = TR.MONSTERS[u.kind];
-          const boss = u.kind === 'boss', hh = boss ? 98 : (M.buff ? 44 : 34);
+          const boss = u.kind === 'boss', hh = boss ? (MU ? 108 : 98) : (M.buff ? 44 : 34);
           if (u.hp < u.maxHp || u.tgt || boss) hpBar(c, x, y - hh, boss ? 56 : (M.buff ? 30 : 24), u.hp / u.maxHp, 2, true);
           if (M.buff) { c.fillStyle = 'rgba(255,255,255,.85)'; c.font = '600 5px sans-serif'; c.textAlign = 'center'; c.fillText(M.name, x, y - hh - 3); }
           if (u.leash) { c.fillStyle = '#81c784'; c.font = 'bold 7px sans-serif'; c.textAlign = 'center'; c.fillText('+', x, y - hh + 12); }
@@ -751,12 +779,17 @@
       if (u.type === 'minion') {
         const age = u.dead ? (g.t - u.dieT) / 0.4 : 0;
         const ap = u.lastAtk != null ? (rt - u.lastAtk) / 0.3 : 9;
+        const MN = RS.use3d && TR.Units3D ? TR.Units3D.model(u.ranged ? 'minionR' : 'minionM', u.team) : null;
+        if (MN) {
+          TR.Stage3D.drawFigure(c, MN, { id: u.id, rt: rt, mv: an.mv, ph: an.ph, atkP: ap, castP: 9, dead: u.dead ? Math.min(1, age * 1.2) : 0 }, { x: x, y: y, facing: faceAng(u, dt), pitch: Math.asin(ST.K), scale: HS3 * 0.58, alpha: u.dead ? Math.max(0, 1 - Math.max(0, age - 0.3) / 0.7) : 1, flash: u.flash > g.t, amb: ERA_AMB[g.era] });
+        } else {
         c.save(); c.translate(x, y);
         if (u.dead) { c.globalAlpha = 1 - age; c.rotate(an.vf * age * 0.9); c.translate(0, age * 2); }
         c.scale(0.72, 0.72);
         rig(c, { id: u.id, key: u.ranged ? 'minionR' : 'minionM', colors: { body: TEAM[u.team], accent: TEAM_LIGHT[u.team], hair: '#3e2723' }, role: 'minion', vf: an.vf, mv: an.mv, ph: an.ph, rt: rt, atkP: ap, castP: 9, flash: u.flash > g.t });
         c.restore();
-        if (!u.dead && u.hp < u.maxHp) hpBar(c, x, y - 17, 11, u.hp / u.maxHp, u.team, false);
+        }
+        if (!u.dead && u.hp < u.maxHp) hpBar(c, x, y - (MN ? 28 : 17), 11, u.hp / u.maxHp, u.team, false);
         continue;
       }
       // ฮีโร่
@@ -764,21 +797,30 @@
       const own = pl && u.team === pl.team;
       const stealth = u.m && u.m.stealth;
       const age = u.dead ? (g.t - u.dieT) / 0.9 : 0;
+      const ap = u.lastAtk != null ? (rt - u.lastAtk) / 0.32 : 9;
+      const cp = u.lastCast != null ? (rt - u.lastCast) / 0.45 : 9;
+      let hh3 = 0;
+      if (RS.use3d) {
+        let al = 1;
+        if (u.untarget > g.t) al = 0.35; else if (stealth) al = own ? 0.45 : 0.1;
+        if (u.dead) al = Math.max(0, 1 - Math.max(0, age - 0.55) / 0.45);
+        const M3 = TR.Stage3D.modelFor(u.def);
+        TR.Stage3D.drawFigure(c, M3, { id: u.id, rt: rt, mv: u.dash ? 1.3 : an.mv, ph: an.ph, atkP: ap, castP: cp, dead: u.dead ? Math.min(1, age) : 0 }, { x: x, y: y, facing: faceAng(u, dt), pitch: Math.asin(ST.K), scale: HS3, alpha: al, flash: u.flash > g.t, amb: ERA_AMB[g.era] });
+        hh3 = 36 * M3.scale * HS3 + 4;
+      } else {
       c.save(); c.translate(x, y);
       if (u.untarget > g.t) c.globalAlpha = 0.35; else if (stealth) c.globalAlpha = own ? 0.45 : 0.1;
       if (u.dead) { c.globalAlpha = Math.max(0, 1 - age); c.rotate(an.vf * Math.min(1, age * 3) * 1.4); c.translate(0, Math.min(1, age * 3) * 6); }
       if (u.dash) { c.globalAlpha *= 0.9; }
-      const sz = sc;
-      c.scale(sz, sz);
-      const ap = u.lastAtk != null ? (rt - u.lastAtk) / 0.32 : 9;
-      const cp = u.lastCast != null ? (rt - u.lastCast) / 0.45 : 9;
+      c.scale(sc, sc);
       rig(c, { id: u.id, key: u.def.id, colors: u.def.colors, role: u.role, vf: an.vf, mv: u.dash ? 1.3 : an.mv, ph: an.ph, rt: rt, atkP: ap, castP: cp, flash: u.flash > g.t });
       c.restore();
+      }
       if (!u.dead) {
         // ฝุ่นเท้า/เงาพุ่ง
         if (an.mv > 0.5) { const last = RS.dust[u.id] || 0; if (rt - last > 0.16) { RS.dust[u.id] = rt; spawnPart(x - u.face[0] * 3, y, -u.face[0] * 6 + (Math.random() - 0.5) * 6, -3 - Math.random() * 3, 0.45, 1.6, 'rgba(200,190,160,.7)', 'dust'); } }
         if (u.dash) spawnPart(x, y - 8, 0, 0, 0.3, 4.5, u.def.colors.accent, 'ghost');
-        const hh = 32 * sc / HERO_SC * 0.9;
+        const hh = hh3 || 32 * sc / HERO_SC * 0.9;
         drawStatus(c, g, u, x, y, rt, hh);
         if (u.casting) { c.globalAlpha = 0.5; c.strokeStyle = u.def.colors.accent; c.lineWidth = 1; c.beginPath(); c.ellipse(x, y, 11 + Math.sin(rt * 14), 4, 0, 0, TAU); c.stroke(); c.globalAlpha = 1; }
         let sh = 0; for (const e of u.fx) if (e.type === 'shield' && e.amt > 0 && e.until > g.t) sh += e.amt;
@@ -800,16 +842,20 @@
         c.globalAlpha = 0.12 + 0.2 * k; circ(c, z.x, z.y, z.r, z.c); c.globalAlpha = 0.85; c.strokeStyle = z.c; c.lineWidth = 1.2; c.beginPath(); c.arc(z.x, z.y, z.r, 0, TAU); c.stroke();
         c.beginPath(); c.arc(z.x, z.y, z.r * k, 0, TAU); c.globalAlpha = 0.6; c.stroke(); c.globalAlpha = 1;
       } else if (z.kind === 'trap') {
-        ell(c, z.x, z.y + 1, 7, 2.6, 'rgba(0,0,0,.3)');
+        ell(c, z.x, z.y + 1, 7, 2.6 * ST.K, 'rgba(0,0,0,.3)');
+        UP(c, z.y);
         for (let i = -1; i <= 1; i++) poly(c, [z.x + i * 3 - 1.4, z.y, z.x + i * 3 + 1.4, z.y, z.x + i * 3, z.y - 5.5], '#b0a089', true);
         fillRR(c, z.x - 5, z.y - 1.4, 10, 2.2, 1, '#6d4c41', true);
+        GT(c);
       } else {
         const pulse = 0.5 + 0.5 * Math.sin(rt * 3 + z.x);
         c.globalAlpha = 0.14 + pulse * 0.06; circ(c, z.x, z.y, z.r, z.c);
         c.globalAlpha = 0.7; c.strokeStyle = z.c; c.lineWidth = 1.2; c.setLineDash([6, 5]); c.lineDashOffset = -rt * 10; c.beginPath(); c.arc(z.x, z.y, z.r, 0, TAU); c.stroke();
         c.setLineDash([2, 6]); c.lineDashOffset = rt * 14; c.beginPath(); c.arc(z.x, z.y, z.r * 0.62, 0, TAU); c.stroke(); c.setLineDash([]); c.globalAlpha = 1;
+        if (z.turret || (z.heal && z.healAllies)) UP(c, z.y);
         if (z.turret) { fillRR(c, z.x - 5, z.y - 9, 10, 9, 2, '#455a64', true); fillRR(c, z.x - 2.5, z.y - 13, 5, 4, 1, '#fdd835', true); }
         if (z.heal && z.healAllies) { fillRR(c, z.x - 6, z.y - 8, 12, 8, 2, '#8d6e63', true); fillRR(c, z.x - 5, z.y - 11, 10, 3, 1.4, '#fff59d', true); }
+        if (z.turret || (z.heal && z.healAllies)) GT(c);
         if (z.heal && Math.random() < 0.1) spawnPart(z.x + (Math.random() - 0.5) * z.r, z.y + (Math.random() - 0.5) * z.r * 0.6, 0, -12, 0.8, 1.5, '#a5d6a7', 'plus');
       }
     }
@@ -817,6 +863,7 @@
 
   function drawProjs(c, g) {
     for (const p of g.projs) {
+      UP(c, p.y);
       let dx, dy;
       if (p.tgt) { dx = p.tgt.x - p.x; dy = p.tgt.y - p.y; } else { dx = p.vx; dy = p.vy; }
       const l = Math.hypot(dx, dy) || 1; dx /= l; dy /= l;
@@ -834,18 +881,22 @@
     for (const f of g.fx) {
       const k = clamp((g.t - f.t0) / f.dur, 0, 1), a = 1 - k;
       if (f.k === 'ring') {
+        GT(c);
         const r = f.r * (0.55 + 0.45 * ease(k));
         c.globalAlpha = a * 0.25; circ(c, f.x, f.y, r, f.c); c.globalAlpha = a * 0.95; c.strokeStyle = f.c; c.lineWidth = 1.6 * a + 0.4; c.beginPath(); c.arc(f.x, f.y, r, 0, TAU); c.stroke(); c.globalAlpha = 1;
       } else if (f.k === 'line') {
+        UP(c, (f.y1 + f.y2) / 2);
         c.lineCap = 'round'; c.globalAlpha = a * 0.4; c.strokeStyle = f.c; c.lineWidth = 4; c.beginPath(); c.moveTo(f.x1, f.y1 - 10); c.lineTo(f.x2, f.y2 - 10); c.stroke();
         c.globalAlpha = a; c.strokeStyle = '#ffffff'; c.lineWidth = 1.2; c.stroke(); c.globalAlpha = 1;
       } else if (f.k === 'decoy') {
+        UP(c, f.y);
         c.save(); c.translate(f.x, f.y); c.globalAlpha = 0.45 * a + 0.1; c.scale(HERO_SC, HERO_SC);
         rig(c, { id: 99, key: f.def.id, colors: f.def.colors, role: f.def.role, vf: 1, mv: 0, ph: 0, rt: rt, atkP: 9, castP: 9, flash: false });
         c.restore(); c.globalAlpha = 1;
       } else if (f.k === 'burst') {
         if (!RS.fxSeen.has(f)) { RS.fxSeen.add(f); for (let i = 0; i < f.n; i++) { const an = Math.random() * TAU, sp = 18 + Math.random() * 40; spawnPart(f.x, f.y - 8, Math.cos(an) * sp, Math.sin(an) * sp - 12, 0.5 + Math.random() * 0.4, 1.4 + Math.random() * 2, f.c, 'dot'); } }
       } else if (f.k === 'dmg') {
+        UP(c, f.y);
         const yy = f.y - 14 * ease(k), sc = f.big ? 1 : 0.8;
         c.globalAlpha = k > 0.6 ? 1 - (k - 0.6) / 0.4 : 1; c.font = '800 ' + (f.big ? 8.5 : 6.5) * (1 + (1 - ease(k * 3)) * 0.4) + 'px sans-serif'; c.textAlign = 'center';
         c.lineWidth = 1.8; c.strokeStyle = 'rgba(20,10,5,.9)'; c.lineJoin = 'round'; c.strokeText(String(f.v), f.x, yy); c.fillStyle = f.c; c.fillText(String(f.v), f.x, yy); c.globalAlpha = 1;
@@ -860,6 +911,7 @@
       if (p.life <= 0) { RS.parts.splice(i, 1); continue; }
       p.x += p.vx * dt; p.y += p.vy * dt;
       if (p.kind === 'dot' || p.kind === 'dust') { p.vy += 40 * dt; p.vx *= 0.96; }
+      UP(c, p.y);
       const k = p.life / p.max;
       c.globalAlpha = Math.min(1, k * 1.4);
       if (p.kind === 'plus') { c.fillStyle = p.c; c.fillRect(p.x - p.size, p.y - p.size * 0.3, p.size * 2, p.size * 0.6); c.fillRect(p.x - p.size * 0.3, p.y - p.size, p.size * 0.6, p.size * 2); }
@@ -886,12 +938,12 @@
     if (!cam.init) { cam.x = tx; cam.y = ty; cam.init = true; }
     else { const f = 1 - Math.exp(-dt * 9); cam.x += (tx - cam.x) * f; cam.y += (ty - cam.y) * f; }
     let camX = clamp(cam.x - view.w / 2, 0, Math.max(0, CFG.W - view.w)), camY = clamp(cam.y - view.h / 2, 0, Math.max(0, CFG.H - view.h));
-    camX = Math.round(camX * z) / z; camY = Math.round(camY * z) / z;
+    camX = Math.round(camX * z) / z; camY = Math.round(camY * z * ST.K) / (z * ST.K);
+    ST.camX = camX; ST.camY = camY;
 
     c.setTransform(1, 0, 0, 1, 0, 0);
     c.clearRect(0, 0, view.cw, view.ch);
-    c.setTransform(z, 0, 0, z, 0, 0);
-    c.translate(-camX, -camY);
+    GT(c);
 
     // เปลี่ยนยุคแบบเฟดต่อเนื่อง
     if (g.era !== RS.eraSeen) { RS.eraPrev = RS.eraSeen; RS.eraSeen = g.era; RS.eraFade = 0; }
@@ -908,10 +960,10 @@
     // แสงบรรยากาศตามยุค
     c.setTransform(z, 0, 0, z, 0, 0);
     const tint = ['rgba(255,214,140,0.07)', 'rgba(255,170,90,0.08)', 'rgba(70,80,100,0.12)', 'rgba(120,160,220,0.05)'][g.era];
-    c.fillStyle = tint; c.fillRect(0, 0, view.w, view.h);
-    const vg = c.createRadialGradient(view.w / 2, view.h / 2, view.h * 0.55, view.w / 2, view.h / 2, view.h * 1.1);
+    c.fillStyle = tint; c.fillRect(0, 0, view.w, VIEW_H);
+    const vg = c.createRadialGradient(view.w / 2, VIEW_H / 2, VIEW_H * 0.55, view.w / 2, VIEW_H / 2, VIEW_H * 1.1);
     vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.28)');
-    c.fillStyle = vg; c.fillRect(0, 0, view.w, view.h);
+    c.fillStyle = vg; c.fillRect(0, 0, view.w, VIEW_H);
     return { camX: camX, camY: camY, vw: view.w, vh: view.h };
   }
 
@@ -1104,5 +1156,5 @@
     const vg = c.createLinearGradient(0, h * 0.7, 0, h); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.45)'); c.fillStyle = vg; c.fillRect(0, h * 0.7, w, h * 0.3);
   }
 
-  TR.Render = { drawStage: drawStage, stageReset: stageReset, _rig: rig, view: view, resize: resize, draw: draw, drawMinimap: drawMinimap, drawHeroIcon: drawHeroIcon, TEAM: TEAM };
+  TR.Render = { is3d: function () { return !!RS.use3d; }, setMode3d: setMode3d, setTilt: setTilt, tilt: ST, drawStage: drawStage, stageReset: stageReset, _rig: rig, view: view, resize: resize, draw: draw, drawMinimap: drawMinimap, drawHeroIcon: drawHeroIcon, TEAM: TEAM };
 })(typeof window !== 'undefined' ? window : globalThis);

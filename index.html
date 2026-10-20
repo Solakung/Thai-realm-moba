@@ -34,6 +34,7 @@
       <div class="shop-head"><b>🛒 ร้านค้า</b><span id="shopGold"></span><span id="shopWhere"></span><button id="shopClose" aria-label="ปิด">✕</button></div>
       <div id="shopOwned"></div>
       <div id="shopList"></div>
+      <div id="shopInfo"></div>
     </div>
     <div id="pauseBox" hidden>
       <div class="card">
@@ -47,6 +48,7 @@
   <div id="rotate">หมุนจอเป็นแนวนอนเพื่อเล่น</div>
 </div>
 
+<div id="toast" hidden></div>
 <section id="menu">
   <div class="menu-inner">
     <header>
@@ -54,7 +56,7 @@
         <h1>THAI REALM</h1>
         <p class="sub">ศึกข้ามยุค · 5v5 MOBA ธีมไทย · v<span id="ver"></span></p>
       </div>
-      <button id="updBtn" class="ghost">📢 อัปเดต<span id="updDot" hidden></span></button>
+      <div class="hbtns"><button id="gfxBtn" class="ghost" title="สลับโหมดกราฟิก">🎨 กราฟิก: <span id="gfxMode">3D</span></button><button id="updBtn" class="ghost">📢 อัปเดต<span id="updDot" hidden></span></button></div>
     </header>
 
     <div class="cols">
@@ -116,6 +118,7 @@
 <script src="js/render.js"></script>
 <script src="js/stage3d.js"></script>
 <script src="js/heroes3d.js"></script>
+<script src="js/units3d.js"></script>
 <script src="js/view3d.js"></script>
 <script src="js/main.js"></script>
 </body>

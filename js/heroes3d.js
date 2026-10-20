@@ -15,6 +15,7 @@
     const bw = ROLE_BW[role] || 1, lw = 0.9 + 0.1 * bw;
     const body = col.body, acc = col.accent, hair = col.hair;
     const M = { id: id, parts: [], bw: bw, style: STYLE[id] || 'melee', scale: ROLE_SCALE[role] || 1, tip: [0, 13, 0], tipBase: [0, 5, 0], feet: [] };
+    M.scale0 = 1;
     const HX = 4.6 * bw + 1.0, LX = 2.2 * lw + 0.2, BASE = [1.5708, 0, 0];
     M.T = [
       [[0, 0, 0]], [[0, 0.8, 0]], [[0, 10.3, 0]],
@@ -197,6 +198,7 @@
         M.tip = [0, 14.6, 0]; M.tipBase = [0, 8, 0];
         break; }
     }
+    M.hasGlow = M.parts.some(function (p) { return p.glow; });
     return M;
   }
   S.build = build;
