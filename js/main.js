@@ -459,10 +459,10 @@
   function heroesOfEra(e) { return TR.HEROES.filter(function (h) { return h.era === e; }).map(function (h) { return h.name; }).join(', '); }
 
   let bannerT = null;
-  function banner(t, sub, ms) {
-    const b = $('banner');
+  function banner(t, sub, ms, cls) {
+    const b = $('banner'); b.className = cls || '';
     b.innerHTML = t + (sub ? '<small>' + sub + '</small>' : '');
-    b.classList.add('on');
+    void b.offsetWidth; b.classList.add('on');
     clearTimeout(bannerT);
     bannerT = setTimeout(function () { b.classList.remove('on'); }, ms || 3500);
   }
@@ -482,6 +482,11 @@
       else if (e.k === 'boss') {
         if (e.state === 'spawn') banner('ยักษ์วัดแจ้งปรากฏกลางป่า!', 'ฆ่าได้ทั้งทีมได้บัฟและทอง · ระวังการสแลมพื้นที่', 5000);
         else { feed('ทีม' + (e.team === 0 ? 'ฟ้า' : 'แดง') + 'ปราบยักษ์วัดแจ้งได้', e.team); banner('ทีม' + (e.team === 0 ? 'ฟ้า' : 'แดง') + 'ปราบยักษ์วัดแจ้ง', 'ทั้งทีมได้บัฟและทอง · ยักษ์จะกลับมาใน 3 นาที', 4500); }
+      }
+      else if (e.k === 'announce') {
+        const mine = e.team === g.player.team, big = e.kind === 'multi' || e.kind === 'ace' || (e.kind === 'streak' && e.n >= 5);
+        banner(e.text, e.sub, big ? 3800 : 2800, 'ann ' + e.kind + (mine ? ' mine' : ' foe') + (big ? ' big' : ''));
+        feed((mine ? '🔥 ' : '💀 ') + e.text + ' ' + e.sub, e.team);
       }
       else if (e.k === 'chat') feed(e.who + ': ' + e.text, e.team);
       else if (e.k === 'jungle') feed(e.killer + ' ได้บัฟ' + e.name + ' (' + e.text + ')', e.kteam);
@@ -671,6 +676,7 @@
     if (!playing || !g || g.over) return;
     paused = !paused;
     $('pauseBox').hidden = !paused;
+    if (paused && g) { const left = CFG.surrender.after - g.t; $('surBtn').disabled = left > 0; $('surBtn').textContent = left > 0 ? '🏳️ ยอมแพ้ (ได้หลังนาทีที่ ' + Math.floor(CFG.surrender.after / 60) + ')' : '🏳️ โหวตยอมแพ้'; $('surMsg').textContent = ''; }
     lastTs = performance.now();
   }
 
@@ -784,6 +790,12 @@
   $('startBtn').addEventListener('click', startGame);
   $('againBtn').addEventListener('click', startGame);
   $('menuBtn').addEventListener('click', toMenu);
+  $('surBtn').addEventListener('click', function () {
+    if (!g) return;
+    const r = TR.Sim.callSurrender(g, g.player.team);
+    $('surMsg').textContent = r.msg;
+    if (r.passed) { paused = false; $('pauseBox').hidden = true; lastTs = performance.now(); handleEvents(); }
+  });
   $('pauseBtn').addEventListener('click', togglePause);
   $('resumeBtn').addEventListener('click', togglePause);
   $('quitBtn').addEventListener('click', toMenu);

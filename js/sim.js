@@ -143,7 +143,7 @@
       type: 'hero', def: def, team: team, role: def.role, emblem: emblem, isPlayer: isPlayer, slot: slot,
       x: sp.x, y: sp.y, hp: 1, maxHp: 1, radius: r.radius, baseArmor: r.armor,
       level: 1, xp: 0, gold: 0, items: [], itm: zeroItm(), cd: [0, 0, 0], spell: 'heal', spCd: 0, sl: [0, 0, 0], atkHold: false, atkBuf: -99, atkType: null, lockT: null, prio: 'near', autoSkill: !isPlayer, atkMode: 'auto', recall: null, hurtT: -99, input: { dx: 0, dy: 0 }, kills: 0, deaths: 0, cs: 0,
-      stDmg: 0, stTwr: 0, stTaken: 0, stHeal: 0, stTowers: 0, stMon: 0, assists: 0, recent: {}, greedCount: 0, greedReady: false, decoyCd: 0, untarget: 0, still: 0, lastHeroHit: -99, auraT: 0,
+      bush: -1, revealT: 0, hid: [false, false], streak: 0, mkN: 0, mkT: -99, lastHitTeam: -1, stDmg: 0, stTwr: 0, stTaken: 0, stHeal: 0, stTowers: 0, stMon: 0, assists: 0, recent: {}, greedCount: 0, greedReady: false, decoyCd: 0, untarget: 0, still: 0, lastHeroHit: -99, auraT: 0,
       respawnAt: 0, casting: null, dash: null, aiTarget: null, nextMul: 0, goldTotal: 0,
       ai: { next: 0, retreat: false, yOff: (slot - 2) * 14, lane: lane0 < 0 ? 1 : lane0, jungle: lane0 < 0, defend: false, chk: 0 }
     });
@@ -270,11 +270,42 @@
     return g.towers[t.team][t.lane][t.idx - 1].dead;
   }
 
+  /* ---------- พุ่มไม้: ซ่อนตัว ---------- */
+  function bushAt(x, y) {
+    const B = TR.BUSHES;
+    for (let i = 0; i < B.length; i++) if ((x - B[i].x) * (x - B[i].x) + (y - B[i].y) * (y - B[i].y) <= B[i].r * B[i].r) return i;
+    return -1;
+  }
+  // อัปเดตว่าฮีโร่คนไหนซ่อนอยู่จากทีมไหน (ทำทุกก้าวก่อนอัปเดตหน่วย)
+  function updateVision(g) {
+    const hs = [];
+    for (const u of g.units) if (u.type === 'hero') { u.bush = u.dead ? -1 : bushAt(u.x, u.y); hs.push(u); }
+    for (const u of hs) {
+      u.hid[0] = u.hid[1] = false;
+      if (u.bush < 0 || u.revealT > g.t) continue;
+      for (let t = 0; t < 2; t++) {
+        if (t === u.team) continue;
+        let seen = false;
+        for (const e of hs) {
+          if (e.team !== t || e.dead) continue;
+          if (e.bush === u.bush || Math.hypot(e.x - u.x, e.y - u.y) <= CFG.bush.sight) { seen = true; break; }
+        }
+        u.hid[t] = !seen;
+      }
+    }
+  }
+  // มีมินเนียนฝั่งที่โจมตีอยู่ใกล้ป้อมพอ = บุกตามปกติ
+  function towerHasCover(g, tw) {
+    const R = CFG.backdoor.r, atk = 1 - tw.team;
+    for (const m of g.units) if (m.type === 'minion' && m.team === atk && !m.dead && Math.abs(m.x - tw.x) < R && Math.abs(m.y - tw.y) < R && Math.hypot(m.x - tw.x, m.y - tw.y) < R) return true;
+    return false;
+  }
   function canTarget(g, src, dst) {
     if (!dst || dst.dead || dst.team === src.team) return false;
     if (dst.type === 'tower' && !towerVuln(g, dst)) return false;
     if (dst.type === 'hero') {
       if (dst.untarget > g.t) return false;
+      if (dst.hid[src.team]) return false;
       if (dst.m.stealth) {
         const mk = findFx(dst, 'mark');
         const revealed = (src.type === 'tower' && TR.ERAS[g.era].tower.reveal) || (mk && mk.team === src.team);
@@ -336,7 +367,10 @@
     if (!o.raw && src) {
       d *= (src.dmgBase || 1) * (src.m ? src.m.dmg : 1) * (o.mul || 1);
       if (src.type === 'hero' && src.emblem === 'kro' && dst.hp / dst.maxHp < 0.4) d *= 1.1;
-      if (dst.type === 'tower') d *= (src.m ? src.m.tower : 1) * (src.type === 'minion' ? 0.4 : 1);
+      if (dst.type === 'tower') {
+        d *= (src.m ? src.m.tower : 1) * (src.type === 'minion' ? (src.cannon ? CFG.cannon.towerMul : 0.4) : 1);
+        if (src.type === 'hero' && !towerHasCover(g, dst)) d *= CFG.backdoor.dmgMul;   // กันบุกหลังป้อม: ไม่มีมินเนียนช่วยดัน ตีป้อมได้ไม่เจ็บ
+      }
       if (src.itm) {
         if (dst.type === 'monster' && src.itm.jungle) d *= 1 + src.itm.jungle;
         if (o.basic && src.itm.crit > 0 && g.rand() < src.itm.crit) d *= CFG.critMul;
@@ -368,10 +402,11 @@
     if (VIS && (dst.type === 'hero' || dst.type === 'tower' || (src && src.isPlayer)) && g.fx.length < 150) g.fx.push({ k: 'dmg', x: dst.x + (g.rand() - 0.5) * 8, y: dst.y - 22, v: Math.round(d), c: dst.type === 'hero' ? (dst.team === 0 ? '#ff8a80' : '#fff59d') : '#ffffff', t0: g.t, dur: 0.8, big: dst.type === 'hero' || (src && src.isPlayer) });
     if (src) {
       if (src.m && src.m.ls > 0 && !src.dead) { const b4 = src.hp; src.hp = Math.min(src.maxHp, src.hp + d * src.m.ls); if (src.type === 'hero') src.stHeal += src.hp - b4; }
-      if (src.type === 'hero' && dst.type === 'hero') src.lastHeroHit = g.t;
+      if (src.type === 'hero') src.revealT = g.t + CFG.bush.reveal;
+      if (src.type === 'hero' && dst.type === 'hero') { src.lastHeroHit = g.t; src.lastHitTeam = dst.team; }
       if (src.type === 'hero') { const st = findFxStealth(src); if (st && !o.keepStealth) removeFx(src, st); }
     }
-    dst.lastAttacker = src;
+    dst.lastAttacker = src; if (dst.type === 'tower') dst.lastHurt = g.t;
     if (dst.type === 'monster' && src) { dst.aggroBy = src; dst.aggroT = g.t; }
     if (dst.hp <= 0) kill(g, dst, src, o);
     return d;
@@ -400,6 +435,50 @@
     if (u.type === 'hero') u.stHeal += u.hp - b4;
   }
 
+  // ประกาศ: ฆ่าคนแรก / ฆ่าต่อเนื่องในช่วงสั้น (Double...) / สตรีค / หยุดสตรีค / ทีมแตก
+  const MK_TXT = ['', '', 'ฆ่าสองศพ!', 'ฆ่าสามศพ ไม่หยุด!', 'สี่ศพรวด!', 'ห้าศพ! ล้างทีม!'];
+  const ST_TXT = { 3: 'ฆ่าต่อเนื่อง 3 ศพ', 4: 'ฆ่าต่อเนื่อง 4 ศพ โหดมาก', 5: 'ฆ่าต่อเนื่อง 5 ศพ คลั่งแล้ว', 6: 'ฆ่าต่อเนื่อง 6 ศพ เหนือมนุษย์', 7: 'ฆ่าต่อเนื่อง 7 ศพ ตำนาน' };
+  function announceKill(g, killer, victim) {
+    const ev = function (kind, text, sub, n) { g.events.push({ k: 'announce', kind: kind, team: killer.team, text: text, sub: sub, n: n || 0 }); };
+    killer.streak++;
+    killer.mkN = g.t - killer.mkT <= CFG.multiKillWin ? killer.mkN + 1 : 1; killer.mkT = g.t;
+    const sub = killer.def.name + ' ปราบ ' + victim.def.name;
+    if (!g.firstBlood) { g.firstBlood = true; ev('first', 'ฆ่าคนแรก!', sub); return; }
+    if (victim.streak >= 3) ev('shutdown', 'หยุดสตรีค!', killer.def.name + ' หยุดสตรีค ' + victim.streak + ' ศพของ ' + victim.def.name, victim.streak);
+    let aceAll = true;
+    for (const e of g.units) if (e.type === 'hero' && e.team === victim.team && !e.dead && e !== victim) { aceAll = false; break; }
+    if (aceAll) { ev('ace', 'ทีมแตก!', 'ศัตรูตายหมดทั้งทีม · ' + sub); return; }
+    if (killer.mkN >= 2) ev('multi', MK_TXT[Math.min(5, killer.mkN)], sub, killer.mkN);
+    else if (killer.streak >= 3) ev('streak', ST_TXT[Math.min(7, killer.streak)], sub, killer.streak);
+  }
+
+  /* ---------- ยอมแพ้ (โหวตทีม) ---------- */
+  function surrenderState(g, team) {
+    let down = 0, lost = 0, kd = g.score[team] - g.score[1 - team];
+    for (const u of g.units) if (u.type === 'tower' && u.dead && !u.king) { if (u.team === team) lost++; else down++; }
+    return { lost: lost, down: down, kd: kd };
+  }
+  function botWantsSurrender(g, team) {
+    const st = surrenderState(g, team);
+    return (st.lost - st.down >= 2 && st.kd <= -6) || (st.lost >= 4 && st.kd <= -3) || (st.lost - st.down >= 3);
+  }
+  // ผู้เล่นขอยอมแพ้ (ผู้เล่น = 1 โหวต บอทเพื่อนโหวตตามสถานการณ์ ต้องผ่านกี่โหวตดู CFG.surrender.need)
+  function callSurrender(g, team) {
+    const C = CFG.surrender;
+    if (g.over) return { ok: false, msg: 'จบเกมแล้ว' };
+    if (g.t < C.after) return { ok: false, msg: 'ยอมแพ้ได้หลังนาทีที่ ' + Math.floor(C.after / 60) };
+    g.surCd = g.surCd || [0, 0];
+    if (g.t < g.surCd[team]) return { ok: false, msg: 'โหวตใหม่ได้อีก ' + Math.ceil(g.surCd[team] - g.t) + ' วินาที' };
+    let yes = 1; const want = botWantsSurrender(g, team);
+    for (const u of g.units) if (u.type === 'hero' && u.team === team && !u.isPlayer) { if (want || (u.dead && g.rand() < 0.3)) yes++; }
+    g.surCd[team] = g.t + C.cooldown;
+    if (yes >= C.need) {
+      g.over = true; g.winner = 1 - team; g.surrendered = team;
+      g.events.push({ k: 'over', winner: g.winner }); return { ok: true, passed: true, yes: yes, msg: 'ทีมยอมแพ้ (' + yes + '/5 โหวต)' };
+    }
+    return { ok: true, passed: false, yes: yes, msg: 'โหวตไม่ผ่าน (' + yes + '/5 ต้องการ ' + C.need + ')' };
+  }
+
   function addGold(u, n) { u.gold += n; u.goldTotal += n; }
   function addXp(g, u, n) {
     if (u.level >= CFG.maxLevel) return;
@@ -415,12 +494,13 @@
     dst.dead = true; dst.hp = 0; dst.dieT = g.t;
     if (VIS) g.fx.push({ k: 'burst', x: dst.x, y: dst.y, c: dst.type === 'tower' ? '#bcaaa4' : (dst.team === 0 ? '#64b5f6' : '#ef5350'), n: dst.type === 'minion' ? 6 : (dst.type === 'hero' ? 14 : 24), t0: g.t, dur: 0.8 });
     if (dst.type === 'hero') {
-      dst.deaths++; dst.recent = {};
+      dst.deaths++; dst.recent = {}; dst.streak = 0; dst.mkN = 0;
       dst.respawnAt = g.t + CFG.respawnBase + CFG.respawnPerLevel * dst.level;
       dst.fx = []; dst.dash = null; dst.casting = null;
       const killer = src && src.type === 'hero' ? src : (src && src.lastHeroOwner) || null;
       if (killer && killer.team !== dst.team) {
         killer.kills++; g.score[killer.team]++;
+        announceKill(g, killer, dst);
         for (const id in dst.recent) { const r = dst.recent[id]; if (r.u !== killer && r.u.team === killer.team && g.t - r.t <= 10) r.u.assists++; }
         addGold(killer, 300); addXp(g, killer, 150);
         for (const a of alliedHeroes(g, killer.team, dst.x, dst.y, 260)) if (a !== killer) { addGold(a, 60); addXp(g, a, 60); }
@@ -621,6 +701,7 @@
       if (fx.k === 'heal' && fx.hpBelow && !lowestAlly(g, u, fx.r, fx.hpBelow)) return false;
     }
     const ctx = { mul: skillMul(u, slot), slot: slot, aim: aim || null };
+    u.revealT = g.t + CFG.bush.reveal;
     if (aim) u.face = [aim.dx, aim.dy];
     if (u.nextMul) { ctx.mul *= u.nextMul; u.nextMul = 0; }
     if (u.greedReady) { ctx.mul *= 1.08; u.greedReady = false; }
@@ -898,6 +979,7 @@
       if (g.t >= tm.at) { g.timers.splice(i, 1); tm.fn(); }
     }
 
+    updateVision(g);
     // มินเนียน
     if (g.t >= g.nextWave) { spawnWave(g); g.nextWave += CFG.waveEvery; }
 
@@ -926,9 +1008,12 @@
     const late = g.waveNo >= 8;
     const nm = 3 + (late ? 1 : 0), nr = 1 + (late ? 1 : 0);
     const sc = 1 + 0.03 * g.waveNo;
+    const cannon = g.waveNo % CFG.cannon.every === 0;
     for (let team = 0; team < 2; team++) {
       const x0 = team === 0 ? 230 : CFG.W - 230, dir = team === 0 ? 1 : -1;
       for (let l = 0; l < CFG.lanes.length; l++) {
+        if (cannon) mkUnit(g, { type: 'minion', team: team, lane: l, inLane: l === 1, ranged: true, cannon: true, x: x0 - dir * 20, y: CFG.baseY + (g.rand() - 0.5) * 40,
+          hp: CFG.cannon.hp * sc, maxHp: CFG.cannon.hp * sc, dmg: CFG.cannon.dmg * sc, as: 0.6, range: CFG.cannon.range, speed: 44, radius: 9, baseArmor: 0.2 });
         // ป้อมศัตรูในเลนนี้พังหมดแล้ว = ได้มินเนียนยักษ์เพิ่ม (ช่วยดันเข้าราชธานี)
         const open = g.towers[1 - team][l].every(function (t) { return t.dead; });
         const sup = open ? CFG.siege.superMul : 1, ext = open ? CFG.siege.superExtra : 0;
@@ -1168,6 +1253,7 @@
     if (u.dead) return;
     aggregate(g, u);
     if (u.cdAtk > 0) u.cdAtk -= dt;
+    if (u.hp < u.maxHp && g.tick % 10 === 0 && !towerHasCover(g, u) && !(u.lastHurt > g.t - 4)) u.hp = Math.min(u.maxHp, u.hp + u.maxHp * CFG.backdoor.regen * 0.5);
     const beh = TR.ERAS[g.era].tower;
     let tgt = u.tgt;
     if (tgt && (tgt.dead || !canTarget(g, u, tgt) || dist(u, tgt) - tgt.radius > u.range)) tgt = null;
@@ -1192,7 +1278,7 @@
       if (d > u.range) continue;
       if (e.type === 'hero') {
         if (findFx(e, 'towerTaunt')) taunter = e;
-        if (e.lastHeroHit > g.t - 2.5 && d < ab) { ab = d; aggro = e; }
+        if (e.lastHeroHit > g.t - 2.5 && e.lastHitTeam === u.team && d < ab) { ab = d; aggro = e; }
         if (d < hd) { hd = d; hero = e; }
       } else if (e.type === 'minion' && d < md) { md = d; minion = e; }
     }
@@ -1385,7 +1471,7 @@
 
   TR.Sim = {
     navPoint: navPoint,
-    createGame: createGame, hit: hit, kill: kill, signal: signal, sigFor: sigFor, step: step, upgradeSkill: upgradeSkill, canUpgrade: canUpgrade, skillPts: skillPts, skillAim: skillAim, skillMul: skillMul, castSpell: castSpell, startRecall: startRecall, cancelRecall: cancelRecall, castSkill: castSkill, canCast: canCast,
+    createGame: createGame, hit: hit, kill: kill, signal: signal, sigFor: sigFor, callSurrender: callSurrender, botWantsSurrender: botWantsSurrender, bushAt: bushAt, step: step, upgradeSkill: upgradeSkill, canUpgrade: canUpgrade, skillPts: skillPts, skillAim: skillAim, skillMul: skillMul, castSpell: castSpell, startRecall: startRecall, cancelRecall: cancelRecall, castSkill: castSkill, canCast: canCast,
     pickEnemy: pickEnemy, enemiesIn: enemiesIn, alliedHeroes: alliedHeroes, canTarget: canTarget,
     towerVuln: towerVuln, buy: buy, sell: sell, canShop: canShop, netCost: netCost, ownedInLine: ownedInLine, wantShop: wantShop, dist: dist, norm: norm, findFx: findFx, lowestAlly: lowestAlly, recalc: recalc
   };

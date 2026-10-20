@@ -711,6 +711,25 @@
     }
   }
 
+  /* ---------- พุ่มไม้: ใบไม้กลุ่มก้อน (โปร่งลงถ้ามีฮีโร่ฝั่งเราอยู่ข้างใน) ---------- */
+  function drawBush(c, g, b, rt) {
+    const pl = g.player; let mine = false, any = false;
+    for (const u of g.units) if (u.type === 'hero' && !u.dead && u.bush === b.i) { any = true; if (pl && u.team === pl.team) mine = true; }
+    const al = mine ? 0.5 : 0.96, sw = Math.sin(rt * 1.6 + b.i) * 0.8;
+    // เงาพื้น
+    c.globalAlpha = 0.5; c.fillStyle = '#1e3a1c'; c.beginPath(); c.ellipse(b.x, b.y + b.r * 0.12, b.r * 1.05, b.r * 0.55, 0, 0, TAU); c.fill();
+    c.globalAlpha = al;
+    const n = 11;
+    for (let i = 0; i < n; i++) {
+      const a = i / n * TAU + b.i, rr = b.r * (0.25 + 0.62 * ((i * 37 % 11) / 11)), px = b.x + Math.cos(a) * rr * 0.95 + sw * (i % 3 ? 1 : -1) * 0.4, py = b.y - b.r * 0.18 + Math.sin(a) * rr * 0.5 - (i % 4) * b.r * 0.1;
+      const sz = b.r * (0.42 + 0.14 * (i % 3));
+      c.fillStyle = i % 3 === 0 ? '#3f8f3a' : (i % 3 === 1 ? '#2e7a2f' : '#4aa043');
+      c.beginPath(); c.ellipse(px, py - sz * 0.45, sz * 0.62, sz * 0.78, (i - 5) * 0.12, 0, TAU); c.fill();
+      c.fillStyle = 'rgba(255,255,255,.1)'; c.beginPath(); c.ellipse(px - sz * 0.18, py - sz * 0.75, sz * 0.22, sz * 0.3, 0, 0, TAU); c.fill();
+    }
+    c.globalAlpha = 1;
+  }
+
   function drawUnits(c, g, alpha, dt, rt, camX, camY) {
     const pl = g.player;
     const list = [];
@@ -729,9 +748,14 @@
       list.push({ wall: w, y: w.y2 });
     }
     if (RS.eraFade < 1) { collectProps(list, camX, camY, RS.eraPrev, 1 - RS.eraFade); collectProps(list, camX, camY, g.era, RS.eraFade); } else collectProps(list, camX, camY, g.era, 1);
+    for (const b of TR.BUSHES) {
+      if (b.x < camX - 90 || b.x > camX + view.w + 90 || b.y < camY - 100 || b.y > camY + view.h + 140) continue;
+      list.push({ bush: b, y: b.y + b.r * 0.55 });
+    }
     list.sort(function (a, b) { return a.y - b.y; });
 
     for (const it of list) {
+      if (it.bush) { UP(c, it.y); drawBush(c, g, it.bush, rt); continue; }
       if (it.prop) { UP(c, it.y); c.globalAlpha = it.alpha; const pp = it.prop; drawProp(c, pp.kind, pp.x, pp.y, pp.hv, rt); c.globalAlpha = 1; continue; }
       if (it.wall) { UP(c, it.wall.y2); drawWall(c, it.wall, g.era, rt); continue; }
       const u = it.u, x = it.x, y = it.y;
@@ -790,18 +814,19 @@
         const ap = u.lastAtk != null ? (rt - u.lastAtk) / 0.3 : 9;
         const MN = RS.use3d && TR.Units3D ? TR.Units3D.model(u.ranged ? 'minionR' : 'minionM', u.team) : null;
         if (MN) {
-          TR.Stage3D.drawFigure(c, MN, { id: u.id, rt: rt, mv: an.mv, ph: an.ph, atkP: ap, castP: 9, dead: u.dead ? Math.min(1, age * 1.2) : 0 }, { x: x, y: y, facing: faceAng(u, dt), pitch: Math.asin(ST.K), scale: HS3 * 0.58, alpha: u.dead ? Math.max(0, 1 - Math.max(0, age - 0.3) / 0.7) : 1, flash: u.flash > g.t, amb: ERA_AMB[g.era] });
+          TR.Stage3D.drawFigure(c, MN, { id: u.id, rt: rt, mv: an.mv, ph: an.ph, atkP: ap, castP: 9, dead: u.dead ? Math.min(1, age * 1.2) : 0 }, { x: x, y: y, facing: faceAng(u, dt), pitch: Math.asin(ST.K), scale: HS3 * (u.cannon ? 0.95 : (u.big ? 0.72 : 0.58)), alpha: u.dead ? Math.max(0, 1 - Math.max(0, age - 0.3) / 0.7) : 1, flash: u.flash > g.t, amb: ERA_AMB[g.era] });
         } else {
         c.save(); c.translate(x, y);
         if (u.dead) { c.globalAlpha = 1 - age; c.rotate(an.vf * age * 0.9); c.translate(0, age * 2); }
-        c.scale(0.72, 0.72);
+        { const ms = u.cannon ? 1.2 : (u.big ? 0.9 : 0.72); c.scale(ms, ms); }
         rig(c, { id: u.id, key: u.ranged ? 'minionR' : 'minionM', colors: { body: TEAM[u.team], accent: TEAM_LIGHT[u.team], hair: '#3e2723' }, role: 'minion', vf: an.vf, mv: an.mv, ph: an.ph, rt: rt, atkP: ap, castP: 9, flash: u.flash > g.t });
         c.restore();
         }
         if (!u.dead && u.hp < u.maxHp) hpBar(c, x, y - (MN ? 28 : 17), 11, u.hp / u.maxHp, u.team, false);
         continue;
       }
-      // ฮีโร่
+      // ฮีโร่ (ศัตรูที่ซ่อนอยู่ในพุ่มจะไม่ถูกวาด)
+      if (pl && u.team !== pl.team && u.hid && u.hid[pl.team]) continue;
       const sc = ROLE_SC[u.role] * HERO_SC;
       const own = pl && u.team === pl.team;
       const stealth = u.m && u.m.stealth;
@@ -1107,6 +1132,8 @@
       const dir = bx < 500 ? 1 : -1, ex = bx + dir * CFG.laneEntry;
       c.beginPath(); c.moveTo(bx * sx, CFG.baseY * sy); c.quadraticCurveTo((bx + dir * 200) * sx, CFG.baseY * sy, ex * sx, CFG.lanes[l].y * sy); c.stroke();
     }
+    c.globalAlpha = 0.55; c.fillStyle = '#2f6b2f';
+    for (const b of TR.BUSHES) { c.beginPath(); c.ellipse(b.x * sx, b.y * sy, b.r * sx * 1.1, b.r * sy * 1.1, 0, 0, TAU); c.fill(); }
     c.globalAlpha = 0.5; c.fillStyle = '#7d8896';
     for (const wl of TR.WALLS) c.fillRect(wl.x1 * sx, wl.y1 * sy, Math.max(1, (wl.x2 - wl.x1) * sx), Math.max(1.4, (wl.y2 - wl.y1) * sy));
     c.globalAlpha = 1;
@@ -1133,6 +1160,7 @@
     for (const u of g.units) {
       if (u.type !== 'hero') continue;
       if (u.m && u.m.stealth && me && u.team !== me.team) continue;
+      if (me && u.team !== me.team && u.hid && u.hid[me.team]) continue;
       const isMe = u === me, x = u.x * sx, y = u.y * sy, r = (isMe ? 5.6 : 4.8) * k;
       if (u.dead) { c.globalAlpha = 0.65; c.strokeStyle = '#9e9e9e'; c.lineWidth = 1.4 * k; c.beginPath(); c.moveTo(x - r * .7, y - r * .7); c.lineTo(x + r * .7, y + r * .7); c.moveTo(x + r * .7, y - r * .7); c.lineTo(x - r * .7, y + r * .7); c.stroke(); c.globalAlpha = 1; continue; }
       c.fillStyle = TEAM[u.team]; c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
