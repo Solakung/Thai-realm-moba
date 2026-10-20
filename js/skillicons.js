@@ -92,6 +92,37 @@
   };
   function gemSmall(x, y) { return [[x, y - 6], [x + 4, y], [x, y + 6], [x - 4, y]]; }
 
+
+  // ไอคอนปุ่มสั่งตี / กลับพระนคร / สเปล (ใช้พื้นหลังวงเดียวกับไอคอนสกิล)
+  function rotAbout(pts, cx, cy, ang) { const ca = Math.cos(ang), sa = Math.sin(ang); return pts.map(function (p) { const x = p[0] - cx, y = p[1] - cy; return [cx + x * ca - y * sa, cy + x * sa + y * ca]; }); }
+  Object.assign(ICONS, {
+    atkminion: function (c) { swordShape(c, 22, 86, 78, 30, 3.4); poly(c, [[28, 62], [30, 42], [50, 28], [70, 42], [72, 62]], '#8d6e63'); poly(c, [[44, 28], [50, 14], [56, 28]], '#ef5350', { lw: 1 }); poly(c, bar(22, 64, 78, 64, 9), '#bcaaa4'); poly(c, rect(42, 66, 16, 12), '#5d4037', { flat: 1 }); },
+    atktower: function (c) { poly(c, rect(32, 54, 36, 32), '#90a4ae'); poly(c, rect(44, 66, 12, 20), '#37474f', { flat: 1 }); poly(c, [[20, 54], [50, 22], [80, 54]], '#ffb300'); poly(c, [[44, 22], [50, 10], [56, 22]], '#ef5350', { lw: 1 }); swordShape(c, 20, 90, 82, 36, 3); },
+    recall: function (c) { glow(c, 50, 50, 46, '#4fc3f7'); poly(c, ngon(50, 82, 34, 14, 0, 0.24), '#4fc3f7', { flat: 1, lw: 1 }); poly(c, rect(36, 56, 28, 22), '#ffe0b2'); poly(c, [[24, 58], [50, 42], [76, 58]], '#ffb300'); poly(c, [[30, 46], [50, 32], [70, 46]], '#ffa000'); poly(c, [[38, 34], [50, 20], [62, 34]], '#ff8f00'); },
+    sp_heal: function (c) { pot(c, 50, 60, 1.2, '#a1887f', '#66bb6a'); poly(c, rect(46, 12, 8, 24), '#e8f5e9', { lw: 1 }); poly(c, rect(38, 20, 24, 8), '#e8f5e9', { lw: 1 }); },
+    sp_punish: function (c) { glow(c, 50, 50, 44, '#ffca28'); burstRays(c, 50, 50, 14, 38, 8, '#ff7043'); poly(c, bolt(50, 50, 1.5), '#fff176'); },
+    sp_flash: function (c) { poly(c, bar(14, 36, 66, 36, 6), '#80deea', { flat: 1 }); poly(c, bar(26, 52, 80, 52, 7), '#4dd0e1', { flat: 1 }); poly(c, bar(12, 68, 58, 68, 6), '#80deea', { flat: 1 }); poly(c, arrowHead(90, 52, 0, 16, 12), '#e0f7fa'); },
+    sp_sprint: function (c) { poly(c, ngon(50, 30, 30, 8, 0.2, 0.34), '#b2dfdb'); poly(c, ngon(54, 50, 24, 8, 0.2, 0.34), '#80cbc4'); poly(c, ngon(48, 68, 18, 8, 0.2, 0.34), '#4db6ac'); poly(c, ngon(52, 82, 10, 8, 0.2, 0.34), '#26a69a'); },
+    sp_purify: function (c) { [-64, -32, 0, 32, 64].forEach(function (d, i) { poly(c, rotAbout([[50, 76], [39, 50], [50, 22], [61, 50]], 50, 76, d * Math.PI / 180), i === 2 ? '#fce4ec' : '#f8bbd0', { lw: 1.2 }); }); poly(c, ngon(50, 76, 8, 6, 0, 1), '#ffd54f', { lw: 1 }); },
+    sp_barrier: function (c) { glow(c, 50, 50, 44, '#4dd0e1'); poly(c, shield(50, 50, 1.8), '#00acc1'); poly(c, shield(50, 50, 1.2), '#b2ebf2', { lw: 1.4 }); poly(c, star(50, 50, 10, 4, 4, 0), '#fff', { lw: 1 }); },
+    sp_conch: function (c) { poly(c, ngon(44, 56, 28, 7, 0.4, 0.9), '#ffe0b2'); poly(c, ngon(44, 56, 16, 6, 0, 0.9), '#ffcc80', { lw: 1 }); poly(c, [[60, 58], [88, 44], [86, 74]], '#ffe0b2'); burstRays(c, 86, 30, 4, 11, 5, '#fff59d'); }
+  });
+  const MOTIF_COL = {
+    atkminion: ['#ffb74d', '#6d4c41'], atktower: ['#ffcc80', '#455a64'], recall: ['#4fc3f7', '#0d3c61'],
+    sp_heal: ['#81c784', '#1b5e20'], sp_punish: ['#ffca28', '#8c2f00'], sp_flash: ['#4dd0e1', '#004d60'], sp_sprint: ['#80cbc4', '#004d40'],
+    sp_purify: ['#f48fb1', '#6a1b4d'], sp_barrier: ['#4dd0e1', '#01579b'], sp_conch: ['#ffcc80', '#6d4c41']
+  };
+  const mcache = {};
+  function urlMotif(motif, size) {
+    size = size || 96; const key = motif + '_' + size;
+    if (mcache[key] !== undefined) return mcache[key];
+    if (typeof document === 'undefined') return '';
+    const col = MOTIF_COL[motif] || ['#ffd54f', '#5c6bc0'];
+    const cv = document.createElement('canvas'); cv.width = cv.height = size;
+    try { draw(cv.getContext('2d'), motif, size, { accent: col[0], body: col[1] }, false); mcache[key] = cv.toDataURL('image/png'); } catch (e) { mcache[key] = ''; }
+    return mcache[key];
+  }
+
   // วาดไอคอนลงแคนวาสขนาด size (พื้นหลังวงกลม + ลวดลาย + ขอบสีฮีโร่)
   function draw(c, motif, size, colors, isUlt) {
     const acc = (colors && colors.accent) || '#ffd54f', body = (colors && colors.body) || '#5c6bc0';
@@ -120,5 +151,5 @@
     try { draw(cv.getContext('2d'), def.skills[slot].icon, size, def.colors, slot === 2); cache[key] = cv.toDataURL('image/png'); } catch (e) { cache[key] = ''; }
     return cache[key];
   }
-  TR.SkillIcon = { draw: draw, url: url, motifs: Object.keys(ICONS) };
+  TR.SkillIcon = { draw: draw, url: url, urlMotif: urlMotif, motifs: Object.keys(ICONS) };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

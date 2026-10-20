@@ -212,3 +212,8 @@ button.ghost, .card button:not(.primary) { background: var(--panel2); border: 1p
 .crow { margin: 10px 0; } .crow .cl { font-weight: 700; font-size: 13px; margin-bottom: 4px; } .crow .cd2 { font-size: 11px; color: var(--dim); margin-top: 3px; }
 .cseg { display: flex; gap: 6px; flex-wrap: wrap; } .cseg button { flex: 1; min-width: 90px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 7px 8px; color: #fff; font-size: 12px; }
 .cseg button.sel { border-color: #80d8ff; background: rgba(128,216,255,.16); }
+
+.cbtn.img, .spb.img { background-size: cover; background-position: center; background-color: transparent; }
+.cbtn.img .ic, .cbtn.img .nm, .spb.img .ic, .spb.img .nm { display: none; }
+.cbtn.sm.img { border: 2px solid #ffd54f; box-shadow: 0 2px 6px rgba(0,0,0,.6); }
+.spb.img { border-color: #80d8ff; }

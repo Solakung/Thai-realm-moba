@@ -223,22 +223,28 @@
   /* ---------- จัดวางปุ่มแบบ AoV: ปุ่มโจมตีใหญ่มุมขวาล่าง สกิลเรียงโค้งรอบปุ่ม ---------- */
   function layoutCtl() {
     const f = Math.max(0.88, Math.min(1.05, Math.min(window.innerHeight / 480, window.innerWidth / 760))) * ctl.size;
-    const ATK = 86 * f, SK = 64 * f, ULT = 76 * f, SM = 42 * f, SP = 52 * f, M = 14 + 4;
+    const ATK = 86 * f, SK = 64 * f, ULT = 76 * f, SM = 44 * f, SP = 52 * f, M = 14 + 4;
     const set = function (el, cx, cy, size) { el.style.width = el.style.height = size + 'px'; el.style.right = (cx - size / 2) + 'px'; el.style.bottom = (cy - size / 2) + 'px'; };
     const cx0 = M + ATK / 2, cy0 = M + ATK / 2, rr = ATK * 0.5 + SK * 0.5 + 26 * f;
     set($('atkBtn'), cx0, cy0, ATK);
     const sk = $('skills').children;
-    const pos = [[172, rr * 1.04], [128, rr * 1.16], [84, rr * 1.16]];
+    const pos = [[164, rr * 1.04], [124, rr * 1.16], [82, rr * 1.16]];
     for (let i = 0; i < sk.length && i < 3; i++) {
       const a = pos[i][0] * Math.PI / 180, r = pos[i][1], size = i === 2 ? ULT : SK;
       set(sk[i], cx0 - Math.cos(a) * r, cy0 + Math.sin(a) * r, size);
     }
-    const colX = cx0 + rr + SK / 2 + SM / 2 + 10 * f;
-    set($('atkMin'), colX, M + SM / 2, SM); set($('atkTwr'), colX, M + SM * 1.5 + 8 * f, SM);
-    const spX = colX + SM / 2 + SP / 2 + 10 * f;
+    // แถวล่าง (ซ้ายไปขวาจากปุ่มโจมตี): ตีลูกกระจ๊อก, ตีป้อม, สเปล, กลับพระนคร
+    const y0 = M + SM / 2, g1 = cx0 + ATK / 2 + SM / 2 + 4 * f;
+    set($('atkMin'), g1, y0, SM); set($('atkTwr'), g1 + SM + 6 * f, y0, SM);
+    const spX = g1 + SM + 6 * f + SM / 2 + SP / 2 + 16 * f;
     set($('spBtn'), spX, M + SP / 2, SP); set($('rcBtn'), spX + SP + 8 * f, M + SP / 2, SP);
   }
   window.addEventListener('resize', layoutCtl);
+  function setIcon(el, motif, size) {
+    const u = TR.SkillIcon && TR.SkillIcon.urlMotif ? TR.SkillIcon.urlMotif(motif, size || 96) : '';
+    if (u) { el.style.backgroundImage = 'url(' + u + ')'; el.classList.add('img'); }
+  }
+  setIcon($('atkMin'), 'atkminion'); setIcon($('atkTwr'), 'atktower'); setIcon($('rcBtn'), 'recall');
 
   /* ---------- ปุ่มโจมตี / สั่งตีลูกกระจ๊อก / สั่งตีป้อม ---------- */
   function atkPress(type, on, el) {
@@ -336,7 +342,7 @@
     document.body.classList.add('playing');
     buildSkillButtons(g.player.def); applyCtl();
     const spd = TR.SPELL_BY_ID[g.player.spell];
-    $('spBtn').querySelector('.ic').textContent = spd.icon; $('spBtn').querySelector('.nm').textContent = spd.name;
+    $('spBtn').querySelector('.ic').textContent = spd.icon; $('spBtn').querySelector('.nm').textContent = spd.name; $('spBtn').classList.remove('img'); $('spBtn').style.backgroundImage = ''; setIcon($('spBtn'), 'sp_' + spd.id);
     const em = TR.EMBLEMS[g.player.emblem];
     $('meName').innerHTML = g.player.def.name + ' <span style="color:' + em.color + '">· ใจ' + em.name + '</span>';
     banner('ยุค' + TR.ERAS[0].name + ' เริ่มแล้ว', TR.ERAS[0].note + ' · ฮีโร่ยุคนี้แข็งขึ้น: ' + heroesOfEra(0), 4500);
