@@ -28,6 +28,9 @@
     <div id="banner"></div>
     <div id="stickZone"><div id="stickBase"><div id="stickKnob"></div></div></div>
     <div id="skills"></div>
+    <button id="atkBtn" class="cbtn" aria-label="โจมตี"><span class="ic">⚔️</span><span class="nm">โจมตี</span><span class="key">Space</span></button>
+    <button id="atkMin" class="cbtn sm" aria-label="สั่งตีลูกกระจ๊อก"><span class="ic">🗡️</span><span class="nm">ลูกกระจ๊อก</span></button>
+    <button id="atkTwr" class="cbtn sm" aria-label="สั่งตีป้อม"><span class="ic">🏯</span><span class="nm">ป้อม</span></button>
     <div id="spBox"><button id="rcBtn" class="spb" aria-label="กลับพระนคร"><span class="ic">🏯</span><span class="nm">กลับพระนคร</span><span class="key">C</span><span class="cd"></span></button><button id="spBtn" class="spb" aria-label="สเปล"><span class="ic"></span><span class="nm"></span><span class="key">F</span><span class="cd"></span></button></div>
     <button id="pauseBtn" aria-label="หยุดเกม">❚❚</button>
     <button id="shopBtn" aria-label="ร้านค้า">🛒<span id="shopDot" hidden></span></button>
@@ -41,6 +44,7 @@
       <div class="card">
         <h2>หยุดเกมชั่วคราว</h2>
         <button id="resumeBtn" class="primary">เล่นต่อ</button>
+        <button id="ctlBtn2">🎮 ตั้งค่าการควบคุม</button>
         <button id="quitBtn">ออกไปเมนู</button>
       </div>
     </div>
@@ -50,6 +54,7 @@
 </div>
 
 <div id="toast" hidden></div>
+<div id="ctlSet" hidden><div class="card"><h2>🎮 ตั้งค่าการควบคุม</h2><div id="ctlRows"></div><button id="ctlClose" class="primary">ตกลง</button></div></div>
 <section id="menu">
   <div class="menu-inner">
     <header>
@@ -57,7 +62,7 @@
         <h1>THAI REALM</h1>
         <p class="sub">ศึกข้ามยุค · 5v5 MOBA ธีมไทย · v<span id="ver"></span></p>
       </div>
-      <div class="hbtns"><button id="gfxBtn" class="ghost" title="สลับโหมดกราฟิก">🎨 กราฟิก: <span id="gfxMode">3D</span></button><button id="updBtn" class="ghost">📢 อัปเดต<span id="updDot" hidden></span></button></div>
+      <div class="hbtns"><button id="ctlBtn" class="ghost">🎮 การควบคุม</button><button id="gfxBtn" class="ghost" title="สลับโหมดกราฟิก">🎨 กราฟิก: <span id="gfxMode">3D</span></button><button id="updBtn" class="ghost">📢 อัปเดต<span id="updDot" hidden></span></button></div>
     </header>
 
     <div class="cols">
@@ -117,6 +122,7 @@
 </div>
 
 <script src="js/data.js"></script>
+<script src="js/skillicons.js"></script>
 <script src="js/sim.js"></script>
 <script src="js/ai.js"></script>
 <script src="js/render.js"></script>

@@ -14,6 +14,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 /* ---------- HUD ---------- */
 #hud { position: absolute; inset: 0; pointer-events: none; font-size: 13px; }
 #hud > * { pointer-events: none; }
+#hud > .cbtn { pointer-events: auto; }
 #me { position: absolute; left: max(10px, env(safe-area-inset-left)); top: 8px; width: 190px; background: rgba(15,23,32,.72); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; }
 #meName { font-weight: 700; font-size: 13px; }
 #meBar { position: relative; height: 12px; background: #0a0f14; border-radius: 4px; overflow: hidden; margin: 3px 0; }
@@ -37,14 +38,20 @@ button { font: inherit; color: inherit; cursor: pointer; }
 #stickBase { position: absolute; width: 110px; height: 110px; border-radius: 50%; background: rgba(255,255,255,.08); border: 2px solid rgba(255,255,255,.25); display: none; }
 #stickKnob { position: absolute; left: 50%; top: 50%; width: 48px; height: 48px; margin: -24px 0 0 -24px; border-radius: 50%; background: rgba(255,255,255,.35); }
 
-#skills { position: absolute; right: max(14px, env(safe-area-inset-right)); bottom: max(14px, env(safe-area-inset-bottom)); display: flex; gap: 10px; align-items: flex-end; pointer-events: auto; }
-.skill { position: relative; width: 66px; height: 66px; border-radius: 50%; background: var(--panel2); border: 2px solid var(--gold); overflow: hidden; padding: 0; touch-action: none; }
-.skill.ult { width: 78px; height: 78px; border-color: #ff7043; }
-.skill .nm { position: absolute; inset: auto 2px 7px; font-size: 10px; line-height: 1.1; text-align: center; }
-.skill .key { position: absolute; top: 3px; left: 0; right: 0; text-align: center; font: 700 11px monospace; color: var(--gold); }
-.skill .cd { position: absolute; inset: 0; background: rgba(0,0,0,.68); display: none; align-items: center; justify-content: center; font: 700 18px monospace; }
+#skills { position: absolute; inset: 0; pointer-events: none; }
+.skill { position: absolute; width: 66px; height: 66px; border-radius: 50%; background: var(--panel2) center / cover no-repeat; border: 0; overflow: visible; padding: 0; touch-action: none; pointer-events: auto; -webkit-user-select: none; user-select: none; filter: drop-shadow(0 2px 4px rgba(0,0,0,.6)); }
+.skill.ult { width: 78px; height: 78px; }
+.skill .nm { position: absolute; left: -6px; right: -6px; bottom: -13px; font-size: 10px; line-height: 1.1; text-align: center; color: #fff; text-shadow: 0 1px 3px #000, 0 0 4px #000; pointer-events: none; }
+.skill .key { position: absolute; top: -3px; left: -3px; min-width: 16px; height: 16px; border-radius: 8px; background: rgba(0,0,0,.75); text-align: center; font: 700 10px/16px monospace; color: var(--gold); pointer-events: none; }
+.skill .cd { position: absolute; inset: 0; border-radius: 50%; background: rgba(0,0,0,.68); display: none; align-items: center; justify-content: center; font: 700 18px monospace; pointer-events: none; }
+.skill.lock { filter: grayscale(1) brightness(.6) drop-shadow(0 2px 4px rgba(0,0,0,.6)); }
+.skill .lv { position: absolute; left: 0; right: 0; bottom: 3px; text-align: center; font-size: 8px; letter-spacing: 1px; color: #ffe082; text-shadow: 0 0 3px #000; pointer-events: none; }
+.skill .up { position: absolute; right: -8px; top: -10px; width: 26px; height: 26px; border-radius: 50%; background: #ffb300; color: #1a1200; border: 2px solid #fff; font: 800 13px/22px sans-serif; text-align: center; display: none; pointer-events: auto; animation: upPulse .9s infinite alternate; z-index: 2; }
+.skill.canup .up { display: block; }
+@keyframes upPulse { from { transform: scale(.9); } to { transform: scale(1.12); } }
+.skill.aiming { transform: scale(1.12); }
 .skill.wait .cd { display: flex; }
-.skill:active { transform: scale(.94); }
+
 #pauseBtn { position: absolute; right: calc(max(10px, env(safe-area-inset-right)) + 186px); top: 8px; width: 34px; height: 28px; background: rgba(15,23,32,.75); border: 1px solid var(--line); border-radius: 6px; pointer-events: auto; font-size: 10px; display: none; }
 #pauseBox { position: absolute; inset: 0; background: rgba(0,0,0,.55); display: flex; align-items: center; justify-content: center; pointer-events: auto; }
 
@@ -177,8 +184,8 @@ button.ghost, .card button:not(.primary) { background: var(--panel2); border: 1p
 #toast { position: fixed; left: 50%; top: 14%; transform: translateX(-50%); z-index: 60; background: rgba(12,14,20,.92); border: 1px solid var(--line); border-radius: 12px; padding: 10px 16px; font-size: 14px; max-width: 86vw; text-align: center; pointer-events: none; }
 
 /* สเปล / กลับพระนคร */
-#spBox { position: absolute; right: max(14px, env(safe-area-inset-right)); bottom: calc(max(14px, env(safe-area-inset-bottom)) + 92px); display: flex; gap: 10px; pointer-events: auto; }
-.spb { position: relative; width: 52px; height: 52px; border-radius: 50%; background: var(--panel2); border: 2px solid #80d8ff; overflow: hidden; padding: 0; touch-action: none; color: #fff; }
+#spBox { position: absolute; inset: 0; pointer-events: none; }
+.spb { position: absolute; pointer-events: auto; width: 52px; height: 52px; border-radius: 50%; background: var(--panel2); border: 2px solid #80d8ff; overflow: hidden; padding: 0; touch-action: none; color: #fff; }
 .spb .ic { position: absolute; top: 5px; left: 0; right: 0; text-align: center; font-size: 19px; line-height: 1; }
 .spb .nm { position: absolute; inset: auto 1px 4px; font-size: 8px; line-height: 1.05; text-align: center; }
 .spb .key { position: absolute; top: 1px; right: 5px; font: 700 9px monospace; color: var(--gold); }
@@ -190,3 +197,18 @@ button.ghost, .card button:not(.primary) { background: var(--panel2); border: 1p
 #spellInfo { margin-top: 6px; font-size: 12px; color: var(--dim); min-height: 32px; }
 #shopInfo { position: sticky; bottom: 0; background: rgba(12,18,28,.97); }
 @media (max-height: 460px) { #spBox { bottom: calc(max(8px, env(safe-area-inset-bottom)) + 72px); } .spb { width: 44px; height: 44px; } .spb .ic { font-size: 16px; top: 3px; } }
+
+/* ปุ่มโจมตีและการควบคุมแบบ AoV */
+.cbtn { position: absolute; width: 86px; height: 86px; border-radius: 50%; border: 3px solid #ffb300; background: radial-gradient(circle at 35% 30%, #ff8a50, #c62828 70%); color: #fff; padding: 0; touch-action: none; pointer-events: auto; box-shadow: 0 3px 10px rgba(0,0,0,.6), inset 0 0 12px rgba(255,255,255,.25); -webkit-user-select: none; user-select: none; }
+.cbtn .ic { position: absolute; left: 0; right: 0; top: 16%; font-size: 30px; line-height: 1; text-align: center; }
+.cbtn .nm { position: absolute; left: 0; right: 0; bottom: 14%; font-size: 11px; font-weight: 700; text-align: center; text-shadow: 0 1px 3px #000; }
+.cbtn .key { position: absolute; top: 4px; left: 0; right: 0; text-align: center; font: 700 9px monospace; color: #ffe082; }
+.cbtn.sm { width: 42px; height: 42px; border-width: 2px; border-color: #90caf9; background: radial-gradient(circle at 35% 30%, #64b5f6, #1a3a6e 75%); }
+.cbtn.sm .ic { font-size: 16px; top: 8%; } .cbtn.sm .nm { font-size: 7px; bottom: 6%; }
+.cbtn.on, .cbtn:active { filter: brightness(1.35); transform: scale(.95); }
+#ctlSet { position: fixed; inset: 0; z-index: 70; background: rgba(0,0,0,.6); display: flex; align-items: center; justify-content: center; }
+#ctlSet[hidden] { display: none; }
+#ctlSet .card { width: min(520px, calc(100vw - 20px)); max-height: calc(100vh - 20px); overflow: auto; text-align: left; }
+.crow { margin: 10px 0; } .crow .cl { font-weight: 700; font-size: 13px; margin-bottom: 4px; } .crow .cd2 { font-size: 11px; color: var(--dim); margin-top: 3px; }
+.cseg { display: flex; gap: 6px; flex-wrap: wrap; } .cseg button { flex: 1; min-width: 90px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 7px 8px; color: #fff; font-size: 12px; }
+.cseg button.sel { border-color: #80d8ff; background: rgba(128,216,255,.16); }

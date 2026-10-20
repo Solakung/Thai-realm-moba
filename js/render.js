@@ -850,6 +850,41 @@
     }
   }
 
+  /* ================= ตัวบอกการเล็งสกิล / ล็อกเป้า ================= */
+  const AIM = { on: false };
+  function setAim(o) { if (!o) AIM.on = false; else { Object.assign(AIM, o); AIM.on = true; } }
+  function screenToWorld(canvas, clientX, clientY) {
+    const r = canvas.getBoundingClientRect();
+    const px = (clientX - r.left) * canvas.width / r.width, py = (clientY - r.top) * canvas.height / r.height;
+    return { x: ST.camX + px / view.z, y: ST.camY + py / (view.z * ST.K) };
+  }
+  function drawAimUI(c, g, rt) {
+    const pl = g.player; if (!pl || pl.dead) return;
+    const L = pl.lockT;
+    if (L && !L.dead) {                                  // วงแดงใต้เป้าที่ล็อก
+      const p = 0.5 + 0.5 * Math.sin(rt * 6);
+      c.strokeStyle = '#ff5252'; c.lineWidth = 1.6; c.globalAlpha = 0.9;
+      c.beginPath(); c.ellipse(L.x, L.y, L.radius + 7 + p * 1.5, (L.radius + 7 + p * 1.5), 0, 0, TAU); c.stroke();
+      for (let i = 0; i < 4; i++) { const a = rt * 2 + i * Math.PI / 2; c.beginPath(); c.moveTo(L.x + Math.cos(a) * (L.radius + 4), L.y + Math.sin(a) * (L.radius + 4)); c.lineTo(L.x + Math.cos(a) * (L.radius + 12), L.y + Math.sin(a) * (L.radius + 12)); c.stroke(); }
+      c.globalAlpha = 1;
+    }
+    if (!AIM.on) return;
+    const col = AIM.cancel ? '#ff5252' : '#80d8ff', ux = AIM.dx, uy = AIM.dy, R = AIM.range * (AIM.type === 'point' || AIM.type === 'line' ? AIM.k : 1);
+    c.save(); c.globalAlpha = 0.9; c.strokeStyle = col; c.fillStyle = col; c.lineWidth = 1.4;
+    if (AIM.type === 'line' || AIM.type === 'target') {
+      const w = Math.max(AIM.r || 6, 5), ex = pl.x + ux * R, ey = pl.y + uy * R, nx = -uy * w, ny = ux * w;
+      c.globalAlpha = 0.22; c.beginPath(); c.moveTo(pl.x + nx, pl.y + ny); c.lineTo(ex + nx, ey + ny); c.lineTo(ex - nx, ey - ny); c.lineTo(pl.x - nx, pl.y - ny); c.closePath(); c.fill();
+      c.globalAlpha = 0.9; c.setLineDash([5, 4]); c.beginPath(); c.moveTo(pl.x + nx, pl.y + ny); c.lineTo(ex + nx, ey + ny); c.moveTo(pl.x - nx, pl.y - ny); c.lineTo(ex - nx, ey - ny); c.stroke(); c.setLineDash([]);
+      c.beginPath(); c.moveTo(ex + ux * 8, ey + uy * 8); c.lineTo(ex + nx * 1.6, ey + ny * 1.6); c.lineTo(ex - nx * 1.6, ey - ny * 1.6); c.closePath(); c.fill();
+    } else if (AIM.type === 'point') {
+      const ex = pl.x + ux * R, ey = pl.y + uy * R;
+      c.globalAlpha = 0.5; c.setLineDash([3, 4]); c.beginPath(); c.ellipse(pl.x, pl.y, AIM.range, AIM.range, 0, 0, TAU); c.stroke(); c.setLineDash([]);
+      c.globalAlpha = 0.2; c.beginPath(); c.arc(ex, ey, AIM.r, 0, TAU); c.fill(); c.globalAlpha = 0.9; c.beginPath(); c.arc(ex, ey, AIM.r, 0, TAU); c.stroke();
+      c.globalAlpha = 0.45; c.beginPath(); c.moveTo(pl.x, pl.y); c.lineTo(ex, ey); c.stroke();
+    }
+    c.restore();
+  }
+
   /* ================= น้ำพุทิพย์หน้าฐาน (ฟื้นเลือดเร็วเมื่ออยู่ใกล้) ================= */
   function drawFountains(c, g, rt) {
     for (let t = 0; t < 2; t++) {
@@ -990,6 +1025,7 @@
     drawBases(c, g, rt);
     drawFountains(c, g, rt);
     drawZones(c, g, rt);
+    drawAimUI(c, g, rt);
     drawUnits(c, g, alpha, dt, rt, camX, camY);
     drawProjs(c, g);
     drawFx(c, g, rt);
@@ -1194,5 +1230,5 @@
     const vg = c.createLinearGradient(0, h * 0.7, 0, h); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.45)'); c.fillStyle = vg; c.fillRect(0, h * 0.7, w, h * 0.3);
   }
 
-  TR.Render = { is3d: function () { return !!RS.use3d; }, setMode3d: setMode3d, setTilt: setTilt, tilt: ST, drawStage: drawStage, stageReset: stageReset, _rig: rig, view: view, resize: resize, draw: draw, drawMinimap: drawMinimap, drawHeroIcon: drawHeroIcon, TEAM: TEAM };
+  TR.Render = { setAim: setAim, screenToWorld: screenToWorld, is3d: function () { return !!RS.use3d; }, setMode3d: setMode3d, setTilt: setTilt, tilt: ST, drawStage: drawStage, stageReset: stageReset, _rig: rig, view: view, resize: resize, draw: draw, drawMinimap: drawMinimap, drawHeroIcon: drawHeroIcon, TEAM: TEAM };
 })(typeof window !== 'undefined' ? window : globalThis);

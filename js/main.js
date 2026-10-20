@@ -182,17 +182,148 @@
     if (gfx === '3d' && ftEma > 24) { if (++slowN > 180) { applyGfx('2d', false); toast('เครื่องดูหนัก — สลับเป็นกราฟิก 2D ให้อัตโนมัติ (เปลี่ยนกลับได้ที่เมนู)'); } } else slowN = Math.max(0, slowN - 2);
   }
 
+  /* ---------- ตั้งค่าการควบคุม (เก็บในเครื่อง) ---------- */
+  const CTL_DEF = { atkMode: 'button', prio: 'near', dragAim: true, mouseAim: !!(window.matchMedia && matchMedia('(pointer:fine)').matches), autoSkill: false, size: 1 };
+  let ctl = Object.assign({}, CTL_DEF);
+  try { const sv = JSON.parse(localStorage.getItem('tr_ctl') || 'null'); if (sv) Object.keys(CTL_DEF).forEach(function (k) { if (sv[k] !== undefined) ctl[k] = sv[k]; }); } catch (e) { /* ไม่เป็นไร */ }
+  const CTL_ROWS = [
+    { k: 'atkMode', t: 'โหมดตีปกติ', opts: [['button', 'กดปุ่มโจมตี (แบบ AoV)'], ['auto', 'ตีอัตโนมัติ']], d: 'แบบ AoV: กดปุ่ม ⚔️ หรือ Space ถึงจะตี กดค้างตีต่อเนื่อง แตะครั้งเดียวตี 1 ครั้ง' },
+    { k: 'prio', t: 'เป้าหมายที่ตีก่อน', opts: [['near', 'ใกล้สุด'], ['lowhp', 'เลือดน้อยสุด'], ['hero', 'ฮีโร่ก่อน']], d: 'ใช้กับการตีปกติ ปุ่มเล็ก 🗡️ สั่งตีลูกกระจ๊อก (เลือดน้อยก่อน) ส่วน 🏯 สั่งตีป้อม' },
+    { k: 'dragAim', t: 'การเล็งสกิล', opts: [[true, 'แตะ = ออโต้ / ลาก = เล็ง'], [false, 'แตะอย่างเดียว (ออโต้)']], d: 'ลากนิ้วออกจากปุ่มสกิลเพื่อเล็งทิศหรือจุด ปล่อยเพื่อใช้ ลากไกลสุดเพื่อยกเลิก' },
+    { k: 'mouseAim', t: 'เมาส์เล็งสกิล (คอมพิวเตอร์)', opts: [[true, 'เปิด'], [false, 'ปิด']], d: 'กด Q/E/R แล้วสกิลพุ่งไปทางเมาส์ ปิดไว้จะเล็งเป้าใกล้สุดให้เอง' },
+    { k: 'autoSkill', t: 'อัปเลเวลสกิลอัตโนมัติ', opts: [[false, 'เลือกเอง'], [true, 'อัตโนมัติ']], d: 'เลเวลขึ้นได้แต้มสกิล 1 แต้ม กดลูกศร ▲ บนปุ่มสกิลเพื่ออัป' },
+    { k: 'size', t: 'ขนาดปุ่ม', opts: [[0.85, 'เล็ก'], [1, 'กลาง'], [1.18, 'ใหญ่']], d: '' }
+  ];
+  function saveCtl() { try { localStorage.setItem('tr_ctl', JSON.stringify(ctl)); } catch (e) { /* ไม่เป็นไร */ } }
+  function applyCtl() {
+    if (g && g.player) { const pl = g.player; pl.atkMode = ctl.atkMode; pl.prio = ctl.prio; pl.autoSkill = !!ctl.autoSkill; }
+    layoutCtl();
+  }
+  function buildCtlRows() {
+    const box = $('ctlRows'); box.innerHTML = '';
+    CTL_ROWS.forEach(function (r) {
+      const row = document.createElement('div'); row.className = 'crow';
+      row.innerHTML = '<div class="cl">' + r.t + '</div>';
+      const seg = document.createElement('div'); seg.className = 'cseg';
+      r.opts.forEach(function (o) {
+        const b = document.createElement('button'); b.textContent = o[1]; b.className = ctl[r.k] === o[0] ? 'sel' : '';
+        b.addEventListener('click', function () { ctl[r.k] = o[0]; saveCtl(); applyCtl(); buildCtlRows(); });
+        seg.appendChild(b);
+      });
+      row.appendChild(seg);
+      if (r.d) { const d = document.createElement('div'); d.className = 'cd2'; d.textContent = r.d; row.appendChild(d); }
+      box.appendChild(row);
+    });
+  }
+  function openCtl() { buildCtlRows(); $('ctlSet').hidden = false; }
+  $('ctlBtn').addEventListener('click', openCtl);
+  $('ctlBtn2').addEventListener('click', openCtl);
+  $('ctlClose').addEventListener('click', function () { $('ctlSet').hidden = true; });
+
+  /* ---------- จัดวางปุ่มแบบ AoV: ปุ่มโจมตีใหญ่มุมขวาล่าง สกิลเรียงโค้งรอบปุ่ม ---------- */
+  function layoutCtl() {
+    const f = Math.max(0.6, Math.min(1.05, Math.min(window.innerHeight / 540, window.innerWidth / 800))) * ctl.size;
+    const ATK = 86 * f, SK = 64 * f, ULT = 76 * f, SM = 42 * f, SP = 52 * f, M = 14 + 4;
+    const set = function (el, cx, cy, size) { el.style.width = el.style.height = size + 'px'; el.style.right = (cx - size / 2) + 'px'; el.style.bottom = (cy - size / 2) + 'px'; };
+    const cx0 = M + ATK / 2, cy0 = M + ATK / 2, rr = ATK * 0.5 + SK * 0.5 + 14 * f;
+    set($('atkBtn'), cx0, cy0, ATK);
+    const sk = $('skills').children;
+    const pos = [[180, rr * 1.0], [133, rr * 1.06], [88, rr * 1.04]];
+    for (let i = 0; i < sk.length && i < 3; i++) {
+      const a = pos[i][0] * Math.PI / 180, r = pos[i][1], size = i === 2 ? ULT : SK;
+      set(sk[i], cx0 - Math.cos(a) * r, cy0 + Math.sin(a) * r, size);
+    }
+    const colX = cx0 + rr + SK / 2 + SM / 2 + 10 * f;
+    set($('atkMin'), colX, M + SM / 2, SM); set($('atkTwr'), colX, M + SM * 1.5 + 8 * f, SM);
+    const spX = colX + SM / 2 + SP / 2 + 10 * f;
+    set($('spBtn'), spX, M + SP / 2, SP); set($('rcBtn'), spX, M + SP * 1.5 + 8 * f, SP);
+  }
+  window.addEventListener('resize', layoutCtl);
+
+  /* ---------- ปุ่มโจมตี / สั่งตีลูกกระจ๊อก / สั่งตีป้อม ---------- */
+  function atkPress(type, on, el) {
+    if (!g || !playing) return; const pl = g.player;
+    if (on) { pl.atkType = type; pl.atkHold = true; pl.atkBuf = g.t + 0.45; } else { pl.atkHold = false; pl.atkType = null; }
+    if (el) el.classList.toggle('on', on);
+  }
+  [['atkBtn', null], ['atkMin', 'minion'], ['atkTwr', 'tower']].forEach(function (d) {
+    const el = $(d[0]);
+    el.addEventListener('pointerdown', function (e) { e.preventDefault(); try { el.setPointerCapture(e.pointerId); } catch (x) { /* ไม่เป็นไร */ } atkPress(d[1], true, el); });
+    const up = function (e) { atkPress(d[1], false, el); };
+    el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up); el.addEventListener('lostpointercapture', up);
+  });
+
+  /* ---------- ปุ่มสกิล: แตะ = ใช้ทันที (เล็งออโต้) / ลาก = เล็งเอง / ▲ = อัปเลเวล ---------- */
+  const AIM_PX = 16, CANCEL_PX = 170, FULL_PX = 95;
   function buildSkillButtons(def) {
     const box = $('skills');
     box.innerHTML = '';
     def.skills.forEach(function (s, i) {
       const b = document.createElement('button');
       b.className = 'skill' + (i === 2 ? ' ult' : '');
-      b.innerHTML = '<span class="key">' + SK_KEYS[i] + '</span><span class="nm">' + s.name + '</span><span class="cd"></span>';
-      b.addEventListener('pointerdown', function (e) { e.preventDefault(); queue.push(i); });
+      const url = TR.SkillIcon ? TR.SkillIcon.url(def, i, 112) : '';
+      if (url) b.style.backgroundImage = 'url(' + url + ')';
+      b.innerHTML = '<span class="key">' + SK_KEYS[i] + '</span><span class="nm">' + s.name + '</span><span class="lv"></span><span class="cd"></span><span class="up">▲</span>';
+      const aimSpec = TR.Sim.skillAim(s);
+      let drag = null;
+      const K = function () { return TR.Render.tilt.K || 1; };
+      b.querySelector('.up').addEventListener('pointerdown', function (e) { e.preventDefault(); e.stopPropagation(); if (g) TR.Sim.upgradeSkill(g, g.player, i); });
+      b.addEventListener('pointerdown', function (e) {
+        if (e.target.classList.contains('up')) return;
+        e.preventDefault(); if (!g || !playing || paused) return;
+        try { b.setPointerCapture(e.pointerId); } catch (x) { /* ไม่เป็นไร */ }
+        const r = b.getBoundingClientRect();
+        drag = { id: e.pointerId, cx: r.left + r.width / 2, cy: r.top + r.height / 2, on: false };
+        if (aimSpec.type === 'self' || !ctl.dragAim) { queue.push({ slot: i }); drag.done = true; }
+      });
+      b.addEventListener('pointermove', function (e) {
+        if (!drag || drag.done || e.pointerId !== drag.id) return;
+        const vx = e.clientX - drag.cx, vy = e.clientY - drag.cy, len = Math.hypot(vx, vy);
+        if (len < AIM_PX) { drag.on = false; TR.Render.setAim(null); b.classList.remove('aiming'); return; }
+        drag.on = true; b.classList.add('aiming');
+        const d = [vx, vy / K()], dl = Math.hypot(d[0], d[1]) || 1;
+        drag.aim = { dx: d[0] / dl, dy: d[1] / dl, k: Math.max(0.2, Math.min(1, len / FULL_PX)) };
+        drag.cancel = len > CANCEL_PX;
+        TR.Render.setAim({ type: aimSpec.type, range: aimSpec.range, r: aimSpec.r, dx: drag.aim.dx, dy: drag.aim.dy, k: drag.aim.k, cancel: drag.cancel });
+      });
+      const end = function (e) {
+        if (!drag || e.pointerId !== drag.id) return;
+        TR.Render.setAim(null); b.classList.remove('aiming');
+        if (!drag.done) { if (drag.on) { if (!drag.cancel) queue.push({ slot: i, aim: drag.aim }); } else queue.push({ slot: i }); }
+        drag = null;
+      };
+      b.addEventListener('pointerup', end);
+      b.addEventListener('pointercancel', function (e) { if (drag && e.pointerId === drag.id) { TR.Render.setAim(null); b.classList.remove('aiming'); drag = null; } });
       box.appendChild(b);
     });
+    layoutCtl();
   }
+
+  // คีย์บอร์ด/เมาส์: กดปุ่มสกิลแล้วพุ่งไปทางเมาส์ (ถ้าเปิดไว้)
+  let mouse = { x: 0, y: 0, in: false };
+  canvas.addEventListener('mousemove', function (e) { mouse.x = e.clientX; mouse.y = e.clientY; mouse.in = true; });
+  canvas.addEventListener('mouseleave', function () { mouse.in = false; });
+  function keySkill(i) {
+    if (!g) return;
+    const spec = TR.Sim.skillAim(g.player.def.skills[i]);
+    if (ctl.mouseAim && mouse.in && spec.type !== 'self') {
+      const pl = g.player, w = TR.Render.screenToWorld(canvas, mouse.x, mouse.y);
+      const dx = w.x - pl.x, dy = w.y - pl.y, len = Math.hypot(dx, dy) || 1;
+      queue.push({ slot: i, aim: { dx: dx / len, dy: dy / len, k: Math.max(0.2, Math.min(1, len / Math.max(1, spec.range))) } });
+    } else queue.push({ slot: i });
+  }
+  // แตะ/คลิกที่ศัตรูเพื่อล็อกเป้า (ฮีโร่และมอนป่า) แตะซ้ำเพื่อปลด
+  canvas.addEventListener('pointerdown', function (e) {
+    if (!g || !playing || paused || e.button > 0) return;
+    const w = TR.Render.screenToWorld(canvas, e.clientX, e.clientY), pl = g.player;
+    let best = null, bd = 34;
+    for (const u of g.units) {
+      if (u.dead || u.team === pl.team || (u.type !== 'hero' && u.type !== 'monster')) continue;
+      const d = Math.hypot(u.x - w.x, u.y - (w.y + 12)) - u.radius;
+      if (d < bd) { bd = d; best = u; }
+    }
+    if (best) pl.lockT = pl.lockT === best ? null : best;
+  });
 
   function startGame() {
     if (endTimer) { clearTimeout(endTimer); endTimer = null; }
@@ -203,7 +334,7 @@
     $('hud').hidden = false; $('pauseBtn').style.display = 'block';
     $('feed').innerHTML = '';
     document.body.classList.add('playing');
-    buildSkillButtons(g.player.def);
+    buildSkillButtons(g.player.def); applyCtl();
     const spd = TR.SPELL_BY_ID[g.player.spell];
     $('spBtn').querySelector('.ic').textContent = spd.icon; $('spBtn').querySelector('.nm').textContent = spd.name;
     const em = TR.EMBLEMS[g.player.emblem];
@@ -307,16 +438,19 @@
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].indexOf(e.code) >= 0) e.preventDefault();
     if (e.repeat) return;
     keys[e.code] = true;
-    if (e.code === 'KeyQ' || e.code === 'Digit1') queue.push(0);
-    else if (e.code === 'KeyE' || e.code === 'Digit2') queue.push(1);
-    else if (e.code === 'KeyR' || e.code === 'Digit3') queue.push(2);
+    if (e.code === 'KeyQ' || e.code === 'Digit1') keySkill(0);
+    else if (e.code === 'KeyE' || e.code === 'Digit2') keySkill(1);
+    else if (e.code === 'KeyR' || e.code === 'Digit3') keySkill(2);
+    else if (e.code === 'Space' || e.code === 'KeyJ') atkPress(null, true, $('atkBtn'));
+    else if (e.code === 'KeyZ') atkPress('minion', true, $('atkMin'));
+    else if (e.code === 'KeyX') atkPress('tower', true, $('atkTwr'));
     else if (e.code === 'KeyF') castPlayerSpell();
     else if (e.code === 'KeyC') recallPlayer();
     else if (e.code === 'KeyB') toggleShop();
     else if (e.code === 'Escape' && shopOpen) toggleShop(false);
     else if (e.code === 'KeyP' || e.code === 'Escape') togglePause();
   });
-  window.addEventListener('keyup', function (e) { keys[e.code] = false; });
+  window.addEventListener('keyup', function (e) { keys[e.code] = false; if (e.code === 'Space' || e.code === 'KeyJ') atkPress(null, false, $('atkBtn')); else if (e.code === 'KeyZ') atkPress('minion', false, $('atkMin')); else if (e.code === 'KeyX') atkPress('tower', false, $('atkTwr')); });
   window.addEventListener('blur', function () { for (const k in keys) keys[k] = false; });
   document.addEventListener('visibilitychange', function () { if (document.hidden && playing && !paused) togglePause(); });
   window.addEventListener('contextmenu', function (e) { if (playing) e.preventDefault(); });
@@ -417,7 +551,7 @@
     if (keys.KeyS || keys.ArrowDown) dy += 1;
     if (stick.active) { dx += stick.dx; dy += stick.dy; }
     pl.input.dx = dx; pl.input.dy = dy;
-    while (queue.length) TR.Sim.castSkill(g, pl, queue.shift());
+    while (queue.length) { const q = queue.shift(); TR.Sim.castSkill(g, pl, q.slot, q.aim); }
   }
 
   /* ---------- HUD ---------- */
@@ -440,9 +574,13 @@
     $('rcBtn').classList.toggle('wait', !!pl.recall); $('rcBtn').querySelector('.cd').textContent = pl.recall ? Math.max(0, Math.ceil(pl.recall.end - g.t)) : '';
     const btns = $('skills').children;
     for (let i = 0; i < btns.length; i++) {
-      const cd = pl.cd[i], b = btns[i];
-      b.classList.toggle('wait', cd > 0 || pl.dead);
-      b.querySelector('.cd').textContent = cd > 0 ? Math.ceil(cd) : '';
+      const cd = pl.cd[i], b = btns[i], lv = pl.sl[i], max = i < 2 ? CFG.skillMax : 3;
+      const locked = lv <= 0;
+      b.classList.toggle('lock', locked);
+      b.classList.toggle('wait', !locked && (cd > 0 || pl.dead));
+      b.classList.toggle('canup', TR.Sim.canUpgrade(pl, i));
+      b.querySelector('.cd').textContent = !locked && cd > 0 ? Math.ceil(cd) : '';
+      b.querySelector('.lv').textContent = '●'.repeat(lv) + '○'.repeat(Math.max(0, max - lv));
     }
   }
 

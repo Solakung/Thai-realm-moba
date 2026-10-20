@@ -119,7 +119,7 @@
     const u = mkUnit(g, {
       type: 'hero', def: def, team: team, role: def.role, emblem: emblem, isPlayer: isPlayer, slot: slot,
       x: sp.x, y: sp.y, hp: 1, maxHp: 1, radius: r.radius, baseArmor: r.armor,
-      level: 1, xp: 0, gold: 0, items: [], itm: zeroItm(), cd: [0, 0, 0], spell: 'heal', spCd: 0, recall: null, hurtT: -99, input: { dx: 0, dy: 0 }, kills: 0, deaths: 0, cs: 0,
+      level: 1, xp: 0, gold: 0, items: [], itm: zeroItm(), cd: [0, 0, 0], spell: 'heal', spCd: 0, sl: [0, 0, 0], atkHold: false, atkBuf: -99, atkType: null, lockT: null, prio: 'near', autoSkill: !isPlayer, atkMode: 'auto', recall: null, hurtT: -99, input: { dx: 0, dy: 0 }, kills: 0, deaths: 0, cs: 0,
       greedCount: 0, greedReady: false, decoyCd: 0, untarget: 0, still: 0, lastHeroHit: -99, auraT: 0,
       respawnAt: 0, casting: null, dash: null, aiTarget: null, nextMul: 0, goldTotal: 0,
       ai: { next: 0, retreat: false, yOff: (slot - 2) * 14, lane: CFG.botLanes[slot] < 0 ? 1 : CFG.botLanes[slot], jungle: CFG.botLanes[slot] < 0, defend: false, chk: 0 }
@@ -261,7 +261,14 @@
     return true;
   }
 
+  function lockOf(g, u, range, heroOnly) {
+    const L = u.lockT;
+    if (!L || L.dead || !canTarget(g, u, L) || dist(u, L) > 520) { u.lockT = null; return null; }
+    if (heroOnly && L.type !== 'hero') return null;
+    return dist(u, L) - L.radius <= range ? L : null;
+  }
   function pickEnemy(g, u, range, heroOnly, heroFirst) {
+    if (u.isPlayer && u.lockT) { const L = lockOf(g, u, range, heroOnly); if (L) return L; }
     let best = null, bd = 1e9, bh = null, bhd = 1e9;
     for (let i = 0; i < g.units.length; i++) {
       const e = g.units[i];
@@ -514,14 +521,66 @@
 
   /* ---------- สกิล ---------- */
   function canCast(g, u, slot) {
-    return !g.over && !u.dead && u.cd[slot] <= 0 && !u.m.stun && !u.casting && !u.dash;
+    return !g.over && !u.dead && u.sl[slot] > 0 && u.cd[slot] <= 0 && !u.m.stun && !u.casting && !u.dash;
   }
 
   function dirToward(u, e) { return norm(e.x - u.x, e.y - u.y); }
 
-  function castSkill(g, u, slot) {
+  /* ---------- เลเวลสกิล: สกิล 1-2 สูงสุดเลเวล 4, อัลติสูงสุด 3 (ปลดที่ฮีโร่เลเวล 4/7/10) ---------- */
+  function skillPts(u) { return u.level - u.sl[0] - u.sl[1] - u.sl[2]; }
+  function canUpgrade(u, i) {
+    if (skillPts(u) <= 0) return false;
+    if (i < 2) return u.sl[i] < CFG.skillMax;
+    return u.sl[2] < 3 && u.level >= CFG.ultLevels[u.sl[2]];
+  }
+  function upgradeSkill(g, u, i) { if (!canUpgrade(u, i)) return false; u.sl[i]++; if (u.isPlayer) ring(g, u.x, u.y, 20, '#ffe082', 0.4); return true; }
+  function autoSkill(u) {
+    while (skillPts(u) > 0) {
+      let pick = -1;
+      if (canUpgrade(u, 2)) pick = 2;
+      else {
+        const a = canUpgrade(u, 0), b = canUpgrade(u, 1);
+        if (a && b) pick = u.sl[0] <= u.sl[1] ? 0 : 1; else if (a) pick = 0; else if (b) pick = 1;
+      }
+      if (pick < 0) break;
+      u.sl[pick]++;
+    }
+  }
+  function skillMul(u, slot) { const l = u.sl[slot]; return slot < 2 ? CFG.skillBase + CFG.skillStep * l : CFG.ultBase + CFG.ultStep * l; }
+  // ชนิดการเล็งของสกิล (ใช้กับ UI): line = ยิง/พุ่งเป็นเส้น, point = วางพื้นที่, target = เล็งทิศเพื่อเลือกเป้า, self = ใช้กับตัวเอง
+  function skillAim(sk) {
+    let type = 'self', range = 0, r = 0;
+    for (const f of sk.fx) {
+      if (f.k === 'shot' || f.k === 'cone') { type = 'line'; range = Math.max(range, f.range); r = Math.max(r, f.w || 6); if (f.k === 'cone') r = f.range * Math.sin((f.spread || 30) * Math.PI / 360); }
+      else if (f.k === 'dash') { type = 'line'; range = Math.max(range, f.dist); r = f.w || 12; }
+      else if (f.k === 'blast' || f.k === 'zone' || f.k === 'trap') { if (type !== 'line') { type = 'point'; range = Math.max(range, f.nearSelf ? 0 : f.range); r = Math.max(r, f.r); } }
+      else if (f.k === 'strike' || f.k === 'combo' || f.k === 'chain') { if (type === 'self') { type = 'target'; range = Math.max(range, f.range); } }
+      else if (f.k === 'nova') { r = Math.max(r, f.r); }
+    }
+    if (type === 'point' && range === 0) type = 'self';
+    return { type: type, range: range, r: r };
+  }
+  // เล็งแบบกำหนดเอง: aim = { dx, dy (ทิศในโลก), k (0..1 สัดส่วนระยะ) }
+  function aimOf(ctx) { return ctx && ctx.aim ? ctx.aim : null; }
+  function pickTgt(g, u, range, ctx) {
+    const a = aimOf(ctx);
+    if (!a) return pickEnemy(g, u, range, false, true);
+    let best = null, bs = 1e9;
+    for (const e of g.units) {
+      if (e.team === u.team || e.dead || !canTarget(g, u, e) || e.type === 'tower') continue;
+      const d = dist(u, e) - e.radius; if (d > range) continue;
+      const v = norm(e.x - u.x, e.y - u.y), cos = v[0] * a.dx + v[1] * a.dy;
+      if (cos < 0.6) continue;
+      const sc = (1 - cos) * 220 + d * 0.5 - (e.type === 'hero' ? 60 : 0);
+      if (sc < bs) { bs = sc; best = e; }
+    }
+    return best || pickEnemy(g, u, range, false, true);
+  }
+
+  function castSkill(g, u, slot, aim) {
     if (!canCast(g, u, slot)) return false;
     const sk = u.def.skills[slot];
+    if (aim) { const n = norm(aim.dx, aim.dy); aim = { dx: n[0], dy: n[1], k: clamp(aim.k == null ? 1 : aim.k, 0.15, 1) }; }
     // เช็กว่ามีเป้าสำหรับสกิลที่ต้องมีเป้า ก่อนเสียคูลดาวน์
     for (const fx of sk.fx) {
       if (fx.k === 'strike' && !pickEnemy(g, u, fx.range + 20, false, true)) return false;
@@ -531,11 +590,12 @@
       if (fx.k === 'link' && alliedHeroes(g, u.team, u.x, u.y, fx.range).filter(function (a) { return a !== u; }).length === 0) return false;
       if (fx.k === 'heal' && fx.hpBelow && !lowestAlly(g, u, fx.r, fx.hpBelow)) return false;
     }
-    const ctx = { mul: 1, slot: slot };
+    const ctx = { mul: skillMul(u, slot), slot: slot, aim: aim || null };
+    if (aim) u.face = [aim.dx, aim.dy];
     if (u.nextMul) { ctx.mul *= u.nextMul; u.nextMul = 0; }
     if (u.greedReady) { ctx.mul *= 1.08; u.greedReady = false; }
     cancelRecall(g, u);
-    u.cd[slot] = sk.cd * (1 - Math.min(CFG.cdrCap, u.itm ? u.itm.cdr : 0));
+    u.cd[slot] = sk.cd * (1 - CFG.skillCd * (u.sl[slot] - 1)) * (1 - Math.min(CFG.cdrCap, u.itm ? u.itm.cdr : 0));
     u.lastCast = g.t;
     const st = findFxStealth(u);
     ring(g, u.x, u.y, 14, u.def.colors.accent, 0.2);
@@ -554,7 +614,9 @@
     return best;
   }
 
-  function aimPoint(g, u, range, fallback) {
+  function aimPoint(g, u, range, fallback, ctx) {
+    const a = aimOf(ctx);
+    if (a) return { x: u.x + a.dx * range * a.k, y: u.y + a.dy * range * a.k, tgt: null };
     const e = pickEnemy(g, u, range + 20, false, true);
     if (e) {
       const d = Math.hypot(e.x - u.x, e.y - u.y);
@@ -585,16 +647,16 @@
         break;
       }
       case 'shot': {
-        const e = pickEnemy(g, u, fx.range, false, true);
-        const dir = e ? dirToward(u, e) : u.face;
+        const e = ctx.aim ? null : pickEnemy(g, u, fx.range, false, true);
+        const dir = ctx.aim ? [ctx.aim.dx, ctx.aim.dy] : (e ? dirToward(u, e) : u.face);
         let mul = ctx.mul;
         if (fx.stillMul && u.still >= 0.4) mul *= fx.stillMul;
         spawnProj(g, u, dir, fx, mul);
         break;
       }
       case 'cone': {
-        const e = pickEnemy(g, u, fx.range, false, true);
-        const dir = e ? dirToward(u, e) : u.face;
+        const e = ctx.aim ? null : pickEnemy(g, u, fx.range, false, true);
+        const dir = ctx.aim ? [ctx.aim.dx, ctx.aim.dy] : (e ? dirToward(u, e) : u.face);
         const base = Math.atan2(dir[1], dir[0]);
         for (let i = 0; i < fx.n; i++) {
           const a = base + ((i - (fx.n - 1) / 2) / Math.max(1, fx.n - 1)) * (fx.spread * Math.PI / 180);
@@ -603,7 +665,7 @@
         break;
       }
       case 'blast': {
-        const p = aimPoint(g, u, fx.range, 0.7);
+        const p = aimPoint(g, u, fx.range, 0.7, ctx);
         g.zones.push({ kind: 'blast', team: u.team, owner: u, x: p.x, y: p.y, r: fx.r, at: g.t + fx.delay, until: g.t + fx.delay + 0.1,
           dmg: fx.dmg, mul: ctx.mul, slow: fx.slow, stun: fx.stun, c: '#ff7043' });
         break;
@@ -611,7 +673,7 @@
       case 'zone': {
         let p;
         if (fx.nearSelf) p = { x: u.x + u.face[0] * fx.range, y: u.y + u.face[1] * fx.range };
-        else p = aimPoint(g, u, fx.range, 0.7);
+        else p = aimPoint(g, u, fx.range, 0.7, ctx);
         const z = { kind: 'zone', team: u.team, owner: u, x: p.x, y: p.y, r: fx.r, until: g.t + fx.dur, next: g.t + 0.05, tick: fx.tick,
           dmg: fx.dmg || 0, mul: ctx.mul, slow: fx.slow, heal: fx.heal, healAllies: fx.healAllies, single: fx.single, turret: fx.turret,
           blind: fx.blind, channel: fx.channel, c: fx.heal ? '#66bb6a' : (fx.dmg ? '#ab47bc' : '#4fc3f7') };
@@ -622,7 +684,7 @@
       case 'trap': {
         const mine = g.zones.filter(function (z) { return z.kind === 'trap' && z.owner === u; });
         while (mine.length >= fx.max) { const o = mine.shift(); o.done = true; }
-        const p = aimPoint(g, u, fx.range, 0.8);
+        const p = aimPoint(g, u, fx.range, 0.8, ctx);
         g.zones.push({ kind: 'trap', team: u.team, owner: u, x: p.x, y: p.y, r: fx.r, until: g.t + fx.life, dmg: fx.dmg, mul: ctx.mul, root: fx.root, c: '#8d6e63' });
         if (fx.selfSlow) addFx(u, { type: 'slow', pct: fx.selfSlow, until: g.t + 0.8 });
         break;
@@ -663,7 +725,7 @@
         break;
       }
       case 'chain': {
-        let cur = pickEnemy(g, u, fx.range, false, true);
+        let cur = pickTgt(g, u, fx.range, ctx);
         const seen = [];
         let from = u;
         for (let i = 0; i < fx.n && cur; i++) {
@@ -681,7 +743,7 @@
         break;
       }
       case 'combo': {
-        const tgt = pickEnemy(g, u, fx.range + 20, false, true);
+        const tgt = pickTgt(g, u, fx.range + 20, ctx);
         if (!tgt) break;
         if (fx.root) { u.casting = { until: g.t + fx.n * fx.gap + 0.05 }; }
         for (let i = 0; i < fx.n; i++) {
@@ -699,7 +761,7 @@
         break;
       }
       case 'strike': {
-        const e = pickEnemy(g, u, fx.range + 20, false, true);
+        const e = pickTgt(g, u, fx.range + 20, ctx);
         if (!e) break;
         if (fx.dashTo && dist(u, e) > 26) {
           const d = dirToward(u, e);
@@ -745,6 +807,8 @@
     if (fx.away) {
       const e = pickEnemy(g, u, 200, false, true);
       dir = e ? norm(u.x - e.x, u.y - e.y) : [-u.face[0], -u.face[1]];
+    } else if (fx.toTarget && ctx.aim) {
+      dir = [ctx.aim.dx, ctx.aim.dy]; dd = fx.dist * ctx.aim.k;
     } else if (fx.toTarget) {
       const e = pickEnemy(g, u, fx.range || 170, !!fx.onlyHero, true);
       if (e) {
@@ -752,6 +816,7 @@
         if (fx.stop != null) dd = Math.max(0, Math.min(fx.dist, dist(u, e) - e.radius - fx.stop));
       } else if (fx.onlyHero) return;
     }
+    if (ctx.aim && !fx.away && !fx.toTarget) dir = [ctx.aim.dx, ctx.aim.dy];
     if (dd < 2) {
       const e = pickEnemy(g, u, (fx.stop || 24) + 14, !!fx.onlyHero, true);
       if (e && fx.dmg) hit(g, u, e, fx.dmg, { skill: true, mul: ctx.mul });
@@ -861,6 +926,7 @@
     if (u.spCd > 0) u.spCd -= dt;
     if (u.atkCd > 0) u.atkCd -= dt;
     updateRecall(g, u);
+    if (u.autoSkill) autoSkill(u);
     if (!u.isPlayer && (g.tick & 7) === 3) botSpell(g, u);
     u.goldTotal += 0; addGold(u, 1.2 * dt);
     recalc(g, u);
@@ -918,6 +984,27 @@
     if (!u.m.stun && !u.casting && !u.dash) autoAttack(g, u);
   }
 
+  // เลือกเป้าตีปกติของผู้เล่น: ล็อกเป้า > ปุ่มสั่งตีลูกกระจ๊อก/ป้อม > ลำดับเป้าหมายตามตั้งค่า (prio)
+  function pickBasic(g, u, range) {
+    const L = lockOf(g, u, range, false); if (L) return L;
+    const list = [];
+    for (const e of g.units) {
+      if (e.team === u.team || e.dead || !canTarget(g, u, e)) continue;
+      const d = dist(u, e) - e.radius; if (d > range) continue;
+      if (u.atkType === 'minion' && e.type !== 'minion' && e.type !== 'monster') continue;
+      if (u.atkType === 'tower' && e.type !== 'tower') continue;
+      list.push({ e: e, d: d });
+    }
+    if (!list.length) return null;
+    let pool = list;
+    if (!u.atkType) { const hs = list.filter(function (x) { return x.e.type === 'hero'; }); if (hs.length && u.prio !== 'near') pool = hs; else if (!hs.length) { const ms = list.filter(function (x) { return x.e.type !== 'tower'; }); if (ms.length) pool = ms; } }
+    let best = null, bs = 1e9;
+    for (const x of pool) {
+      const sc = (u.prio === 'lowhp' || u.atkType === 'minion') ? x.e.hp : x.d;
+      if (sc < bs) { bs = sc; best = x.e; }
+    }
+    return best.e || best;
+  }
   function autoAttack(g, u) {
     const r = TR.ROLES[u.role];
     const range = r.range * (u.m.blind ? 0.6 : 1);
@@ -925,7 +1012,8 @@
     const tn = findFx(u, 'taunt');
     if (tn && tn.by && !tn.by.dead) { if (dist(u, tn.by) - tn.by.radius <= range) tgt = tn.by; else return; }
     if (!tgt && u.aiTarget && canTarget(g, u, u.aiTarget) && dist(u, u.aiTarget) - u.aiTarget.radius <= range) tgt = u.aiTarget;
-    if (!tgt) {
+    if (!tgt && u.isPlayer) tgt = pickBasic(g, u, range);
+    else if (!tgt) {
       let bh = null, bhd = 1e9, bm = null, bmd = 1e9, bt = null, btd = 1e9;
       for (const e of g.units) {
         if (e.team === u.team || e.dead || !canTarget(g, u, e)) continue;
@@ -938,6 +1026,7 @@
       tgt = bh || bm || bt;
     }
     if (!tgt || u.atkCd > 0) return;
+    if (u.isPlayer && u.atkMode === 'button' && !u.atkHold && u.atkBuf < g.t) return;
     u.atkCd = 1 / (r.as * u.m.atkSpd);
     u.lastAtk = g.t;
     u.face = dirToward(u, tgt);
@@ -1263,7 +1352,7 @@
 
   TR.Sim = {
     navPoint: navPoint,
-    createGame: createGame, step: step, castSpell: castSpell, startRecall: startRecall, cancelRecall: cancelRecall, castSkill: castSkill, canCast: canCast,
+    createGame: createGame, step: step, upgradeSkill: upgradeSkill, canUpgrade: canUpgrade, skillPts: skillPts, skillAim: skillAim, skillMul: skillMul, castSpell: castSpell, startRecall: startRecall, cancelRecall: cancelRecall, castSkill: castSkill, canCast: canCast,
     pickEnemy: pickEnemy, enemiesIn: enemiesIn, alliedHeroes: alliedHeroes, canTarget: canTarget,
     towerVuln: towerVuln, buy: buy, sell: sell, canShop: canShop, netCost: netCost, ownedInLine: ownedInLine, wantShop: wantShop, dist: dist, norm: norm, findFx: findFx, lowestAlly: lowestAlly, recalc: recalc
   };
