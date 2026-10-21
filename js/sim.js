@@ -131,7 +131,7 @@
         const h = mkHero(g, TR.HERO_BY_ID[id], team, em, s, isPlayer, laneSel);
         h.spell = isPlayer ? (opts.playerSpell || 'heal') : botSpellPick(g, h);
         if (team === 1) { const D = TR.DIFFS[g.diff]; h.dmgBase = D.dmg; h.diffGold = D.gold; h.diffThink = D.think; }
-        if (isPlayer) { g.player = h; if (opts.tutorial) h.gold = 800; }
+        if (isPlayer) { g.player = h; h.pname = opts.playerName || ''; if (opts.tutorial) h.gold = 800; }
       }
     }
     return g;

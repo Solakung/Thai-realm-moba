@@ -66,6 +66,22 @@
 </div>
 
 <div id="toast" hidden></div>
+<section id="title">
+  <canvas id="titleCv"></canvas>
+  <div class="tt-box">
+    <div class="tt-logo">THAI REALM</div>
+    <div class="tt-sub">ศึกข้ามยุค · 5v5 MOBA ธีมไทย</div>
+    <label class="tt-name"><span>ชื่อของคุณ</span><input id="nameIn" type="text" maxlength="14" placeholder="พิมพ์ชื่อที่จะใช้ในเกม" autocomplete="off" spellcheck="false"></label>
+    <button id="titleGo" class="tt-go">แตะเพื่อเริ่ม</button>
+    <div class="tt-ver">v<span id="titleVer"></span></div>
+  </div>
+</section>
+<div id="loading" hidden>
+  <div class="ld-logo">THAI REALM</div>
+  <div id="ldMsg">กำลังโหลด...</div>
+  <div class="ld-bar"><i id="ldBar"></i></div>
+  <div id="ldTip"></div>
+</div>
 <div id="banSet" hidden><div class="card"><h2>🚫 แบนฮีโร่</h2><p class="hint" id="banHint"></p><div id="banGrid"></div><div class="row"><button id="banSkip">ไม่แบน</button><button id="banGo" class="primary" disabled>เริ่มแมตช์</button></div></div></div>
 <div id="ctlSet" hidden><div class="card"><h2>🎮 ตั้งค่าการควบคุม</h2><div id="ctlRows"></div><button id="ctlClose" class="primary">ตกลง</button></div></div>
 <div id="profSet" hidden><div class="card"><h2>📊 สถิติสะสมของคุณ</h2><div id="profBody"></div><div class="row"><button id="profReset">ล้างสถิติ</button><button id="profClose" class="primary">ปิด</button></div></div></div>
@@ -152,6 +168,7 @@
 <script src="js/units3d.js"></script>
 <script src="js/view3d.js"></script>
 <script src="js/audio.js"></script>
+<script src="js/net.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>

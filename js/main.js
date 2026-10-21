@@ -438,6 +438,63 @@
   };
   canvas.addEventListener('pointerup', panEnd); canvas.addEventListener('pointercancel', panEnd);
 
+  /* ---------- ชื่อผู้เล่น ---------- */
+  const esc = function (t) { return String(t).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+  const cleanName = function (t) { return String(t || '').replace(/[\u0000-\u001f<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, 14); };
+  let myName = '';
+  try { myName = cleanName(localStorage.getItem('tr_name')); } catch (e) { /* ไม่เป็นไร */ }
+  // ชื่อที่แสดง: ผู้เล่นที่ตั้งชื่อไว้ = "ชื่อ · ฮีโร่" ตัวอื่น = ชื่อฮีโร่
+  function pn(u) { return u.isPlayer && u.pname ? esc(u.pname) + ' · ' + esc(u.def.name) : esc(u.def.name); }
+
+  /* ---------- หน้าโหลด (ใช้ตอนรอเชื่อมต่อออนไลน์/เซิร์ฟเวอร์ตื่น) ---------- */
+  const TIPS = ['ยืนในพุ่มไม้เพื่อซ่อนตัว ศัตรูจะมองไม่เห็นจนกว่าจะเข้าใกล้ ตีหรือใช้สกิลจะเผยตัวชั่วครู่', 'ตะเกียงส่องทาง 🏮 (กด N) ช่วยให้เห็นศัตรูที่แอบในพุ่ม วางที่พุ่มกลางแมพก่อนปะทะ', 'ตีป้อมโดยไม่มีลูกกระจ๊อกช่วยดัน ดาเมจจะเบาลงมาก พาลูกกระจ๊อกไปด้วยเสมอ', 'ตายแล้วดูสรุปความตายที่มุมซ้าย ถ้าโดนเวทเยอะให้ซื้อสายต้านเวท', 'ทุกยุคป้อมจะเปลี่ยนไป ฮีโร่ของยุคนั้นจะแข็งขึ้น วางแผนรอบเปลี่ยนยุค', 'กด Tab ค้างเพื่อดูตารางคะแนนและไอเทมของทุกคน', 'ไอเทมชั้น 3 บางชิ้นกดใช้ได้ (G/H/T/Y) ใช้ให้ถูกจังหวะพลิกเกมได้'];
+  const Loading = {
+    show: function (msg, pct) { $('loading').hidden = false; Loading.set(msg, pct); $('ldTip').textContent = '💡 ' + TIPS[Math.floor(Math.random() * TIPS.length)]; clearInterval(Loading.t); Loading.t = setInterval(function () { $('ldTip').textContent = '💡 ' + TIPS[Math.floor(Math.random() * TIPS.length)]; }, 6000); },
+    set: function (msg, pct) { if (msg != null) $('ldMsg').textContent = msg; if (pct != null) $('ldBar').style.width = Math.max(0, Math.min(100, pct)) + '%'; },
+    hide: function () { clearInterval(Loading.t); $('loading').hidden = true; }
+  };
+  TR.Loading = Loading;
+
+  /* ---------- หน้าปกเกม: แตะเพื่อเริ่ม + ตั้งชื่อ ---------- */
+  const titleCv = $('titleCv'), titleCtx = titleCv.getContext('2d');
+  let titleOn = true;
+  function drawTitle(ts) {
+    if (!titleOn) return;
+    requestAnimationFrame(drawTitle);
+    const dpr = Math.min(2, window.devicePixelRatio || 1), w = window.innerWidth, h = window.innerHeight;
+    if (titleCv.width !== Math.round(w * dpr) || titleCv.height !== Math.round(h * dpr)) { titleCv.width = Math.round(w * dpr); titleCv.height = Math.round(h * dpr); }
+    titleCtx.setTransform(dpr, 0, 0, dpr, 0, 0); titleCtx.clearRect(0, 0, w, h);
+    const hs = ['nakdab', 'kwan', 'mothamma', 'seri', 'chang'].map(function (id) { return TR.HERO_BY_ID[id]; }).filter(Boolean);
+    const portrait = w < h * 0.9, cw = Math.round(portrait ? Math.min(w / 3.1, h * 0.2) : Math.min(210, w / (hs.length + 0.4), h * 0.4)), ch = Math.round(cw * 1.2);
+    if (!titleCv._off || titleCv._off.cw !== cw) { titleCv._off = { cw: cw, list: hs.map(function () { const c = document.createElement('canvas'); c.width = cw; c.height = ch; return c; }) }; }
+    const rows = portrait ? [hs.slice(0, 3), hs.slice(3)] : [hs], y0 = Math.max(10, h * (portrait ? 0.08 : (h < 460 ? 0.03 : 0.08)));
+    let idx = 0;
+    rows.forEach(function (row, ri) {
+      row.forEach(function (d, i) {
+        const oc = titleCv._off.list[idx], octx = oc.getContext('2d'), bob = Math.sin(ts / 700 + idx * 1.3) * 5, mid = Math.abs(i - (row.length - 1) / 2);
+        try { TR.Render.drawHeroIcon(octx, d, cw, ch, ts / 1000 + idx); } catch (e) { /* ไม่เป็นไร */ }
+        const x = w / 2 + (i - (row.length - 1) / 2) * cw * 1.02 - cw / 2, y = y0 + ri * ch * 1.05 + (portrait ? 0 : mid * 14) + bob;
+        titleCtx.drawImage(oc, x, y); idx++;
+      });
+    });
+  }
+  function startTitle() {
+    $('titleVer').textContent = TR.VERSION; $('nameIn').value = myName;
+    requestAnimationFrame(drawTitle);
+    TR.Net.wake();
+  }
+  function leaveTitle() {
+    const v = cleanName($('nameIn').value);
+    if (!v) { const i = $('nameIn'); i.classList.remove('bad'); void i.offsetWidth; i.classList.add('bad'); i.focus(); return; }
+    myName = v; try { localStorage.setItem('tr_name', v); } catch (e) { /* ไม่เป็นไร */ }
+    titleOn = false; $('title').hidden = true;
+    if (TR.Audio.init()) TR.Audio.play('ui');
+    TR.Net.wake();
+  }
+  $('titleGo').addEventListener('click', leaveTitle);
+  $('nameIn').addEventListener('keydown', function (e) { if (e.key === 'Enter') leaveTitle(); });
+  $('nameIn').addEventListener('input', function () { this.classList.remove('bad'); });
+
   // ช่องทางเดียวที่ผู้เล่นสั่งงานเกม: ออฟไลน์ทำทันที (ออนไลน์จะส่งผ่านเครือข่ายแทน)
   let net = null;
   function act(c) { return net ? net.send(c) : TR.Sim.exec(g, g.player, c); }
@@ -447,7 +504,7 @@
   try { const d = localStorage.getItem('tr_diff'); if (TR.DIFFS[d]) opt.diff = d; opt.ban = localStorage.getItem('tr_banmode') === '1'; } catch (e) { /* ไม่เป็นไร */ }
   function startGame() {
     if (endTimer) { clearTimeout(endTimer); endTimer = null; }
-    g = TR.Sim.createGame({ playerHero: sel.hero, playerEmblem: sel.emblem, playerSpell: sel.spell, playerLane: sel.lane, tutorial: tutorial, diff: tutorial ? 'normal' : opt.diff, playerBans: tutorial ? [] : banPick });
+    g = TR.Sim.createGame({ playerHero: sel.hero, playerEmblem: sel.emblem, playerSpell: sel.spell, playerLane: sel.lane, playerName: myName, tutorial: tutorial, diff: tutorial ? 'normal' : opt.diff, playerBans: tutorial ? [] : banPick });
     window.TRGame = g;
     acc = 0; paused = false; playing = true; queue.length = 0; shopOpen = false; $('shop').hidden = true; $('chatPanel').hidden = true;
     $('menu').hidden = true; $('result').hidden = true; $('pauseBox').hidden = true;
@@ -458,7 +515,7 @@
     const spd = TR.SPELL_BY_ID[g.player.spell];
     $('spBtn').querySelector('.ic').textContent = spd.icon; $('spBtn').querySelector('.nm').textContent = spd.name; $('spBtn').classList.remove('img'); $('spBtn').style.backgroundImage = ''; setIcon($('spBtn'), 'sp_' + spd.id);
     const em = TR.EMBLEMS[g.player.emblem];
-    $('meName').innerHTML = g.player.def.name + ' <span style="color:' + em.color + '">· ใจ' + em.name + '</span>';
+    $('meName').innerHTML = pn(g.player) + ' <span style="color:' + em.color + '">· ใจ' + em.name + '</span>';
     TR.Audio.init(); applyCtl(); TR.Audio.musicStart(0); TR.Audio.resume();
     tutStart();
     const bn = g.bans.me.concat(g.bans.bot).length ? ' · แบน: ' + g.bans.me.map(hn).join(', ') + ' (เรา) ' + g.bans.bot.map(hn).join(', ') + ' (ศัตรู)' : '';
@@ -563,7 +620,7 @@
       const sum = hs.filter(function (u) { return u.team === t; });
       html += '<tr class="tm"><td colspan="6" class="' + (t === 0 ? 'b' : 'r') + '">ทีม' + (t === 0 ? 'ฟ้า' : 'แดง') + ' · ฆ่า ' + g.score[t] + ' · ทอง ' + Math.round(sum.reduce(function (a, u) { return a + u.goldTotal; }, 0)) + '</td></tr>';
       sum.sort(function (a, b) { return a.slot - b.slot; }).forEach(function (u) {
-        html += '<tr class="' + (u === g.player ? 'me' : '') + '"><td class="' + (t === 0 ? 'b' : 'r') + '">' + u.def.name + (u.dead ? ' 💀' : '') + '</td><td>' + u.level + '</td><td>' + u.kills + '/' + u.deaths + '/' + u.assists + '</td><td>' + u.cs + '</td><td>' + Math.round(u.goldTotal) + '</td><td class="it">' + u.items.map(function (id) { return TR.ITEM_BY_ID[id].icon; }).join('') + '</td></tr>';
+        html += '<tr class="' + (u === g.player ? 'me' : '') + '"><td class="' + (t === 0 ? 'b' : 'r') + '">' + pn(u) + (u.dead ? ' 💀' : '') + '</td><td>' + u.level + '</td><td>' + u.kills + '/' + u.deaths + '/' + u.assists + '</td><td>' + u.cs + '</td><td>' + Math.round(u.goldTotal) + '</td><td class="it">' + u.items.map(function (id) { return TR.ITEM_BY_ID[id].icon; }).join('') + '</td></tr>';
       });
     });
     $('board').innerHTML = html + '</table>';
@@ -627,7 +684,7 @@
         const cv = document.createElement('canvas'); cv.width = 92; cv.height = 104;
         TR.Render.drawHeroIcon(cv.getContext('2d'), u.def, 92, 104, 0);
         const t = document.createElement('div');
-        t.innerHTML = '<div class="n">' + u.def.name + (u === g.player ? ' (คุณ)' : '') + '</div><div class="r">' + TR.ROLES[u.role].name + ' · ใจ' + TR.EMBLEMS[u.emblem].name + '</div>';
+        t.innerHTML = '<div class="n">' + pn(u) + (u === g.player ? ' (คุณ)' : '') + '</div><div class="r">' + TR.ROLES[u.role].name + ' · ใจ' + TR.EMBLEMS[u.emblem].name + '</div>';
         card.appendChild(cv); card.appendChild(t);
         (team === 0 ? L : Rr).appendChild(card);
       });
@@ -719,7 +776,7 @@
     [0, 1].forEach(function (t) {
       html += '<tr class="tm"><td colspan="11" class="' + (t === 0 ? 'b' : 'r') + '">ทีม' + (t === 0 ? 'ฟ้า' : 'แดง') + (g.winner === t ? ' · ชนะ' : '') + '</td></tr>';
       heroes.filter(function (u) { return u.team === t; }).sort(function (a, b) { return a.slot - b.slot; }).forEach(function (u) {
-        html += '<tr class="' + (u === pl ? 'me' : '') + '"><td class="' + (t === 0 ? 'b' : 'r') + '">' + u.def.name + (u === mvp[t] ? '<span class="mvp">MVP</span>' : '') + (u === pl ? ' (คุณ)' : '') + '</td><td>' + u.level + '</td><td>' + u.kills + '/' + u.deaths + '/' + u.assists + '</td>' +
+        html += '<tr class="' + (u === pl ? 'me' : '') + '"><td class="' + (t === 0 ? 'b' : 'r') + '">' + pn(u) + (u === mvp[t] ? '<span class="mvp">MVP</span>' : '') + (u === pl ? ' (คุณ)' : '') + '</td><td>' + u.level + '</td><td>' + u.kills + '/' + u.deaths + '/' + u.assists + '</td>' +
           bar(u.stDmg, mDmg, Math.round(u.stDmg)) + bar(u.stTaken, mTk, Math.round(u.stTaken)) + bar(u.stHeal, mHl, Math.round(u.stHeal)) + bar(u.stTwr, mTw, Math.round(u.stTwr)) +
           '<td>' + u.stTowers + '</td><td>' + u.stMon + '</td><td>' + u.cs + '</td><td>' + Math.round(u.goldTotal) + '</td></tr>';
       });
@@ -1012,6 +1069,7 @@
   window.addEventListener('resize', fit);
 
   buildMenu(); buildOptRows();
+  startTitle();
   fit();
   if (getSeen() !== TR.VERSION) { $('updDot').hidden = false; showUpdate(); }
   requestAnimationFrame(frame);
