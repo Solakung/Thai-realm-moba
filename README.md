@@ -115,5 +115,9 @@ node tools/balance.js 300 42   # 300 แมตช์ เริ่ม seed ที
 - เสียงรายฮีโร่: `js/audio.js` ตาราง `HS` (`at:<id>` ตีปกติ, `sk:<id>:<0-2>` สกิล) · sim ส่งชื่อเสียงผ่าน `sfx()` (ไม่กระทบ determinism)
 - ห้องเต็มจอ: `#lobby.full` · ping: `TR.Online.ping()` (เซิร์ฟเวอร์ตอบ `pong` ต่อ `ping`)
 
+## ความมันตอนต่อสู้ + แชต/แบนออนไลน์ (v0.21)
+- เอฟเฟกต์เลเวลอัป/ฆ่า/ตาย จอสั่น แฟลชจอ และหน่วงเฟรม เป็นภาพล้วน (`g.fx` kinds: lvl, kill, shake, stop, flash — ใช้ใน `js/render.js`, ปรับค่าที่ `CFG.juice`) หน่วงเฟรมทำเฉพาะโหมดเดี่ยว
+- แชตออนไลน์ผ่านข้อความ `chat` ของ relay (แยกจากคำสั่งเกม ไม่มีผลกับ lockstep) · โหมดแบนในห้อง: `banmode`/`ban` ที่ relay เก็บ แล้วส่ง `bans` ไปกับ `start` ให้ทุกเครื่องใส่ `opts.roomBans`
+
 ## ไอเทมประจำยุค (v0.18)
 - `TR.ERA_ITEMS` / `TR.ITEM_FX_ERA` ใน `js/data.js` (ค่าสมดุลทั้งหมดอยู่ที่นั่น + `CFG.recipeFloor`, `CFG.botEraItems`) · ตรรกะซื้อ/หักราคา `netCost`/`buy`/`recipeParts` ใน `js/sim.js` · ร้านค้าหมวดล่างสุดใน `renderShop` (`js/main.js`)

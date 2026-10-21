@@ -11,6 +11,7 @@ const TURN_MS = 50, MAX_PLAYERS = 10;
 const OK_CMD = { in: 1, cast: 1, spell: 1, recall: 1, buy: 1, sell: 1, up: 1, item: 1, ward: 1, atk: 1, lock: 1, set: 1, sig: 1, sur: 1 };   // ไม่มี drop: ห้ามผู้เล่นปลอมคำสั่งนี้
 const rooms = new Map();
 const tokGen = function () { let t = ''; for (let i = 0; i < 16; i++) t += 'abcdefghijklmnopqrstuvwxyz0123456789'[Math.floor(Math.random() * 36)]; return t; };
+const BAN_N = 1;   // จำนวนฮีโร่ที่แต่ละทีมแบน (ตรงกับ CFG.ban.n ฝั่งเกม)
 const GRACE_MS = 5 * 60 * 1000;   // ห้องที่คนหลุดหมดยังเก็บไว้ให้กลับเข้าได้นาน 5 นาที
 
 const server = http.createServer(function (req, res) {
@@ -26,14 +27,15 @@ function roster(room) { return Array.from(room.members, function (e) { const m =
 function code() { const a = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s = ''; for (let i = 0; i < 4; i++) s += a[Math.floor(Math.random() * a.length)]; return s; }
 const str = function (v, n) { return typeof v === 'string' ? v.slice(0, n) : ''; };
 function teamCount(room, t) { let n = 0; room.members.forEach(function (m) { if (m.team === t) n++; }); return n; }
-function pushRoster(room) { bcast(room, { t: 'roster', host: room.host, list: roster(room) }); }
+function pushRoster(room) { bcast(room, { t: 'roster', host: room.host, list: roster(room), banMode: !!room.banMode, bans: room.bans || [[], []] }); }
+function banned(room, h) { return !!h && !!room.banMode && !!room.bans && (room.bans[0].indexOf(h) >= 0 || room.bans[1].indexOf(h) >= 0); }
 
 function startRoom(room) {
   room.started = true; room.t0 = Date.now(); room.turn = 0; room.pend = []; room.hashes = new Map(); room.log = [];
   const list = roster(room).map(function (m) { return { uid: m.uid, name: m.name, hero: m.hero, emblem: m.emblem, spell: m.spell, lane: m.lane, team: m.team }; });
-  room.seed = (Math.random() * 2147483647) >>> 0; room.list = list; room.seats = {}; room.gone = {};
+  room.seed = (Math.random() * 2147483647) >>> 0; room.list = list; room.finalBans = room.banMode ? room.bans : [[], []]; room.seats = {}; room.gone = {};
   room.members.forEach(function (m, uid) { room.seats[uid] = { tok: m.tok, name: m.name, hero: m.hero, emblem: m.emblem, spell: m.spell, lane: m.lane, team: m.team }; });
-  bcast(room, { t: 'start', seed: room.seed, list: list });
+  bcast(room, { t: 'start', seed: room.seed, list: list, bans: room.finalBans });
   room.timer = setInterval(function () {
     const n = Math.floor((Date.now() - room.t0) / TURN_MS);
     if (n <= room.turn) return;
@@ -60,7 +62,7 @@ wss.on('connection', function (ws) {
       const since = m.since | 0;
       room = r; id = uid; if (r.graceT) { clearTimeout(r.graceT); r.graceT = null; }
       send(ws, { t: 'rejoined', room: r.code, uid: id, host: r.host });
-      if (since <= 0) send(ws, { t: 'start', seed: r.seed, list: r.list, rejoin: true });
+      if (since <= 0) send(ws, { t: 'start', seed: r.seed, list: r.list, bans: r.finalBans, rejoin: true });
       const part = r.log.filter(function (e) { return e[0] > since; });
       for (let i = 0; i < part.length; i += 200) send(ws, { t: 'catchup', log: part.slice(i, i + 200) });
       send(ws, { t: 'u', n: r.turn });
@@ -71,7 +73,7 @@ wss.on('connection', function (ws) {
     if (m.t === 'create' || m.t === 'join') {
       if (room) return;
       let c = str(m.room, 6).toUpperCase();
-      if (m.t === 'create') { do { c = code(); } while (rooms.has(c)); rooms.set(c, { code: c, members: new Map(), host: 0, started: false, nextId: 1, turn: 0, pend: [], timer: null, hashes: new Map() }); }
+      if (m.t === 'create') { do { c = code(); } while (rooms.has(c)); rooms.set(c, { code: c, members: new Map(), host: 0, started: false, nextId: 1, banMode: false, bans: [[], []], turn: 0, pend: [], timer: null, hashes: new Map() }); }
       const r = rooms.get(c);
       if (!r) return send(ws, { t: 'err', msg: 'ไม่พบห้อง ' + c });
       if (r.started) return send(ws, { t: 'err', msg: 'ห้องนี้เริ่มเกมไปแล้ว' });
@@ -85,11 +87,32 @@ wss.on('connection', function (ws) {
     } else if (!room) { return; }
     else if (m.t === 'pick' && !room.started) {
       const me = room.members.get(id);
-      me.hero = str(m.hero, 20) || null; me.emblem = str(m.emblem, 10) || 'kro'; me.spell = str(m.spell, 10) || 'heal';
+      me.hero = str(m.hero, 20) || null; if (banned(room, me.hero)) me.hero = null; me.emblem = str(m.emblem, 10) || 'kro'; me.spell = str(m.spell, 10) || 'heal';
       me.lane = typeof m.lane === 'number' ? Math.max(-1, Math.min(2, m.lane | 0)) : 1;
       me.ready = !!m.ready;
       if ((m.team === 0 || m.team === 1) && m.team !== me.team && teamCount(room, m.team) < 5) me.team = m.team;
       pushRoster(room);
+    } else if (m.t === 'banmode' && !room.started) {   // เจ้าของห้องเปิด/ปิดโหมดแบน (ปิดแล้วล้างรายการแบน)
+      if (id !== room.host) return;
+      room.banMode = !!m.on; if (!room.banMode) room.bans = [[], []];
+      room.members.forEach(function (x) { x.ready = false; });
+      pushRoster(room);
+    } else if (m.t === 'ban' && !room.started && room.banMode) {   // ใครในทีมก็แบนแทนทีมได้ กดซ้ำ = ถอนแบน ทีมละ BAN_N ตัว ตัวใหม่แทนตัวเก่า
+      const me = room.members.get(id), h = str(m.hero, 20); if (!h || !me) return;
+      const L = room.bans[me.team], i = L.indexOf(h);
+      if (i >= 0) L.splice(i, 1);
+      else {
+        if (room.bans[1 - me.team].indexOf(h) >= 0) return;
+        L.push(h); while (L.length > BAN_N) L.shift();
+      }
+      room.members.forEach(function (x) { if (banned(room, x.hero)) x.hero = null; x.ready = false; });
+      pushRoster(room);
+    } else if (m.t === 'chat') {   // ข้อความแชต: ใช้ได้ทั้งในห้องและในเกม (ไม่เกี่ยวกับจังหวะเกม จึงไม่กระทบความตรงกันของการจำลอง)
+      const me = room.members.get(id), txt = str(m.m, 80).replace(/[\u0000-\u001f]/g, ' ').trim(); if (!me || !txt) return;
+      const t1 = Date.now(); if (t1 - (me.chatT || 0) < 400) return; me.chatT = t1;
+      const o = { t: 'chat', uid: id, name: me.name, team: me.team, m: txt, to: m.to === 'team' ? 'team' : 'all' };
+      if (o.to === 'team') { const s1 = JSON.stringify(o); room.members.forEach(function (x) { if (x.team === me.team && x.ws.readyState === 1) x.ws.send(s1); }); }
+      else bcast(room, o);
     } else if (m.t === 'start') {
       if (id !== room.host || room.started) return;
       let ok = true; room.members.forEach(function (x) { if (!x.ready) ok = false; });

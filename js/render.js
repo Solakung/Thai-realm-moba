@@ -327,11 +327,11 @@
   }
 
   /* ================= สถานะภาพ (ต่อเฟรม) ================= */
-  const RS = { free: null, follow: null, use3d: false, fa: {}, g: null, cam: { x: 0, y: 0, init: false }, parts: [], vf: {}, ph: {}, mv: {}, last: 0, fire: {}, fall: {}, dust: {}, eraPrev: 0, eraFade: 1, eraSeen: 0, rt: 0, fxSeen: new WeakSet() };
+  const RS = { free: null, follow: null, use3d: false, fa: {}, g: null, cam: { x: 0, y: 0, init: false }, parts: [], vf: {}, ph: {}, mv: {}, last: 0, fire: {}, fall: {}, dust: {}, eraPrev: 0, eraFade: 1, eraSeen: 0, rt: 0, fxSeen: new WeakSet(), shake: null, stopUntil: 0, flashes: [] };
   const tileCache = {};
 
   function resetState(g) {
-    RS.g = g; RS.cam.init = false; RS.parts.length = 0; RS.vf = {}; RS.fa = {}; RS.ph = {}; RS.mv = {}; RS.fire = {}; RS.dust = {}; RS.eraSeen = g.era; RS.eraPrev = g.era; RS.eraFade = 1; RS.fxSeen = new WeakSet();
+    RS.g = g; RS.cam.init = false; RS.parts.length = 0; RS.vf = {}; RS.fa = {}; RS.ph = {}; RS.mv = {}; RS.fire = {}; RS.dust = {}; RS.eraSeen = g.era; RS.eraPrev = g.era; RS.eraFade = 1; RS.fxSeen = new WeakSet(); RS.shake = null; RS.stopUntil = 0; RS.flashes.length = 0;
   }
 
   function setTilt(k) { ST.K = k; view.h = VIEW_H / k; }
@@ -1046,6 +1046,31 @@
         c.restore(); c.globalAlpha = 1;
       } else if (f.k === 'burst') {
         if (!RS.fxSeen.has(f)) { RS.fxSeen.add(f); for (let i = 0; i < f.n; i++) { const an = Math.random() * TAU, sp = 18 + Math.random() * 40; spawnPart(f.x, f.y - 8, Math.cos(an) * sp, Math.sin(an) * sp - 12, 0.5 + Math.random() * 0.4, 1.4 + Math.random() * 2, f.c, 'dot'); } }
+      } else if (f.k === 'shake') {
+        if (!RS.fxSeen.has(f)) { RS.fxSeen.add(f); RS.shake = { amp: f.amp, t0: performance.now(), dur: f.dur * 1000 }; }
+      } else if (f.k === 'stop') {
+        if (!RS.fxSeen.has(f)) { RS.fxSeen.add(f); RS.stopUntil = performance.now() + f.ms; }
+      } else if (f.k === 'flash') {
+        if (!RS.fxSeen.has(f)) { RS.fxSeen.add(f); RS.flashes.push({ c: f.c, a: f.a, t0: performance.now(), dur: f.dur * 1000, gray: !!f.gray }); }
+      } else if (f.k === 'lvl') {
+        if (!RS.fxSeen.has(f)) { RS.fxSeen.add(f); for (let i = 0; i < (f.me ? 16 : 7); i++) spawnPart(f.x + (Math.random() - 0.5) * 26, f.y - 4, (Math.random() - 0.5) * 14, -26 - Math.random() * 30, 0.8 + Math.random() * 0.5, 2.2 + Math.random() * 1.6, i % 2 ? '#fff59d' : f.c, 'plus'); }
+        GT(c);
+        const r1 = 14 + 34 * ease(k); c.globalAlpha = a * 0.9; c.strokeStyle = '#fff59d'; c.lineWidth = 2.2 * a + 0.5; c.beginPath(); c.arc(f.x, f.y, r1, 0, TAU); c.stroke();
+        c.globalAlpha = a * 0.35; c.strokeStyle = f.c; c.lineWidth = 5 * a; c.beginPath(); c.arc(f.x, f.y, r1 * 0.7, 0, TAU); c.stroke(); c.globalAlpha = 1;
+        UP(c, f.y);
+        const rise = 12 + 26 * ease(k);   // เสาแสงพุ่งขึ้น + ตัวอักษรลอย
+        const lg = c.createLinearGradient(f.x, f.y - rise * 2.2, f.x, f.y); lg.addColorStop(0, 'rgba(255,245,157,0)'); lg.addColorStop(1, 'rgba(255,245,157,' + (0.55 * a) + ')');
+        c.fillStyle = lg; c.fillRect(f.x - 7 * (1 - k * 0.5), f.y - rise * 2.2, 14 * (1 - k * 0.5), rise * 2.2);
+        c.globalAlpha = k > 0.7 ? 1 - (k - 0.7) / 0.3 : 1; c.font = '900 ' + (f.me ? 10 : 7.5) + 'px sans-serif'; c.textAlign = 'center'; c.lineWidth = 2.2; c.strokeStyle = 'rgba(30,15,0,.95)'; c.lineJoin = 'round';
+        const tx = 'LV ' + f.lv; c.strokeText(tx, f.x, f.y - 26 - rise); c.fillStyle = '#fff59d'; c.fillText(tx, f.x, f.y - 26 - rise); c.globalAlpha = 1;
+      } else if (f.k === 'kill') {
+        if (!RS.fxSeen.has(f)) { RS.fxSeen.add(f); const n = f.big ? 26 : 14; for (let i = 0; i < n; i++) { const an = Math.random() * TAU, sp = 40 + Math.random() * (f.big ? 90 : 55); spawnPart(f.x, f.y - 8, Math.cos(an) * sp, Math.sin(an) * sp - 10, 0.5 + Math.random() * 0.5, 1.6 + Math.random() * 1.8, i % 3 ? f.c : '#ffffff', 'dot'); } }
+        GT(c);
+        const R = (f.big ? 70 : 46) * ease(k); c.globalAlpha = a * 0.8; c.strokeStyle = f.c; c.lineWidth = 3.2 * a + 0.4; c.beginPath(); c.arc(f.x, f.y, R, 0, TAU); c.stroke();
+        c.globalAlpha = a * 0.5; c.strokeStyle = '#ffffff'; c.lineWidth = 1.4; c.beginPath(); c.arc(f.x, f.y, R * 0.6, 0, TAU); c.stroke();
+        UP(c, f.y); c.globalAlpha = a * 0.9; c.strokeStyle = '#ffffff'; c.lineWidth = 1.6 * a + 0.3; c.lineCap = 'round';
+        for (let i = 0; i < 8; i++) { const an = i * TAU / 8 + 0.3, r0 = R * 0.35, r1 = R * (0.7 + 0.3 * k); c.beginPath(); c.moveTo(f.x + Math.cos(an) * r0, f.y - 8 + Math.sin(an) * r0 * 0.7); c.lineTo(f.x + Math.cos(an) * r1, f.y - 8 + Math.sin(an) * r1 * 0.7); c.stroke(); }
+        c.globalAlpha = 1;
       } else if (f.k === 'dmg') {
         UP(c, f.y);
         const yy = f.y - 14 * ease(k), sc = f.big ? 1 : 0.8;
@@ -1093,6 +1118,10 @@
     else { const f = 1 - Math.exp(-dt * 9); cam.x += (tx - cam.x) * f; cam.y += (ty - cam.y) * f; }
     let camX = clamp(cam.x - view.w / 2, 0, Math.max(0, CFG.W - view.w)), camY = clamp(cam.y - view.h / 2, 0, Math.max(0, CFG.H - view.h));
     camX = Math.round(camX * z) / z; camY = Math.round(camY * z * ST.K) / (z * ST.K);
+    if (RS.shake) {   // จอสั่น: เลื่อนกล้องแบบสุ่มเล็กน้อย ลดลงตามเวลา (ไม่มีผลกับ sim)
+      const sk = RS.shake, el = now - sk.t0;
+      if (el >= sk.dur) RS.shake = null; else { const f = 1 - el / sk.dur, m = sk.amp * f * f; camX += (Math.random() - 0.5) * 2 * m; camY += (Math.random() - 0.5) * 2 * m; }
+    }
     ST.camX = camX; ST.camY = camY;
 
     c.setTransform(1, 0, 0, 1, 0, 0);
@@ -1121,6 +1150,13 @@
     const vg = c.createRadialGradient(view.w / 2, VIEW_H / 2, VIEW_H * 0.55, view.w / 2, VIEW_H / 2, VIEW_H * 1.1);
     vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.28)');
     c.fillStyle = vg; c.fillRect(0, 0, view.w, VIEW_H);
+    for (let i = RS.flashes.length - 1; i >= 0; i--) {   // แฟลชสีเต็มจอ (โดนหนัก/ตาย/ฆ่า)
+      const fl = RS.flashes[i], k = (now - fl.t0) / fl.dur;
+      if (k >= 1) { RS.flashes.splice(i, 1); continue; }
+      c.fillStyle = fl.c; c.globalAlpha = fl.a * (1 - k); c.fillRect(0, 0, view.w, VIEW_H);
+      if (fl.gray) { c.globalCompositeOperation = 'saturation'; c.globalAlpha = 0.85 * (1 - k); c.fillStyle = '#808080'; c.fillRect(0, 0, view.w, VIEW_H); c.globalCompositeOperation = 'source-over'; }
+      c.globalAlpha = 1;
+    }
     drawPingsHud(c, g, rt);
     return { camX: camX, camY: camY, vw: view.w, vh: view.h };
   }
@@ -1362,5 +1398,5 @@
     const vg = c.createLinearGradient(0, h * 0.7, 0, h); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.45)'); c.fillStyle = vg; c.fillRect(0, h * 0.7, w, h * 0.3);
   }
 
-  TR.Render = { setAim: setAim, screenToWorld: screenToWorld, is3d: function () { return !!RS.use3d; }, setMode3d: setMode3d, setTilt: setTilt, tilt: ST, drawStage: drawStage, stageReset: stageReset, _rig: rig, view: view, resize: resize, draw: draw, drawMinimap: drawMinimap, setCamFree: setCamFree, panCam: panCam, followUnit: followUnit, clearCam: clearCam, camMode: camMode, camPoint: camPoint, minimapToWorld: minimapToWorld, drawHeroIcon: drawHeroIcon, TEAM: TEAM };
+  TR.Render = { hitStopLeft: function () { return Math.max(0, RS.stopUntil - performance.now()); }, setAim: setAim, screenToWorld: screenToWorld, is3d: function () { return !!RS.use3d; }, setMode3d: setMode3d, setTilt: setTilt, tilt: ST, drawStage: drawStage, stageReset: stageReset, _rig: rig, view: view, resize: resize, draw: draw, drawMinimap: drawMinimap, setCamFree: setCamFree, panCam: panCam, followUnit: followUnit, clearCam: clearCam, camMode: camMode, camPoint: camPoint, minimapToWorld: minimapToWorld, drawHeroIcon: drawHeroIcon, TEAM: TEAM };
 })(typeof window !== 'undefined' ? window : globalThis);

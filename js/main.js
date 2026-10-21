@@ -74,6 +74,7 @@
   }
 
   function pickHero(id) {
+    if (room && !online && roomBanned(id)) { toast('ฮีโร่ตัวนี้ถูกแบน'); return; }
     sel.hero = id;
     const h = TR.HERO_BY_ID[id];
     if (!sel.emblem || !sel.emblemTouched) sel.emblem = bestEmblem(id);
@@ -245,7 +246,7 @@
   $('ctlBtn').addEventListener('click', openCtl);
   $('ctlBtn2').addEventListener('click', openCtl);
   $('ctlClose').addEventListener('click', function () { $('ctlSet').hidden = true; });
-  document.addEventListener('pointerdown', function (e) { if (e.target.closest && e.target.closest('button') && TR.Audio.ready()) TR.Audio.play('ui'); }, true);
+  document.addEventListener('pointerdown', function (e) { if (e.target.closest && e.target.closest('button') && TR.Audio.ready()) TR.Audio.play('ping'); }, true);
 
   /* ---------- จัดวางปุ่มแบบ AoV: ปุ่มโจมตีใหญ่มุมขวาล่าง สกิลเรียงโค้งรอบปุ่ม ---------- */
   function layoutCtl() {
@@ -320,6 +321,17 @@
       box.appendChild(b);
     });
   }
+  // ส่วนแชตข้อความ (เฉพาะออนไลน์): วลีด่วน + ช่องพิมพ์ (ส่งหาทีม/ทุกคน)
+  function buildChatOnline() {
+    const box = $('chatPanel'), w = document.createElement('div'); w.id = 'chatOnline';
+    w.innerHTML = '<div id="chatLog"></div><div id="chatQuick"></div><div id="chatIn"><input id="chatTx" maxlength="80" placeholder="พิมพ์แล้วกด Enter = ส่งทีม" autocomplete="off"><button id="chatTeam" class="ghost">ทีม</button><button id="chatAll" class="ghost">ทุกคน</button></div>';
+    box.appendChild(w);
+    ['ช่วยด้วย!', 'ขอบคุณ', 'เก่งมาก', 'ไปตีมังกร', 'GG'].forEach(function (t) { const b = document.createElement('button'); b.textContent = t; b.addEventListener('pointerdown', function (e) { e.preventDefault(); e.stopPropagation(); chatSend(t, 'team'); }); $('chatQuick').appendChild(b); });
+    const go = function (to) { const i = $('chatTx'); chatSend(i.value, to); i.value = ''; };
+    $('chatTeam').addEventListener('click', function () { go('team'); }); $('chatAll').addEventListener('click', function () { go('all'); });
+    $('chatTx').addEventListener('keydown', function (e) { e.stopPropagation(); if (e.key === 'Enter') go('team'); else if (e.key === 'Escape') { e.target.blur(); $('chatPanel').hidden = true; } });
+    $('chatTx').addEventListener('keyup', function (e) { e.stopPropagation(); });
+  }
   function sendSignal(id) {
     if (!g || !playing || paused) return;
     const pt = TR.Render.camPoint(g);
@@ -327,8 +339,8 @@
     feed('คุณ: ' + TR.SIGNALS[id].icon + ' ' + TR.SIGNALS[id].name, g.player.team);
     $('chatPanel').hidden = true;
   }
-  $('chatBtn').addEventListener('pointerdown', function (e) { e.preventDefault(); if (!g || !playing) return; $('chatPanel').hidden = !$('chatPanel').hidden; });
-  buildChat();
+  $('chatBtn').addEventListener('pointerdown', function (e) { e.preventDefault(); if (!g || !playing) return; $('chatPanel').hidden = !$('chatPanel').hidden; $('chatOnline').classList.toggle('on', !!online); });
+  buildChat(); buildChatOnline();
   // แตะ/ลากมินิแมพ: แอบดูจุดอื่น (ตอนตายจะค้างไว้)
   let miniDrag = null;
   function miniMove(e) { const w = TR.Render.minimapToWorld(mini, e.clientX, e.clientY); TR.Render.setCamFree(w.x, w.y); }
@@ -645,7 +657,7 @@
     $('meName').innerHTML = pn(g.player) + ' <span style="color:' + em.color + '">· ใจ' + em.name + '</span>';
     TR.Audio.init(); applyCtl(); TR.Audio.titleStop(1.2); TR.Audio.musicStart(0); TR.Audio.resume();
     tutStart();
-    const bn = g.bans.me.concat(g.bans.bot).length ? ' · แบน: ' + g.bans.me.map(hn).join(', ') + ' (เรา) ' + g.bans.bot.map(hn).join(', ') + ' (ศัตรู)' : '';
+    const bn = g.bans.me.concat(g.bans.bot).length ? ' · แบน: ' + g.bans.me.map(hn).join(', ') + (online ? ' (ฟ้า) ' : ' (เรา) ') + g.bans.bot.map(hn).join(', ') + (online ? ' (แดง)' : ' (ศัตรู)') : '';
     banner('ยุค' + TR.ERAS[0].name + ' เริ่มแล้ว', TR.ERAS[0].note + ' · ฮีโร่ยุคนี้แข็งขึ้น: ' + heroesOfEra(0) + bn, 4500);
     fit();
     lastTs = performance.now();
@@ -914,12 +926,12 @@
 
   /* ---------- อินพุต ---------- */
   window.addEventListener('keydown', function (e) {
-    if (!playing) return;
+    if (!playing || (e.target && e.target.tagName === 'INPUT')) return;
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].indexOf(e.code) >= 0) e.preventDefault();
     if (e.repeat) return;
     keys[e.code] = true;
     if (e.code === 'Tab') { e.preventDefault(); boardShow(true); return; }
-    if (e.code === 'KeyV') { $('chatPanel').hidden = !$('chatPanel').hidden; return; }
+    if (e.code === 'KeyV') { $('chatPanel').hidden = !$('chatPanel').hidden; $('chatOnline').classList.toggle('on', !!online); return; }
     if (!$('chatPanel').hidden && /^Digit[1-5]$/.test(e.code)) { sendSignal(SIG_ORDER[+e.code.slice(5) - 1]); return; }
     if (e.code === 'KeyQ' || e.code === 'Digit1') keySkill(0);
     else if (e.code === 'KeyE' || e.code === 'Digit2') keySkill(1);
@@ -1177,6 +1189,7 @@
     if (!paused || online) {
       acc += Math.min(0.25, (ts - lastTs) / 1000);
       if (online) stepOnline();
+      else if (TR.Render.hitStopLeft() > 0 && !(g.over)) { acc = Math.min(acc, CFG.dt); }   // หน่วงเฟรมเฉพาะโหมดเดี่ยว: แค่เลื่อนเวลาก้าวถัดไป ผลจำลองเท่าเดิม
       else while (acc >= CFG.dt) { readInput(); TR.Sim.step(g); acc -= CFG.dt; }
       handleEvents(); drainSfx();
     }
@@ -1231,7 +1244,13 @@
         if (!room) room = { code: m.room, uid: m.uid, host: m.host, list: [], ready: true, tok: sv ? sv.tok : '' };
         $('banner').classList.remove('on');
       },
-      roster: function (m) { if (!room) return; room.host = m.host; room.list = m.list; renderRoom(); },
+      roster: function (m) {
+        if (!room) return; room.host = m.host; room.list = m.list; room.banMode = !!m.banMode; room.bans = m.bans || [[], []];
+        if (room.banMode && roomBanned(sel.hero)) { const nx = TR.HEROES.find(function (h) { return !roomBanned(h.id) && !room.list.some(function (x) { return x.hero === h.id && x.uid !== room.uid; }); }); if (nx) { sel.hero = nx.id; sel.emblem = bestEmblem(nx.id); TR.Online.send(lbPick(false)); } }
+        if (!room.banMode) banning = false;
+        renderRoom();
+      },
+      chat: chatIn,
       err: function (m) { lbStatus('⚠ ' + m.msg); $('lbCreate').disabled = $('lbJoin').disabled = false; if (m.fatal) { rjClear(); toast(m.msg); if (!g) { room = null; $('lobby').hidden = true; } } },
       start: function (m) { if (m.rejoin) { online = true; } startOnline(m); },
       catchup: turnsIn,
@@ -1288,7 +1307,7 @@
         const cv = document.createElement('canvas'); cv.width = 112; cv.height = 128; TR.Render.drawHeroIcon(cv.getContext('2d'), h, 112, 128, 0);
         const n = document.createElement('div'); n.textContent = h.name;
         b.appendChild(cv); b.appendChild(n);
-        b.addEventListener('click', function () { pickHero(h.id); });
+        b.addEventListener('click', function () { if (banning && room && room.banMode) TR.Online.send({ t: 'ban', hero: h.id }); else pickHero(h.id); });
         box.appendChild(b);
       });
     }
@@ -1297,6 +1316,10 @@
       c.classList.toggle('sel', c.dataset.id === sel.hero);
       const owner = room && room.list.find(function (x) { return x.hero === c.dataset.id && x.uid !== room.uid; });
       c.classList.toggle('taken', !!owner);
+      const bt = room && room.bans ? (room.bans[0].indexOf(c.dataset.id) >= 0 ? 0 : (room.bans[1].indexOf(c.dataset.id) >= 0 ? 1 : -1)) : -1;
+      c.classList.toggle('banned', bt >= 0);
+      let bn = c.querySelector('.bn');
+      if (bt >= 0) { if (!bn) { bn = document.createElement('div'); bn.className = 'bn'; c.appendChild(bn); } bn.textContent = 'แบนโดยทีม' + (bt === 0 ? 'ฟ้า' : 'แดง'); } else if (bn) bn.remove();
       let w = c.querySelector('.who');
       if (owner) { if (!w) { w = document.createElement('div'); w.className = 'who'; c.appendChild(w); } w.textContent = owner.name; } else if (w) w.remove();
     });
@@ -1325,16 +1348,41 @@
     $('lbReady').disabled = !!dupMine && !(me && me.ready);
     $('lbHint').textContent = dupMine ? 'ฮีโร่นี้มีเพื่อนเลือกแล้ว เลือกตัวอื่นก่อน' : 'เลือกฮีโร่ ชุดใจ เลน สเปล ในหน้านี้ แล้วกด "พร้อม" · ที่ว่างในทีมบอทเติมให้';
     const host = room.uid === room.host;
+    $('lbBanRow').hidden = !(host || room.banMode);
+    $('lbBanMode').hidden = !host; $('lbBanMode').textContent = room.banMode ? '🚫 โหมดแบน: เปิด' : '🚫 โหมดแบน: ปิด';
+    $('lbBanDo').hidden = !room.banMode; $('lbBanDo').classList.toggle('on', banning); $('lbBanDo').textContent = banning ? '✔ กำลังแบน (แตะการ์ด)' : '🚫 แตะการ์ดเพื่อแบน';
+    $('rmHeroes').classList.toggle('banning', !!(banning && room.banMode));
+    if (room.banMode && !dupMine) $('lbHint').textContent = 'โหมดแบน: ทีมละ ' + CFG.ban.n + ' ตัว (ใครในทีมกดแบนแทนทีมได้ กดซ้ำเพื่อถอน) · แบนแล้ว ฟ้า: ' + (room.bans[0].map(hn).join(', ') || '-') + ' · แดง: ' + (room.bans[1].map(hn).join(', ') || '-');
     $('lbStart').hidden = !host;
     $('lbStart').disabled = !(host && room.list.length && room.list.every(function (x) { return x.ready; }));
   }
+  let banning = false;
+  function roomBanned(id) { return !!(room && room.banMode && room.bans && (room.bans[0].indexOf(id) >= 0 || room.bans[1].indexOf(id) >= 0)); }
+  $('lbBanMode').addEventListener('click', function () { TR.Online.send({ t: 'banmode', on: !(room && room.banMode) }); });
+  $('lbBanDo').addEventListener('click', function () { banning = !banning; renderRoom(); });
+  /* ---------- แชตข้อความ (ในห้อง + ในเกม): ส่งผ่านเซิร์ฟเวอร์คนละช่องกับคำสั่งเกม ไม่กระทบจังหวะเกม ---------- */
+  const chatLog = [];
+  function chatSend(txt, to) { txt = (txt || '').trim(); if (!txt || !room) return; TR.Online.send({ t: 'chat', m: txt.slice(0, 80), to: to || 'all' }); }
+  function chatLine(m) {
+    const d = document.createElement('div'); d.className = m.team === 0 ? 'b' : 'r';
+    d.innerHTML = (m.to === 'team' ? '<i>[ทีม]</i> ' : '') + '<b>' + esc(m.name) + ':</b> ' + esc(m.m); return d;
+  }
+  function chatIn(m) {
+    if (!m || typeof m.m !== 'string') return;
+    chatLog.push(m); if (chatLog.length > 40) chatLog.shift();
+    ['lbChatLog', 'chatLog'].forEach(function (id) { const b = $(id); if (!b) return; b.appendChild(chatLine(m)); while (b.children.length > 40) b.removeChild(b.firstChild); b.scrollTop = b.scrollHeight; });
+    if (online && g) { feed((m.to === 'team' ? '[ทีม] ' : '') + m.name + ': ' + m.m, m.team); TR.Audio.play('ui'); }
+  }
+  function lbChatSend() { const i = $('lbChatIn'); chatSend(i.value, 'all'); i.value = ''; }
+  $('lbChatGo').addEventListener('click', lbChatSend);
+  $('lbChatIn').addEventListener('keydown', function (e) { e.stopPropagation(); if (e.key === 'Enter') lbChatSend(); });
   function startOnline(m) {
     if (!room) return;
     if (m.rejoin) { room.uid = room.uid; }
     $('lobby').hidden = true; $('lobby').classList.remove('full'); online = true; onBuf = 3; lastStarve = 0;
     net = { send: function (c) { return TR.Online.send({ t: 'cmd', c: c }); } };
     tutorial = false;
-    beginGame({ seed: m.seed, humans: m.list, me: room.uid, diff: 'normal' });
+    beginGame({ seed: m.seed, humans: m.list, me: room.uid, diff: 'normal', roomBans: m.bans });
   }
   function onTurn(m) {
     if (!g || !online) return;

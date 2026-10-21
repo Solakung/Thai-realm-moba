@@ -123,6 +123,8 @@
     // ดราฟต์ฮีโร่: ไม่ซ้ำกันทั้งสองทีม (ผู้เล่นเลือกซ้ำกัน = คนหลังถูกสุ่มให้ใหม่ เหมือนกันทุกเครื่อง)
     const pool = TR.HEROES.map(function (h) { return h.id; });
     const picks = [[], []], hOf = [[], []];
+    // แบนในห้องออนไลน์: เซิร์ฟเวอร์ส่งรายการแบนของแต่ละทีมมา ทุกเครื่องตัดออกจากกองกลางเหมือนกัน (ฮีโร่ที่ถูกแบนใครก็ใช้ไม่ได้)
+    if (opts.roomBans) for (let t = 0; t < 2; t++) (opts.roomBans[t] || []).slice(0, CFG.ban.n).forEach(function (id) { const i = pool.indexOf(id); if (i >= 0 && pool.length > 10) { pool.splice(i, 1); (t === 0 ? g.bans.me : g.bans.bot).push(id); } });
     for (const hm of humans) {
       if (picks[hm.team].length >= 5) continue;
       let id = hm.hero; if (pool.indexOf(id) < 0) id = null;
@@ -588,6 +590,11 @@
     }
     if (VIS && src && src.type === 'hero' && (o.skill || o.basic) && g.t - (dst.impT || 0) > 0.1) { dst.impT = g.t; vfx(g, { k: 'imp', h: src.def.id, s: o.skill ? (src.vSlot | 0) : -1, x: dst.x, y: dst.y, r: dst.radius, dx: dst.x - src.x, dy: dst.y - src.y }); }
     if (VIS && (dst.type === 'hero' || dst.type === 'tower' || (src && src.isPlayer)) && g.fx.length < 150) g.fx.push({ k: 'dmg', x: dst.x + (g.vrand() - 0.5) * 8, y: dst.y - 22, v: Math.round(d), c: mag ? '#b388ff' : (dst.type === 'hero' ? (dst.team === 0 ? '#ff8a80' : '#fff59d') : '#ffffff'), t0: g.t, dur: 0.8, big: dst.type === 'hero' || (src && src.isPlayer) });
+    if (VIS && dst.type === 'hero' && g.fx.length < 200) {   // จอสั่น/หน่วงเฟรมตอนโดนหรือโจมตีหนัก (ภาพล้วน ไม่กระทบการจำลอง)
+      const heavy = CFG.juice.heavyFrac;
+      if (dst.isPlayer && d >= dst.maxHp * heavy) { g.fx.push({ k: 'shake', amp: CFG.juice.hurtShake, t0: g.t, dur: 0.28 }); g.fx.push({ k: 'flash', c: '#d32f2f', a: 0.28, t0: g.t, dur: 0.3 }); }
+      else if (src && src.isPlayer && d >= dst.maxHp * heavy) { g.fx.push({ k: 'shake', amp: CFG.juice.hitShake, t0: g.t, dur: 0.2 }); g.fx.push({ k: 'stop', ms: CFG.juice.hitStopMs, t0: g.t, dur: 0.1 }); }
+    }
     if (src) {
       if (src.m && src.m.ls > 0 && !src.dead) { const b4 = src.hp; src.hp = Math.min(src.maxHp, src.hp + d * src.m.ls); if (src.type === 'hero') src.stHeal += src.hp - b4; }
       if (src.type === 'hero') src.revealT = g.t + CFG.bush.reveal;
@@ -691,6 +698,7 @@
     while (u.level < CFG.maxLevel && u.xp >= 90 + 40 * u.level) {
       u.xp -= 90 + 40 * u.level;
       u.level++; if (u === g.player) sfx(g, 'levelup', u.x, u.y, true);
+      if (VIS && u.type === 'hero' && g.fx.length < 200) g.fx.push({ k: 'lvl', x: u.x, y: u.y, lv: u.level, me: u === g.player, c: u.team === 0 ? '#80d8ff' : '#ff8a80', t0: g.t, dur: 1.1 });
     }
   }
 
@@ -704,6 +712,12 @@
     if (VIS) g.fx.push({ k: 'burst', x: dst.x, y: dst.y, c: dst.type === 'tower' ? '#bcaaa4' : (dst.team === 0 ? '#64b5f6' : '#ef5350'), n: dst.type === 'minion' ? 6 : (dst.type === 'hero' ? 14 : 24), t0: g.t, dur: 0.8 });
     if (dst.type === 'hero') {
       sfx(g, 'die', dst.x, dst.y, dst === g.player);
+      if (VIS) {
+        const kl = src && src.type === 'hero' ? src : null;
+        g.fx.push({ k: 'kill', x: dst.x, y: dst.y, c: kl ? (kl.team === 0 ? '#80d8ff' : '#ff8a80') : '#ffffff', big: !!(kl && kl.isPlayer), t0: g.t, dur: 0.9 });
+        if (dst.isPlayer) { g.fx.push({ k: 'shake', amp: CFG.juice.deathShake, t0: g.t, dur: 0.5 }); g.fx.push({ k: 'stop', ms: CFG.juice.deathStopMs, t0: g.t, dur: 0.15 }); g.fx.push({ k: 'flash', c: '#b71c1c', a: 0.5, t0: g.t, dur: 0.9, gray: true }); }
+        else if (kl && kl.isPlayer) { g.fx.push({ k: 'shake', amp: CFG.juice.killShake, t0: g.t, dur: 0.35 }); g.fx.push({ k: 'stop', ms: CFG.juice.killStopMs, t0: g.t, dur: 0.12 }); g.fx.push({ k: 'flash', c: '#ffd54f', a: 0.22, t0: g.t, dur: 0.35 }); }
+      }
       if (dst.isPlayer) makeRecap(g, dst, src);
       dst.deaths++; dst.recent = {}; dst.streak = 0; dst.mkN = 0;
       dst.respawnAt = g.t + CFG.respawnBase + CFG.respawnPerLevel * dst.level;

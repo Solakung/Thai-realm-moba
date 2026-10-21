@@ -348,3 +348,14 @@ button.ghost, .card button:not(.primary) { background: var(--panel2); border: 1p
 #skTip .chip { background: #1f2a38; border-radius: 999px; padding: 1px 8px; font-size: 11px; } #skTip .chip.ph { background: #4a2a22; color: #ffb199; } #skTip .chip.mg { background: #2c2347; color: #cdb4ff; }
 #skTip .tb { margin-top: 5px; border-top: 1px solid var(--line); padding-top: 4px; } #skTip .tr { display: flex; gap: 6px; } #skTip .tk { color: var(--dim); min-width: 56px; }
 #skTip .dm { font-size: 15px; } #skTip .dm.ph { color: #ffab91; } #skTip .dm.mg { color: #b39ddb; } #skTip .tn { margin-top: 5px; font-size: 10px; color: var(--dim); }
+
+/* แบนฮีโร่ + แชตในห้อง */
+#rmHeroes .rh.banned { opacity: .4; filter: grayscale(1); cursor: not-allowed; } #rmHeroes .rh.banned::after { content: '🚫'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 28px; }
+#rmHeroes .rh .bn { position: absolute; left: 3px; right: 3px; bottom: 16px; z-index: 2; font-size: 9px; font-weight: 700; border-radius: 4px; padding: 0 3px; background: rgba(160,20,20,.9); color: #fff; }
+#rmHeroes.banning .rh:not(.banned) { outline: 1px dashed #ef5350; } #lbBanDo.on { background: #b71c1c; border-color: #ef5350; color: #fff; }
+#lbBanRow { margin-top: 6px; } #lbBanRow button { font-size: 12px; padding: 6px 4px; }
+#lbChat { margin-top: 8px; } #lbChatLog { height: 96px; overflow-y: auto; background: rgba(0,0,0,.3); border: 1px solid var(--line); border-radius: 8px; padding: 4px 6px; font-size: 11px; line-height: 1.45; }
+#lbChatLog .b b, #chatLog .b b { color: #8ab4ff; } #lbChatLog .r b, #chatLog .r b { color: #ff9a9a; } #lbChatLog i, #chatLog i { color: var(--gold); font-style: normal; font-size: 10px; }
+.lb-chatin, #chatIn { display: flex; gap: 4px; margin-top: 4px; } .lb-chatin input, #chatIn input { flex: 1; min-width: 0; background: rgba(255,255,255,.08); border: 1px solid var(--line); border-radius: 8px; color: #fff; padding: 6px 8px; font-size: 13px; } .lb-chatin button, #chatIn button { padding: 6px 10px; }
+#chatOnline { display: none; } #chatOnline.on { display: block; }
+#chatLog { max-height: 70px; overflow-y: auto; font-size: 11px; line-height: 1.4; padding: 2px 4px; } #chatQuick { display: flex; flex-wrap: wrap; gap: 4px; } #chatQuick button { padding: 4px 8px !important; font-size: 11px !important; }
