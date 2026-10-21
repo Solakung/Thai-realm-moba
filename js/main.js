@@ -1118,6 +1118,7 @@
     requestAnimationFrame(frame);
     if (!playing || !g) {
       lastTs = ts;
+      if (!$('lobby').hidden && room) rmDraw();
       if (!$('menu').hidden) { const sz = sizeStage(); if (sz) TR.Render.drawStage(stageCtx, sz.w, sz.h, stageState, TR.HERO_BY_ID[sel.hero], sz.dpr); }
       return;
     }
@@ -1218,6 +1219,21 @@
     TR.Online.open(onHandlers({ t: 'rejoin', room: sv.room, uid: sv.uid, tok: sv.tok, since: 0 }));
     return true;
   }
+  const rmCv = $('rmStage'), rmCtx = rmCv.getContext('2d'), rmState = { side: 1 };
+  (function () {   // ลากหมุน/ซูม/ดับเบิลคลิกรีเซ็ต เหมือนเวทีหน้าเมนู
+    let lx = 0, down = false;
+    rmCv.addEventListener('pointerdown', function (e) { down = true; lx = e.clientX; try { rmCv.setPointerCapture(e.pointerId); } catch (x) { /* ไม่เป็นไร */ } if (TR.Stage3D) TR.Stage3D.dragStart(rmState); });
+    rmCv.addEventListener('pointermove', function (e) { if (!down) return; const dx = e.clientX - lx; lx = e.clientX; if (dx && TR.Stage3D) TR.Stage3D.dragMove(rmState, dx); });
+    const up = function () { down = false; if (TR.Stage3D) TR.Stage3D.dragEnd(rmState); };
+    rmCv.addEventListener('pointerup', up); rmCv.addEventListener('pointercancel', up);
+    rmCv.addEventListener('wheel', function (e) { if (!TR.Stage3D) return; e.preventDefault(); TR.Stage3D.zoomBy(rmState, e.deltaY < 0 ? 1.08 : 1 / 1.08); }, { passive: false });
+    rmCv.addEventListener('dblclick', function () { if (TR.Stage3D) TR.Stage3D.resetView(rmState); });
+  })();
+  function rmDraw() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2), w = rmCv.clientWidth, h = rmCv.clientHeight; if (!w || !h) return;
+    if (rmCv.width !== Math.round(w * dpr) || rmCv.height !== Math.round(h * dpr)) { rmCv.width = Math.round(w * dpr); rmCv.height = Math.round(h * dpr); }
+    TR.Render.drawStage(rmCtx, w, h, rmState, TR.HERO_BY_ID[sel.hero], dpr);
+  }
   function rmBuild() {   // การ์ดเลือกฮีโร่ + ข้อมูลตัวที่เลือก ในหน้าห้อง
     const box = $('rmHeroes'); if (!box) return;
     if (!box.children.length) {
@@ -1238,7 +1254,7 @@
       let w = c.querySelector('.who');
       if (owner) { if (!w) { w = document.createElement('div'); w.className = 'who'; c.appendChild(w); } w.textContent = owner.name; } else if (w) w.remove();
     });
-    TR.Render.drawHeroIcon($('rmIcon').getContext('2d'), h, 112, 128, 0);
+    if (rmState.id !== sel.hero) TR.Render.stageReset(rmState, sel.hero);
     $('rmInfo').innerHTML = '<b>' + esc(h.name) + '</b><br>ยุค' + TR.ERAS[h.era].name + ' · ' + TR.ROLES[h.role].name + '<br>' + esc(h.strength) + '<br><small>' + h.skills.map(function (k) { return esc(k.name); }).join(' · ') + '</small>';
   }
   setInterval(function () { if (room && !$('lobby').hidden) pingShow($('lbPing')); }, 1000);
