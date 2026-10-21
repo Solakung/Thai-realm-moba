@@ -449,34 +449,86 @@
   /* ---------- หน้าโหลด (ใช้ตอนรอเชื่อมต่อออนไลน์/เซิร์ฟเวอร์ตื่น) ---------- */
   const TIPS = ['ยืนในพุ่มไม้เพื่อซ่อนตัว ศัตรูจะมองไม่เห็นจนกว่าจะเข้าใกล้ ตีหรือใช้สกิลจะเผยตัวชั่วครู่', 'ตะเกียงส่องทาง 🏮 (กด N) ช่วยให้เห็นศัตรูที่แอบในพุ่ม วางที่พุ่มกลางแมพก่อนปะทะ', 'ตีป้อมโดยไม่มีลูกกระจ๊อกช่วยดัน ดาเมจจะเบาลงมาก พาลูกกระจ๊อกไปด้วยเสมอ', 'ตายแล้วดูสรุปความตายที่มุมซ้าย ถ้าโดนเวทเยอะให้ซื้อสายต้านเวท', 'ทุกยุคป้อมจะเปลี่ยนไป ฮีโร่ของยุคนั้นจะแข็งขึ้น วางแผนรอบเปลี่ยนยุค', 'กด Tab ค้างเพื่อดูตารางคะแนนและไอเทมของทุกคน', 'ไอเทมชั้น 3 บางชิ้นกดใช้ได้ (G/H/T/Y) ใช้ให้ถูกจังหวะพลิกเกมได้'];
   const Loading = {
-    show: function (msg, pct) { $('loading').hidden = false; Loading.set(msg, pct); $('ldTip').textContent = '💡 ' + TIPS[Math.floor(Math.random() * TIPS.length)]; clearInterval(Loading.t); Loading.t = setInterval(function () { $('ldTip').textContent = '💡 ' + TIPS[Math.floor(Math.random() * TIPS.length)]; }, 6000); },
+    order: [], idx: 0, flip: 0, ti: null,
+    img: function (id) { return 'img/hero_' + id + '.jpg'; },
+    slide: function () {
+      if (!Loading.order.length) Loading.order = TR.HEROES.map(function (h) { return h.id; }).sort(function () { return Math.random() - 0.5; });
+      const id = Loading.order[Loading.idx++ % Loading.order.length], h = TR.HERO_BY_ID[id];
+      const on = $(Loading.flip ? 'ldA' : 'ldB'), off = $(Loading.flip ? 'ldB' : 'ldA'); Loading.flip ^= 1;
+      const im = new Image();
+      im.onload = function () {
+        on.style.backgroundImage = 'url(' + im.src + ')'; on.classList.remove('on'); void on.offsetWidth; on.classList.add('on'); off.classList.remove('on');
+        $('ldEra').textContent = 'ยุค' + TR.ERAS[h.era].name + ' · ' + TR.ROLES[h.role].name; $('ldName').textContent = h.name;
+        $('ldPas').textContent = h.passive ? '✨ ' + h.passive.name + ' — ' + h.passive.desc : '';
+      };
+      im.src = Loading.img(id);
+    },
+    show: function (msg, pct) {
+      $('loading').hidden = false; Loading.set(msg, pct);
+      const tip = function () { $('ldTip').textContent = '💡 ' + TIPS[Math.floor(Math.random() * TIPS.length)]; };
+      tip(); Loading.slide(); clearInterval(Loading.ti);
+      Loading.ti = setInterval(function () { Loading.slide(); tip(); }, 4200);
+    },
     set: function (msg, pct) { if (msg != null) $('ldMsg').textContent = msg; if (pct != null) $('ldBar').style.width = Math.max(0, Math.min(100, pct)) + '%'; },
-    hide: function () { clearInterval(Loading.t); $('loading').hidden = true; }
+    hide: function () { clearInterval(Loading.ti); $('loading').hidden = true; }
   };
   TR.Loading = Loading;
 
   /* ---------- หน้าปกเกม: แตะเพื่อเริ่ม + ตั้งชื่อ ---------- */
   const titleCv = $('titleCv'), titleCtx = titleCv.getContext('2d');
-  let titleOn = true;
+  let titleOn = true, titleT0 = 0, embers = [];
+  const rnd = Math.random;
+  function mkEmber(w, h, fresh) { return { x: rnd() * w, y: fresh ? h + 10 : rnd() * h, vy: 12 + rnd() * 46, vx: (rnd() - 0.5) * 14, r: 0.6 + rnd() * 2.1, ph: rnd() * 6.28, a: 0.25 + rnd() * 0.7 }; }
+  // หน้าปก: พื้นดำ แสงทอง ควันหมอก ลำแสงหมุนช้า ประกายลอยขึ้น เส้นแฟลร์พาดผ่านโลโก้ตอนเปิดตัว
   function drawTitle(ts) {
     if (!titleOn) return;
     requestAnimationFrame(drawTitle);
-    const dpr = Math.min(2, window.devicePixelRatio || 1), w = window.innerWidth, h = window.innerHeight;
-    if (titleCv.width !== Math.round(w * dpr) || titleCv.height !== Math.round(h * dpr)) { titleCv.width = Math.round(w * dpr); titleCv.height = Math.round(h * dpr); }
-    titleCtx.setTransform(dpr, 0, 0, dpr, 0, 0); titleCtx.clearRect(0, 0, w, h);
-    const hs = ['nakdab', 'kwan', 'mothamma', 'seri', 'chang'].map(function (id) { return TR.HERO_BY_ID[id]; }).filter(Boolean);
-    const portrait = w < h * 0.9, cw = Math.round(portrait ? Math.min(w / 3.1, h * 0.2) : Math.min(210, w / (hs.length + 0.4), h * 0.4)), ch = Math.round(cw * 1.2);
-    if (!titleCv._off || titleCv._off.cw !== cw) { titleCv._off = { cw: cw, list: hs.map(function () { const c = document.createElement('canvas'); c.width = cw; c.height = ch; return c; }) }; }
-    const rows = portrait ? [hs.slice(0, 3), hs.slice(3)] : [hs], y0 = Math.max(10, h * (portrait ? 0.08 : (h < 460 ? 0.03 : 0.08)));
-    let idx = 0;
-    rows.forEach(function (row, ri) {
-      row.forEach(function (d, i) {
-        const oc = titleCv._off.list[idx], octx = oc.getContext('2d'), bob = Math.sin(ts / 700 + idx * 1.3) * 5, mid = Math.abs(i - (row.length - 1) / 2);
-        try { TR.Render.drawHeroIcon(octx, d, cw, ch, ts / 1000 + idx); } catch (e) { /* ไม่เป็นไร */ }
-        const x = w / 2 + (i - (row.length - 1) / 2) * cw * 1.02 - cw / 2, y = y0 + ri * ch * 1.05 + (portrait ? 0 : mid * 14) + bob;
-        titleCtx.drawImage(oc, x, y); idx++;
-      });
-    });
+    const dpr = Math.min(2, window.devicePixelRatio || 1), w = window.innerWidth, h = window.innerHeight, c = titleCtx;
+    if (titleCv.width !== Math.round(w * dpr) || titleCv.height !== Math.round(h * dpr)) { titleCv.width = Math.round(w * dpr); titleCv.height = Math.round(h * dpr); embers = []; }
+    if (!titleT0) titleT0 = ts;
+    const t = (ts - titleT0) / 1000, fade = Math.min(1, t / 1.4);
+    if (!embers.length) for (let i = 0; i < Math.round(Math.min(90, w * h / 9000)); i++) embers.push(mkEmber(w, h, false));
+    c.setTransform(dpr, 0, 0, dpr, 0, 0); c.fillStyle = '#03050a'; c.fillRect(0, 0, w, h);
+    const lr = $('ttLogo').getBoundingClientRect(), cx = w / 2, cy = lr.height ? lr.top + lr.height / 2 : h * 0.4;   // ศูนย์กลางแสงอยู่ที่โลโก้
+    c.globalCompositeOperation = 'lighter';
+    // แสงทองกลางจอ
+    const gl = c.createRadialGradient(cx, cy, 0, cx, cy, Math.max(w, h) * 0.55); const pulse = 0.85 + Math.sin(t * 1.3) * 0.15;
+    gl.addColorStop(0, 'rgba(255,170,60,' + (0.22 * fade * pulse) + ')'); gl.addColorStop(0.35, 'rgba(120,70,20,' + (0.12 * fade) + ')'); gl.addColorStop(1, 'rgba(0,0,0,0)');
+    c.fillStyle = gl; c.fillRect(0, 0, w, h);
+    // ลำแสงหมุนช้า
+    c.save(); c.translate(cx, cy);
+    for (let i = 0; i < 9; i++) {
+      const a = t * 0.05 + i * (Math.PI * 2 / 9), L = Math.max(w, h) * 0.9, wd = 0.07 + 0.03 * Math.sin(t * 0.7 + i);
+      const g2 = c.createLinearGradient(0, 0, Math.cos(a) * L, Math.sin(a) * L); g2.addColorStop(0, 'rgba(255,200,110,' + (0.10 * fade) + ')'); g2.addColorStop(1, 'rgba(255,200,110,0)');
+      c.fillStyle = g2; c.beginPath(); c.moveTo(0, 0); c.lineTo(Math.cos(a - wd) * L, Math.sin(a - wd) * L); c.lineTo(Math.cos(a + wd) * L, Math.sin(a + wd) * L); c.fill();
+    }
+    c.restore();
+    // หมอกลอย
+    for (let i = 0; i < 4; i++) {
+      const fx = ((t * (6 + i * 3) + i * w * 0.4) % (w * 1.6)) - w * 0.3, fy = h * (0.62 + i * 0.1), fr = w * 0.5;
+      const fg = c.createRadialGradient(fx, fy, 0, fx, fy, fr); fg.addColorStop(0, 'rgba(70,90,130,' + (0.10 * fade) + ')'); fg.addColorStop(1, 'rgba(0,0,0,0)');
+      c.fillStyle = fg; c.fillRect(fx - fr, fy - fr, fr * 2, fr * 2);
+    }
+    // เส้นแฟลร์แนวนอนตอนเปิดตัวโลโก้ (t 0.9–2.6 วินาที)
+    const ft = (t - 0.9) / 1.7;
+    if (ft > 0 && ft < 1) {
+      const k = Math.sin(ft * Math.PI), len = w * (0.15 + 0.85 * Math.min(1, ft * 1.6));
+      const fg2 = c.createLinearGradient(cx - len, 0, cx + len, 0); fg2.addColorStop(0, 'rgba(255,220,150,0)'); fg2.addColorStop(0.5, 'rgba(255,240,200,' + (0.95 * k) + ')'); fg2.addColorStop(1, 'rgba(255,220,150,0)');
+      c.fillStyle = fg2; c.fillRect(cx - len, cy - 1.5 - 5 * k, len * 2, 3 + 10 * k * 0);
+      const sg = c.createRadialGradient(cx, cy, 0, cx, cy, 120 * k + 20); sg.addColorStop(0, 'rgba(255,245,215,' + (0.8 * k) + ')'); sg.addColorStop(1, 'rgba(255,200,100,0)'); c.fillStyle = sg; c.fillRect(cx - 200, cy - 200, 400, 400);
+    }
+    // ประกายทองลอยขึ้น
+    for (const e of embers) {
+      e.y -= e.vy * 0.016; e.x += e.vx * 0.016 + Math.sin(t * 0.8 + e.ph) * 0.25;
+      if (e.y < -10) Object.assign(e, mkEmber(w, h, true));
+      const tw = 0.55 + 0.45 * Math.sin(t * 2.2 + e.ph);
+      c.fillStyle = 'rgba(255,196,90,' + (e.a * tw * fade) + ')'; c.beginPath(); c.arc(e.x, e.y, e.r, 0, 6.283); c.fill();
+      c.fillStyle = 'rgba(255,150,40,' + (e.a * tw * fade * 0.18) + ')'; c.beginPath(); c.arc(e.x, e.y, e.r * 4, 0, 6.283); c.fill();
+    }
+    c.globalCompositeOperation = 'source-over';
+    // ขอบมืด
+    const vg = c.createRadialGradient(cx, h * 0.5, Math.min(w, h) * 0.35, cx, h * 0.5, Math.max(w, h) * 0.85); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.78)');
+    c.fillStyle = vg; c.fillRect(0, 0, w, h);
   }
   function startTitle() {
     $('titleVer').textContent = TR.VERSION; $('nameIn').value = myName;
@@ -488,7 +540,7 @@
     if (!v) { const i = $('nameIn'); i.classList.remove('bad'); void i.offsetWidth; i.classList.add('bad'); i.focus(); return; }
     myName = v; try { localStorage.setItem('tr_name', v); } catch (e) { /* ไม่เป็นไร */ }
     titleOn = false; $('title').hidden = true;
-    if (TR.Audio.init()) TR.Audio.play('ui');
+    if (TR.Audio.init()) TR.Audio.play('gong');
     TR.Net.wake();
   }
   $('titleGo').addEventListener('click', leaveTitle);
