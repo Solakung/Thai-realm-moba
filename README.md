@@ -105,3 +105,7 @@ node tools/balance.js 300 42   # 300 แมตช์ เริ่ม seed ที
 - ตัวส่งต่ออยู่ใน `server/` (Node + `ws`) deploy บน Render: Root Directory = `server`, Build = `npm install`, Start = `npm start` ที่อยู่ตั้งใน `TR.NET.url` (`js/net.js`)
 - ทดสอบในเครื่อง: `cd server && npm install && PORT=8099 node index.js` แล้วเปิดเกมสองแท็บ (ตั้ง `TR.NET.url='http://localhost:8099'` ผ่านคอนโซลก่อนกดปุ่มออนไลน์)
 - คำสั่งผู้เล่นทุกชนิดต้องผ่าน `TR.Sim.exec/submit` เท่านั้น และโค้ดใน `sim.js`/`ai.js` ต้องคงความ deterministic (ดู `tools/detcheck.js`) ไม่งั้นเครื่องแต่ละคนจะเห็นเกมไม่ตรงกัน
+
+## เอฟเฟกต์สกิล (v0.16.2)
+- `js/vfx.js` วาดเอฟเฟกต์สกิลของฮีโร่ทุกตัว (เฉพาะภาพ) sim.js ใส่รายการลง `g.fx` ผ่าน `vfx()` เฉพาะในเบราว์เซอร์ (ชนิด sk/imp/muz/boom/dash/bolt/aura/link/throw) จึงไม่กระทบ determinism
+- เพิ่มเอฟเฟกต์ให้สกิลใหม่: ใส่ชนิดใน `CAST_OF` / `IMP_OF` (คีย์ `ไอดีฮีโร่:ลำดับสกิล`) และถ้าเป็นลูกกระสุน/พื้นที่/ออร่าให้เพิ่มสไตล์ใน `proj` / `zone` / `aura`

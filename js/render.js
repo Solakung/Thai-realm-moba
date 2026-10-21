@@ -690,6 +690,7 @@
     return { mv: mv, ph: RS.ph[id], vf: Math.abs(tv) < 0.18 ? (tv < 0 ? -0.18 : 0.18) : tv };
   }
 
+  if (TR.Vfx) TR.Vfx.bind({ GT: function (c) { GT(c); }, UP: function (c, y) { UP(c, y); }, spawn: function (x, y, vx, vy, life, size, col, kind) { spawnPart(x, y, vx, vy, life, size, col, kind); } });
   function spawnPart(x, y, vx, vy, life, size, col, kind) { if (RS.parts.length < 400) RS.parts.push({ x: x, y: y, vx: vx, vy: vy, life: life, max: life, size: size, c: col, kind: kind || 'dot' }); }
 
   function drawStatus(c, g, u, x, y, rt, h) {
@@ -980,6 +981,7 @@
   /* ================= เอฟเฟกต์สกิล/อนุภาค ================= */
   function drawZones(c, g, rt) {
     for (const z of g.zones) {
+      if (z.h && TR.Vfx) { GT(c); if (TR.Vfx.zone(c, z, g, rt) === 'replace') { GT(c); continue; } GT(c); }
       if (z.kind === 'blast') {
         const k = clamp(1 - (z.at - g.t) / 0.6, 0, 1);
         c.globalAlpha = 0.12 + 0.2 * k; circ(c, z.x, z.y, z.r, z.c); c.globalAlpha = 0.85; c.strokeStyle = z.c; c.lineWidth = 1.2; c.beginPath(); c.arc(z.x, z.y, z.r, 0, TAU); c.stroke();
@@ -1010,6 +1012,7 @@
       let dx, dy;
       if (p.tgt) { dx = p.tgt.x - p.x; dy = p.tgt.y - p.y; } else { dx = p.vx; dy = p.vy; }
       const l = Math.hypot(dx, dy) || 1; dx /= l; dy /= l;
+      if (p.h && TR.Vfx && TR.Vfx.proj(c, p, dx, dy, p.y - 9, g)) continue;
       const tail = p.basic ? 9 : 16, r = p.basic ? 1.9 : 3.2, py = p.y - 9;
       const grad = c.createLinearGradient(p.x, py, p.x - dx * tail, py - dy * tail);
       grad.addColorStop(0, p.c); grad.addColorStop(1, 'rgba(255,255,255,0)');
@@ -1023,6 +1026,7 @@
   function drawFx(c, g, rt) {
     for (const f of g.fx) {
       const k = clamp((g.t - f.t0) / f.dur, 0, 1), a = 1 - k;
+      if (TR.Vfx && TR.Vfx.KINDS[f.k]) { TR.Vfx.draw(c, g, f, k, rt); continue; }
       if (f.k === 'ring') {
         GT(c);
         const r = f.r * (0.55 + 0.45 * ease(k));

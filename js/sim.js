@@ -69,6 +69,8 @@
     mix(g.t); mix(g.score[0]); mix(g.score[1]); mix(g.wards.length); mix(g.projs.length);
     return h.toString(16);
   }
+  // เอฟเฟกต์สกิลฝั่งภาพ (ใส่ในคิว g.fx เฉพาะในเบราว์เซอร์ ไม่กระทบสถานะเกม วาดโดย js/vfx.js)
+  function vfx(g, o) { if (VIS && g.fx.length < 260) { o.t0 = g.t; if (!o.dur) o.dur = (TR.Vfx ? TR.Vfx.dur(o.h, o.s, o.k) : 0.8); g.fx.push(o); } }
   const NEG = { stun: 1, slow: 1, root: 1, blind: 1, taunt: 1 };
 
   /* ---------- สร้างเกม ---------- */
@@ -542,6 +544,7 @@
     if (src && src.type === 'hero') {
       if (dst.type === 'hero') { src.stDmg += d; dst.recent[src.id] = { u: src, t: g.t }; } else if (dst.type === 'tower') src.stTwr += d;
     }
+    if (VIS && src && src.type === 'hero' && (o.skill || o.basic) && g.t - (dst.impT || 0) > 0.1) { dst.impT = g.t; vfx(g, { k: 'imp', h: src.def.id, s: o.skill ? (src.vSlot | 0) : -1, x: dst.x, y: dst.y, r: dst.radius, dx: dst.x - src.x, dy: dst.y - src.y }); }
     if (VIS && (dst.type === 'hero' || dst.type === 'tower' || (src && src.isPlayer)) && g.fx.length < 150) g.fx.push({ k: 'dmg', x: dst.x + (g.vrand() - 0.5) * 8, y: dst.y - 22, v: Math.round(d), c: mag ? '#b388ff' : (dst.type === 'hero' ? (dst.team === 0 ? '#ff8a80' : '#fff59d') : '#ffffff'), t0: g.t, dur: 0.8, big: dst.type === 'hero' || (src && src.isPlayer) });
     if (src) {
       if (src.m && src.m.ls > 0 && !src.dead) { const b4 = src.hp; src.hp = Math.min(src.maxHp, src.hp + d * src.m.ls); if (src.type === 'hero') src.stHeal += src.hp - b4; }
@@ -994,6 +997,8 @@
     const st = findFxStealth(u);
     ring(g, u.x, u.y, 14, u.def.colors.accent, 0.2);
     sfx(g, slot === 2 ? 'ult' : 'cast', u.x, u.y, u === g.player);
+    u.vSlot = slot;
+    if (VIS) { let rr = 0; for (const f of sk.fx) rr = Math.max(rr, f.r || f.range || 0); vfx(g, { k: 'sk', h: u.def.id, s: slot, u: u, x: u.x, y: u.y, dx: u.face[0], dy: u.face[1], r: rr }); }
     for (const fx of sk.fx) doEffect(g, u, fx, ctx, sk);
     if (st && !sk.fx.some(function (f) { return f.stealth; })) removeFx(u, st);
     return true;
@@ -1062,7 +1067,7 @@
       case 'blast': {
         const p = aimPoint(g, u, fx.range, 0.7, ctx);
         g.zones.push({ kind: 'blast', team: u.team, owner: u, x: p.x, y: p.y, r: fx.r, at: g.t + fx.delay, until: g.t + fx.delay + 0.1,
-          dmg: fx.dmg, mul: ctx.mul, slow: fx.slow, stun: fx.stun, c: '#ff7043' });
+          dmg: fx.dmg, mul: ctx.mul, slow: fx.slow, stun: fx.stun, c: '#ff7043', h: u.def.id, s: ctx.slot });
         break;
       }
       case 'zone': {
@@ -1071,7 +1076,7 @@
         else p = aimPoint(g, u, fx.range, 0.7, ctx);
         const z = { kind: 'zone', team: u.team, owner: u, x: p.x, y: p.y, r: fx.r, until: g.t + fx.dur, next: g.t + 0.05, tick: fx.tick,
           dmg: fx.dmg || 0, mul: ctx.mul, slow: fx.slow, heal: fx.heal, healAllies: fx.healAllies, single: fx.single, turret: fx.turret,
-          blind: fx.blind, channel: fx.channel, c: fx.heal ? '#66bb6a' : (fx.dmg ? '#ab47bc' : '#4fc3f7') };
+          blind: fx.blind, channel: fx.channel, c: fx.heal ? '#66bb6a' : (fx.dmg ? '#ab47bc' : '#4fc3f7'), h: u.def.id, s: ctx.slot };
         g.zones.push(z);
         if (fx.channel) { u.casting = { until: g.t + fx.dur }; }
         break;
@@ -1080,7 +1085,7 @@
         const mine = g.zones.filter(function (z) { return z.kind === 'trap' && z.owner === u; });
         while (mine.length >= fx.max) { const o = mine.shift(); o.done = true; }
         const p = aimPoint(g, u, fx.range, 0.8, ctx);
-        g.zones.push({ kind: 'trap', team: u.team, owner: u, x: p.x, y: p.y, r: fx.r, until: g.t + fx.life, dmg: fx.dmg, mul: ctx.mul, root: fx.root, c: '#8d6e63' });
+        g.zones.push({ kind: 'trap', team: u.team, owner: u, x: p.x, y: p.y, r: fx.r, until: g.t + fx.life, dmg: fx.dmg, mul: ctx.mul, root: fx.root, c: '#8d6e63', h: u.def.id, s: ctx.slot });
         if (fx.selfSlow) addFx(u, { type: 'slow', pct: fx.selfSlow, until: g.t + 0.8 });
         break;
       }
@@ -1092,6 +1097,7 @@
           ['speedMul', 'armorAdd', 'dmgMul', 'lifesteal', 'ccImmune', 'towerMul', 'stealth'].forEach(function (k) { if (fx[k]) b[k] = fx[k]; });
           if (a !== u || fx.who === 'allies') b.tag = 'sk' + u.id + '_' + ctx.slot + '_' + a.id;
           addFx(a, b);
+          vfx(g, { k: 'aura', h: u.def.id, s: ctx.slot, u: a, self: a === u, dur: fx.dur });
           if (fx.shield) addFx(a, { type: 'shield', tag: 'shield' + u.id + '_' + ctx.slot, amt: fx.shield * (u.dmgBase > 1 ? 1 : 1), until: g.t + fx.dur });
           if (a !== u) ring(g, a.x, a.y, 12, '#fff59d', 0.25);
         }
@@ -1110,6 +1116,9 @@
           if (fx.hot) addFx(a, { type: 'hot', tag: 'hot' + u.id + '_' + ctx.slot, until: g.t + fx.hot, perSec: amt / fx.hot });
           else healUnit(g, a, amt);
           ring(g, a.x, a.y, 10, '#66bb6a', 0.3);
+          vfx(g, { k: 'imp', h: u.def.id, s: ctx.slot, ally: true, x: a.x, y: a.y, r: a.radius });
+          if (fx.hot) vfx(g, { k: 'aura', h: u.def.id, s: ctx.slot, u: a, self: a === u, dur: fx.hot });
+          if (a !== u && fx.flat) vfx(g, { k: 'throw', h: u.def.id, s: ctx.slot, x1: u.x, y1: u.y, x2: a.x, y2: a.y, dur: 0.3 });
         }
         break;
       }
@@ -1126,6 +1135,7 @@
         for (let i = 0; i < fx.n && cur; i++) {
           seen.push(cur);
           line(g, from, cur, '#fff176', 0.15);
+          vfx(g, { k: 'bolt', h: u.def.id, s: u.vSlot | 0, x1: from.x, y1: from.y, x2: cur.x, y2: cur.y, dur: 0.28 });
           hit(g, u, cur, fx.dmg, { skill: true, mul: ctx.mul });
           from = cur;
           let nx = null, nd = fx.jump;
@@ -1160,8 +1170,10 @@
         if (!e) break;
         if (fx.dashTo && dist(u, e) > 26) {
           const d = dirToward(u, e);
+          const ox = u.x, oy = u.y;
           u.x = e.x - d[0] * (e.radius + u.radius + 4); u.y = e.y - d[1] * (e.radius + u.radius + 4);
           u.px = u.x; u.py = u.y;
+          vfx(g, { k: 'dash', h: u.def.id, s: u.vSlot | 0, u: u, x1: ox, y1: oy, x2: u.x, y2: u.y, dur: 0.45, jump: true });
         }
         let m = ctx.mul;
         if (fx.backMul) { const v = norm(u.x - e.x, u.y - e.y); if (e.face[0] * v[0] + e.face[1] * v[1] < -0.2) m *= fx.backMul; }
@@ -1182,11 +1194,12 @@
       case 'link': {
         let best = null, bd = 1e9;
         for (const a of alliedHeroes(g, u.team, u.x, u.y, fx.range)) if (a !== u) { const d = dist(u, a); if (d < bd) { bd = d; best = a; } }
-        if (best) { addFx(best, { type: 'link', tag: 'link' + u.id, by: u, share: fx.share, until: g.t + fx.dur }); line(g, u, best, '#ffd54f', 0.4); }
+        if (best) { addFx(best, { type: 'link', tag: 'link' + u.id, by: u, share: fx.share, until: g.t + fx.dur }); line(g, u, best, '#ffd54f', 0.4); vfx(g, { k: 'link', h: u.def.id, s: ctx.slot, a: u, b: best, dur: fx.dur }); }
         break;
       }
       case 'counter': {
         addFx(u, { type: 'counter', tag: 'counter', until: g.t + fx.dur, dmg: fx.dmg, reduce: fx.reduce });
+        vfx(g, { k: 'aura', h: u.def.id, s: ctx.slot, u: u, self: true, dur: fx.dur });
         break;
       }
     }
@@ -1219,6 +1232,7 @@
     }
     u.face = dir;
     u.dash = { dx: dir[0], dy: dir[1], remain: dd, speed: 380, fx: fx, mul: ctx.mul, hits: [] };
+    vfx(g, { k: 'dash', h: u.def.id, s: u.vSlot | 0, u: u, x1: u.x, y1: u.y, x2: u.x + dir[0] * dd, y2: u.y + dir[1] * dd, dur: dd / 380 + 0.35 });
   }
 
   function stepDash(g, u, dt) {
@@ -1241,7 +1255,8 @@
 
   function spawnProj(g, u, dir, fx, mul) {
     g.projs.push({ team: u.team, src: u, x: u.x, y: u.y, vx: dir[0] * fx.speed, vy: dir[1] * fx.speed, left: fx.range, w: fx.w || 5,
-      dmg: fx.dmg, mul: mul, rootedMul: fx.rootedMul, c: u.def.colors.accent, hit: [], skill: true });
+      dmg: fx.dmg, mul: mul, rootedMul: fx.rootedMul, c: u.def.colors.accent, hit: [], skill: true, h: u.def.id, s: u.vSlot | 0 });
+    vfx(g, { k: 'muz', h: u.def.id, s: u.vSlot | 0, x: u.x, y: u.y, dx: dir[0], dy: dir[1] });
   }
 
   /* ---------- อัปเดตหนึ่งรอบ ---------- */
@@ -1626,6 +1641,7 @@
             if (z.stun) addFx(e, { type: 'stun', until: g.t + z.stun });
           }
           ring(g, z.x, z.y, z.r, '#ff7043', 0.3);
+          vfx(g, { k: 'boom', h: z.h, s: z.s, x: z.x, y: z.y, r: z.r });
           g.zones.splice(i, 1);
         }
         continue;
@@ -1638,6 +1654,7 @@
           hit(g, z.owner, e, z.dmg, { skill: true, mul: z.mul });
           addFx(e, { type: 'root', until: g.t + z.root });
           ring(g, z.x, z.y, 18, '#a1887f', 0.3);
+          vfx(g, { k: 'boom', h: z.h, s: z.s, x: z.x, y: z.y, r: z.r + 6 });
           g.zones.splice(i, 1);
         }
         continue;
@@ -1650,7 +1667,7 @@
         if (z.turret || z.single) {
           let best = null, bd = 1e9;
           for (const e of enemiesIn(g, z.team, z.x, z.y, z.r, true)) { const d = hyp(e.x - z.x, e.y - z.y); if (d < bd) { bd = d; best = e; } }
-          if (best) { line(g, z, best, '#fff176', 0.1); hit(g, z.owner, best, z.dmg, { skill: true, mul: z.mul }); }
+          if (best) { line(g, z, best, '#fff176', 0.1); vfx(g, { k: 'bolt', h: z.h, s: z.s, x1: z.x, y1: z.y - 12, x2: best.x, y2: best.y, dur: 0.22 }); hit(g, z.owner, best, z.dmg, { skill: true, mul: z.mul }); }
         } else {
           for (const e of enemiesIn(g, z.team, z.x, z.y, z.r, true)) {
             if (z.dmg) hit(g, z.owner, e, z.dmg, { skill: true, mul: z.mul });
