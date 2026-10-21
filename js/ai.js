@@ -21,7 +21,7 @@
 
   function allyMinionsNear(g, team, x, y, r) {
     let n = 0;
-    for (const m of g.units) if (m.type === 'minion' && m.team === team && !m.dead && Math.hypot(m.x - x, m.y - y) <= r) n++;
+    for (const m of g.units) if (m.type === 'minion' && m.team === team && !m.dead && S.hyp(m.x - x, m.y - y) <= r) n++;
     return n;
   }
 
@@ -56,8 +56,8 @@
     if (g.t >= ai.chk) {
       ai.chk = g.t + 1.5;
       let thr = 0;
-      for (const e of g.units) if (e.type === 'hero' && e.team !== u.team && !e.dead && Math.hypot(e.x - myKing.x, e.y - myKing.y) < 520) thr++;
-      ai.defend = !myKing.dead && (thr >= 2 || (thr >= 1 && Math.hypot(u.x - myKing.x, u.y - myKing.y) < 800));
+      for (const e of g.units) if (e.type === 'hero' && e.team !== u.team && !e.dead && S.hyp(e.x - myKing.x, e.y - myKing.y) < 520) thr++;
+      ai.defend = !myKing.dead && (thr >= 2 || (thr >= 1 && S.hyp(u.x - myKing.x, u.y - myKing.y) < 800));
     }
 
     // ข้อมูลรอบตัว
@@ -89,7 +89,7 @@
     const boss = g.boss;
     if (boss && !boss.dead && hpR > 0.7 && !ai.defend && !ai.retreat) {
       const near = S.alliedHeroes(g, u.team, boss.x, boss.y, 520).filter(function (a) { return a !== u; }).length;
-      let foe = 0; for (const e of g.units) if (e.type === 'hero' && e.team !== u.team && !e.dead && Math.hypot(e.x - boss.x, e.y - boss.y) < 520) foe++;
+      let foe = 0; for (const e of g.units) if (e.type === 'hero' && e.team !== u.team && !e.dead && S.hyp(e.x - boss.x, e.y - boss.y) < 520) foe++;
       const dB = S.dist(u, boss);
       const go = ai.jungle ? (u.level >= 4 && foe <= near + 1) : (dB < 1100 && near >= 1 && foe <= near);
       if (go) jm = boss;
@@ -125,7 +125,7 @@
     if (tn && tn.by && !tn.by.dead) tgt = tn.by;
     if (!tgt && eh && ehd <= (ranged ? rng + 70 : 230)) {
       // ไม่ไล่เข้าใต้ป้อมถ้าไม่มีมินเนียนนำ (ยกเว้นเป้าเลือดน้อยมาก)
-      const t2 = ft && Math.hypot(eh.x - ft.x, eh.y - ft.y) < CFG.towerRange + 20;
+      const t2 = ft && S.hyp(eh.x - ft.x, eh.y - ft.y) < CFG.towerRange + 20;
       const safe = !t2 || towerOk || eh.hp / eh.maxHp < 0.25;
       // แอสซาซินไม่พุ่งเดี่ยว: เข้าเมื่อเป้าเลือดไม่เต็ม หรือมีเพื่อนอยู่ใกล้
       const assassinOk = u.role !== 'assassin' || eh.hp / eh.maxHp < 0.65 || allies.length >= 2;

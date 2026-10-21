@@ -6,9 +6,37 @@
   const CFG = TR.CFG;
 
   /* ---------- ตัวช่วย ---------- */
-  function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
+  function dist(a, b) { return hyp(a.x - b.x, a.y - b.y); }
   function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
-  function norm(x, y) { const l = Math.hypot(x, y); return l < 1e-6 ? [1, 0] : [x / l, y / l]; }
+  function norm(x, y) { const l = hyp(x, y); return l < 1e-6 ? [1, 0] : [x / l, y / l]; }
+  // ฟังก์ชันคณิตศาสตร์ที่ผลตรงกันทุกเบราว์เซอร์/ทุกเครื่อง (ใช้แค่ + - * / และ sqrt ซึ่งมาตรฐาน IEEE กำหนดผลตายตัว)
+  // Math.hypot/sin/cos/atan2 ไม่การันตีว่าตรงกันข้ามเอนจิน จึงห้ามใช้ในตรรกะเกมที่ต้องซิงก์ออนไลน์
+  const hyp = function (x, y) { return Math.sqrt(x * x + y * y); };
+  const PI = 3.141592653589793, HPI = PI / 2, TWO_PI = PI * 2;
+  function dsin(x) {
+    x = x - TWO_PI * Math.floor((x + PI) / TWO_PI);   // -PI..PI
+    if (x > HPI) x = PI - x; else if (x < -HPI) x = -PI - x;
+    const x2 = x * x;
+    return x * (1 + x2 * (-1 / 6 + x2 * (1 / 120 + x2 * (-1 / 5040 + x2 * (1 / 362880 + x2 * (-1 / 39916800 + x2 / 6227020800))))));
+  }
+  function dcos(x) { return dsin(x + HPI); }
+  function datan(x) {   // |x| <= 1 ผ่านสูตรลดช่วง แล้วใช้อนุกรมอันดับสูง
+    let inv = false, neg = x < 0; if (neg) x = -x;
+    if (x > 1) { x = 1 / x; inv = true; }
+    // ลดช่วงอีกชั้น: atan(x) = 2*atan(x / (1 + sqrt(1 + x^2)))
+    x = x / (1 + Math.sqrt(1 + x * x));
+    const x2 = x * x;
+    let r = x * (1 + x2 * (-1 / 3 + x2 * (1 / 5 + x2 * (-1 / 7 + x2 * (1 / 9 + x2 * (-1 / 11 + x2 * (1 / 13 + x2 * (-1 / 15))))))));
+    r *= 2;
+    if (inv) r = HPI - r;
+    return neg ? -r : r;
+  }
+  function datan2(y, x) {
+    if (x === 0 && y === 0) return 0;
+    if (x > 0) return datan(y / x);
+    if (x < 0) return y >= 0 ? datan(y / x) + PI : datan(y / x) - PI;
+    return y > 0 ? HPI : -HPI;
+  }
   function mulberry32(a) {
     return function () {
       a |= 0; a = (a + 0x6D2B79F5) | 0;
@@ -40,6 +68,7 @@
     const g = {
       t: 0, tick: 0, units: [], projs: [], zones: [], timers: [], fx: [], events: [],
       rand: mulberry32(opts.seed == null ? (Date.now() & 0x7fffffff) : opts.seed),
+      vrand: mulberry32(20241021),   // ตัวสุ่มสำหรับภาพเท่านั้น ห้ามกระทบสถานะเกม
       over: false, winner: -1, era: 0, warned: -1, nextWave: CFG.firstWave, waveNo: 0,
       tutorial: !!opts.tutorial, diff: TR.DIFFS[opts.diff] ? opts.diff : 'normal', wards: [], bans: { me: [], bot: [] }, score: [0, 0], sfx: [], idc: 1, player: null, opts: opts, aiThink: TR.AI ? TR.AI.think : null
     };
@@ -171,7 +200,7 @@
     if (u.type !== 'hero') return false;
     if (u.dead) return true;
     const sp = u.team === 0 ? 100 : CFG.W - 100;
-    return Math.hypot(u.x - sp, u.y - CFG.baseY) < CFG.shopRange;
+    return hyp(u.x - sp, u.y - CFG.baseY) < CFG.shopRange;
   }
   function zeroItm() { const t = {}; TR.ITEM_STATS.forEach(function (k) { t[k] = 0; }); return t; }
   function sumItems(u) {
@@ -249,7 +278,7 @@
     // พ่อเมือง: เพื่อนใกล้ ๆ ได้เกราะ
     for (const y of g.units) {
       if (y.type !== 'hero' || y.dead || y.team !== u.team || y === u || !y.def.passive || y.def.passive.id !== 'yai') continue;
-      if (Math.hypot(y.x - u.x, y.y - u.y) <= 220) { m.armor += 0.05; break; }
+      if (hyp(y.x - u.x, y.y - u.y) <= 220) { m.armor += 0.05; break; }
     }
   }
   function aggregate(g, u) {
@@ -311,7 +340,7 @@
     // วอร์ด: ศัตรูเดินทับแล้วพัง
     for (let i = g.wards.length - 1; i >= 0; i--) {
       const w = g.wards[i]; let gone = g.t >= w.until;
-      if (!gone) for (const e of hs) if (!e.dead && e.team !== w.team && Math.hypot(e.x - w.x, e.y - w.y) <= CFG.ward.sweep) { gone = true; sfx(g, 'ping', w.x, w.y, false); break; }
+      if (!gone) for (const e of hs) if (!e.dead && e.team !== w.team && hyp(e.x - w.x, e.y - w.y) <= CFG.ward.sweep) { gone = true; sfx(g, 'ping', w.x, w.y, false); break; }
       if (gone) g.wards.splice(i, 1);
     }
     for (const u of hs) {
@@ -322,9 +351,9 @@
         let seen = false;
         for (const e of hs) {
           if (e.team !== t || e.dead) continue;
-          if (e.bush === u.bush || Math.hypot(e.x - u.x, e.y - u.y) <= CFG.bush.sight) { seen = true; break; }
+          if (e.bush === u.bush || hyp(e.x - u.x, e.y - u.y) <= CFG.bush.sight) { seen = true; break; }
         }
-        if (!seen) for (const w of g.wards) if (w.team === t && Math.hypot(w.x - u.x, w.y - u.y) <= CFG.ward.r) { seen = true; break; }
+        if (!seen) for (const w of g.wards) if (w.team === t && hyp(w.x - u.x, w.y - u.y) <= CFG.ward.r) { seen = true; break; }
         u.hid[t] = !seen;
       }
     }
@@ -332,7 +361,7 @@
   // มีมินเนียนฝั่งที่โจมตีอยู่ใกล้ป้อมพอ = บุกตามปกติ
   function towerHasCover(g, tw) {
     const R = CFG.backdoor.r, atk = 1 - tw.team;
-    for (const m of g.units) if (m.type === 'minion' && m.team === atk && !m.dead && Math.abs(m.x - tw.x) < R && Math.abs(m.y - tw.y) < R && Math.hypot(m.x - tw.x, m.y - tw.y) < R) return true;
+    for (const m of g.units) if (m.type === 'minion' && m.team === atk && !m.dead && Math.abs(m.x - tw.x) < R && Math.abs(m.y - tw.y) < R && hyp(m.x - tw.x, m.y - tw.y) < R) return true;
     return false;
   }
   function canTarget(g, src, dst) {
@@ -379,7 +408,7 @@
       if (noTower && e.type === 'tower') continue;
       if (e.type === 'tower' && !towerVuln(g, e)) continue;
       if (e.type === 'hero' && (e.untarget > g.t || e.m.stealth)) continue;
-      if (Math.hypot(e.x - x, e.y - y) - e.radius <= r) out.push(e);
+      if (hyp(e.x - x, e.y - y) - e.radius <= r) out.push(e);
     }
     return out;
   }
@@ -388,7 +417,7 @@
     const out = [];
     for (let i = 0; i < g.units.length; i++) {
       const e = g.units[i];
-      if (e.type === 'hero' && e.team === team && !e.dead && Math.hypot(e.x - x, e.y - y) <= r) out.push(e);
+      if (e.type === 'hero' && e.team === team && !e.dead && hyp(e.x - x, e.y - y) <= r) out.push(e);
     }
     return out;
   }
@@ -401,7 +430,7 @@
     else if (pid === 'phran' && dst.m && (dst.m.slow > 0 || dst.m.root)) mul *= 1.15;
     else if (pid === 'seri' && src.bush >= 0) mul *= 1.25;
     else if (pid === 'spy' && dst.face) {
-      const vx = src.x - dst.x, vy = src.y - dst.y, l = Math.hypot(vx, vy) || 1;
+      const vx = src.x - dst.x, vy = src.y - dst.y, l = hyp(vx, vy) || 1;
       if ((vx * dst.face[0] + vy * dst.face[1]) / l < -0.3) mul *= 1.3;
     }
     if (o.basic && src.itmFx && src.itmFx.atk3 && dst.hp / dst.maxHp < 0.3) mul *= 1.25;
@@ -424,7 +453,7 @@
       }
       if (F.cdr3 && src.sbT > g.t) { src.sbT = 0; hit(g, src, dst, 80, { raw: true, mag: true, extra: true }); }
       if (F.siege3 && dst.type === 'minion') {
-        for (const e of g.units) if (e !== dst && e.type === 'minion' && e.team === dst.team && !e.dead && Math.hypot(e.x - dst.x, e.y - dst.y) < 90) hit(g, src, e, d * 0.4, { raw: true, extra: true });
+        for (const e of g.units) if (e !== dst && e.type === 'minion' && e.team === dst.team && !e.dead && hyp(e.x - dst.x, e.y - dst.y) < 90) hit(g, src, e, d * 0.4, { raw: true, extra: true });
       }
       if (pid === 'muay') { src.pStack = Math.min(5, (src.pT > g.t ? src.pStack : 0) + 1); src.pT = g.t + 3; }
     }
@@ -486,7 +515,7 @@
     if (src && src.type === 'hero') {
       if (dst.type === 'hero') { src.stDmg += d; dst.recent[src.id] = { u: src, t: g.t }; } else if (dst.type === 'tower') src.stTwr += d;
     }
-    if (VIS && (dst.type === 'hero' || dst.type === 'tower' || (src && src.isPlayer)) && g.fx.length < 150) g.fx.push({ k: 'dmg', x: dst.x + (g.rand() - 0.5) * 8, y: dst.y - 22, v: Math.round(d), c: mag ? '#b388ff' : (dst.type === 'hero' ? (dst.team === 0 ? '#ff8a80' : '#fff59d') : '#ffffff'), t0: g.t, dur: 0.8, big: dst.type === 'hero' || (src && src.isPlayer) });
+    if (VIS && (dst.type === 'hero' || dst.type === 'tower' || (src && src.isPlayer)) && g.fx.length < 150) g.fx.push({ k: 'dmg', x: dst.x + (g.vrand() - 0.5) * 8, y: dst.y - 22, v: Math.round(d), c: mag ? '#b388ff' : (dst.type === 'hero' ? (dst.team === 0 ? '#ff8a80' : '#fff59d') : '#ffffff'), t0: g.t, dur: 0.8, big: dst.type === 'hero' || (src && src.isPlayer) });
     if (src) {
       if (src.m && src.m.ls > 0 && !src.dead) { const b4 = src.hp; src.hp = Math.min(src.maxHp, src.hp + d * src.m.ls); if (src.type === 'hero') src.stHeal += src.hp - b4; }
       if (src.type === 'hero') src.revealT = g.t + CFG.bush.reveal;
@@ -646,7 +675,7 @@
 
   /* ---------- สเปลเสริม และกลับพระนคร ---------- */
   const SPELL_NEG = ['stun', 'slow', 'root', 'blind', 'taunt'];
-  function inBaseOf(u) { return Math.hypot(u.x - (u.team === 0 ? 100 : CFG.W - 100), u.y - CFG.baseY) < CFG.shopRange; }
+  function inBaseOf(u) { return hyp(u.x - (u.team === 0 ? 100 : CFG.W - 100), u.y - CFG.baseY) < CFG.shopRange; }
   function cancelRecall(g, u) { if (u.recall) { u.recall = null; if (VIS) g.fx.push({ k: 'ring', x: u.x, y: u.y, r: 16, c: '#9e9e9e', t0: g.t, dur: 0.25 }); } }
   function startRecall(g, u) {
     if (g.over || u.dead || u.recall || u.casting || u.dash || u.m.stun || inBaseOf(u)) return false;
@@ -669,7 +698,7 @@
   /* ---------- ตะเกียงส่องทาง (วอร์ด) ---------- */
   function placeWard(g, u) {
     if (g.over || u.dead || u.wardN <= 0) return false;
-    let mine = 0; for (const w of g.wards) if (w.team === u.team) { mine++; if (Math.hypot(w.x - u.x, w.y - u.y) < 120) return false; }
+    let mine = 0; for (const w of g.wards) if (w.team === u.team) { mine++; if (hyp(w.x - u.x, w.y - u.y) < 120) return false; }
     if (mine >= 6) { for (let i = 0; i < g.wards.length; i++) if (g.wards[i].team === u.team) { g.wards.splice(i, 1); break; } }
     u.wardN--; if (u.wardCd <= 0) u.wardCd = CFG.ward.regen;
     g.wards.push({ team: u.team, x: u.x, y: u.y, until: g.t + CFG.ward.dur, by: u.id });
@@ -681,8 +710,8 @@
     if (u.wardN <= 0 || g.t < u.wardNext) return;
     u.wardNext = g.t + 8;
     for (const b of TR.BUSHES) {
-      if (Math.hypot(b.x - u.x, b.y - u.y) > 170) continue;
-      let dup = false; for (const w of g.wards) if (w.team === u.team && Math.hypot(w.x - b.x, w.y - b.y) < 330) dup = true;
+      if (hyp(b.x - u.x, b.y - u.y) > 170) continue;
+      let dup = false; for (const w of g.wards) if (w.team === u.team && hyp(w.x - b.x, w.y - b.y) < 330) dup = true;
       if (!dup) { placeWard(g, u); return; }
     }
   }
@@ -742,7 +771,7 @@
         let best = null, bd = sp.r;
         for (const e of g.units) {
           if (e.dead || e.team === u.team || (e.type !== 'monster' && e.type !== 'minion')) continue;
-          const d = Math.hypot(e.x - u.x, e.y - u.y) - e.radius;
+          const d = hyp(e.x - u.x, e.y - u.y) - e.radius;
           if (d < bd) { bd = d; best = e; }
         }
         if (!best) return false;
@@ -776,12 +805,12 @@
     switch (u.spell) {
       case 'heal': if (hpR < 0.4 && foes.length) castSpell(g, u); break;
       case 'punish': { const sp = TR.SPELL_BY_ID.punish, need = sp.dmg + sp.perLv * u.level;
-        for (const e of g.units) if (e.type === 'monster' && !e.dead && e.team !== u.team && e.hp <= need && Math.hypot(e.x - u.x, e.y - u.y) < sp.r) { castSpell(g, u); break; } break; }
+        for (const e of g.units) if (e.type === 'monster' && !e.dead && e.team !== u.team && e.hp <= need && hyp(e.x - u.x, e.y - u.y) < sp.r) { castSpell(g, u); break; } break; }
       case 'flash': if (hpR < 0.3 && foes.length) { u.face = norm(u.x - foes[0].x, u.y - foes[0].y); castSpell(g, u); } break;
       case 'sprint': if ((u.ai.retreat || hpR < 0.4) && foes.length) castSpell(g, u); break;
       case 'purify': if (u.fx.some(function (e) { return SPELL_NEG.indexOf(e.type) >= 0 && (e.type === 'stun' || e.type === 'root'); })) castSpell(g, u); break;
       case 'barrier': if (hpR < 0.5 && foes.length) castSpell(g, u); break;
-      case 'conch': if (foes.filter(function (e) { return Math.hypot(e.x - u.x, e.y - u.y) < 115; }).length >= 2) castSpell(g, u); break;
+      case 'conch': if (foes.filter(function (e) { return hyp(e.x - u.x, e.y - u.y) < 115; }).length >= 2) castSpell(g, u); break;
     }
     // ถอยกลับบ้านด้วยการร่ายกลับพระนคร: เลือดน้อย ไกลฐาน และไม่มีศัตรูใกล้
     if (!u.recall && hpR < 0.3 && !foes.length && !inBaseOf(u)) {
@@ -894,7 +923,7 @@
     if (a) return { x: u.x + a.dx * range * a.k, y: u.y + a.dy * range * a.k, tgt: null };
     const e = pickEnemy(g, u, range + 20, false, true);
     if (e) {
-      const d = Math.hypot(e.x - u.x, e.y - u.y);
+      const d = hyp(e.x - u.x, e.y - u.y);
       const k = d > range ? range / d : 1;
       return { x: u.x + (e.x - u.x) * k, y: u.y + (e.y - u.y) * k, tgt: e };
     }
@@ -932,10 +961,10 @@
       case 'cone': {
         const e = ctx.aim ? null : pickEnemy(g, u, fx.range, false, true);
         const dir = ctx.aim ? [ctx.aim.dx, ctx.aim.dy] : (e ? dirToward(u, e) : u.face);
-        const base = Math.atan2(dir[1], dir[0]);
+        const base = datan2(dir[1], dir[0]);
         for (let i = 0; i < fx.n; i++) {
           const a = base + ((i - (fx.n - 1) / 2) / Math.max(1, fx.n - 1)) * (fx.spread * Math.PI / 180);
-          spawnProj(g, u, [Math.cos(a), Math.sin(a)], { range: fx.range, speed: fx.speed, w: 4, dmg: fx.dmg }, ctx.mul);
+          spawnProj(g, u, [dcos(a), dsin(a)], { range: fx.range, speed: fx.speed, w: 4, dmg: fx.dmg }, ctx.mul);
         }
         break;
       }
@@ -1110,7 +1139,7 @@
     const w = (d.fx.w || 12);
     for (const e of g.units) {
       if (e.dead || e.team === u.team || e.type === 'tower' || d.hits.indexOf(e) >= 0 || !canTarget(g, u, e)) continue;
-      if (Math.hypot(e.x - u.x, e.y - u.y) <= u.radius + e.radius + w) {
+      if (hyp(e.x - u.x, e.y - u.y) <= u.radius + e.radius + w) {
         d.hits.push(e);
         if (d.fx.dmg) hit(g, u, e, d.fx.dmg, { skill: true, mul: d.mul });
         if (d.fx.push) { e.x = clamp(e.x + d.dx * d.fx.push, 20, CFG.W - 20); e.y = clamp(e.y + d.dy * d.fx.push, 50, CFG.H - 50); }
@@ -1216,7 +1245,7 @@
     // ฟื้นเลือด
     const em = TR.EMBLEMS[u.emblem];
     const sp = u.team === 0 ? 100 : CFG.W - 100;
-    const inBase = Math.hypot(u.x - sp, u.y - CFG.baseY) < 230;
+    const inBase = hyp(u.x - sp, u.y - CFG.baseY) < 230;
     u.hp = Math.min(u.maxHp, u.hp + u.maxHp * ((inBase ? 0.08 : 0.004 * (em.regenMul || 1)) + u.itm.regen) * dt);
     for (const e of u.fx) if (e.type === 'hot') u.hp = Math.min(u.maxHp, u.hp + e.perSec * dt);
 
@@ -1262,7 +1291,7 @@
     let moved = false;
     if (u.dash) { stepDash(g, u, dt); moved = true; }
     else if (!u.m.stun && !u.m.root && !u.casting) {
-      const ix = u.input.dx, iy = u.input.dy, l = Math.hypot(ix, iy);
+      const ix = u.input.dx, iy = u.input.dy, l = hyp(ix, iy);
       if (l > 0.01) {
         const nx = ix / l, ny = iy / l;
         const spd = u.baseSpeed * u.m.speed * (1 - u.m.slow);
@@ -1385,7 +1414,7 @@
     aggregate(g, u);
     if (u.atkCd > 0) u.atkCd -= dt;
     if (u.m.stun) return;
-    const hd = Math.hypot(u.x - u.home.x, u.y - u.home.y);
+    const hd = hyp(u.x - u.home.x, u.y - u.home.y);
     if (u.leash) {   // กลับค่ายและฟื้นเลือดเร็ว
       u.tgt = null;
       u.hp = Math.min(u.maxHp, u.hp + u.maxHp * 0.15 * dt);
@@ -1399,7 +1428,7 @@
       if (u.aggroBy && !u.aggroBy.dead && g.t - u.aggroT < 5 && canTarget(g, u, u.aggroBy)) tgt = u.aggroBy;
       else for (const e of g.units) {
         if (e.type !== 'hero' || e.dead || !canTarget(g, u, e)) continue;
-        if (Math.hypot(e.x - u.home.x, e.y - u.home.y) < 55) { tgt = e; break; }
+        if (hyp(e.x - u.home.x, e.y - u.home.y) < 55) { tgt = e; break; }
       }
     }
     u.tgt = tgt;
@@ -1417,7 +1446,7 @@
   }
 
   function moveToward(u, tx, ty, dt) {
-    const dx = tx - u.x, dy = ty - u.y, l = Math.hypot(dx, dy);
+    const dx = tx - u.x, dy = ty - u.y, l = hyp(dx, dy);
     if (l < 1) return;
     const spd = (u.speed || u.baseSpeed) * u.m.speed * (1 - u.m.slow);
     const s = Math.min(l, spd * dt);
@@ -1466,7 +1495,7 @@
       const p = g.projs[i];
       if (p.tgt) {
         if (p.tgt.dead) { g.projs.splice(i, 1); continue; }
-        const dx = p.tgt.x - p.x, dy = p.tgt.y - p.y, l = Math.hypot(dx, dy);
+        const dx = p.tgt.x - p.x, dy = p.tgt.y - p.y, l = hyp(dx, dy);
         const s = p.speed * dt;
         if (l <= s + p.tgt.radius) {
           hit(g, p.src, p.tgt, p.dmg, { basic: true, mul: p.mul });
@@ -1476,12 +1505,12 @@
         continue;
       }
       const sx = p.vx * dt, sy = p.vy * dt;
-      p.x += sx; p.y += sy; p.left -= Math.hypot(sx, sy);
+      p.x += sx; p.y += sy; p.left -= hyp(sx, sy);
       let gone = p.left <= 0;
       if (!gone) {
         for (const e of g.units) {
           if (e.dead || e.team === p.team || p.hit.indexOf(e) >= 0 || !canTarget(g, p.src, e)) continue;
-          if (Math.hypot(e.x - p.x, e.y - p.y) <= e.radius + p.w) {
+          if (hyp(e.x - p.x, e.y - p.y) <= e.radius + p.w) {
             let m = p.mul;
             if (p.rootedMul && findFx(e, 'root')) m *= p.rootedMul;
             hit(g, p.src, e, p.dmg, { skill: true, mul: m });
@@ -1528,7 +1557,7 @@
         z.next += z.tick;
         if (z.turret || z.single) {
           let best = null, bd = 1e9;
-          for (const e of enemiesIn(g, z.team, z.x, z.y, z.r, true)) { const d = Math.hypot(e.x - z.x, e.y - z.y); if (d < bd) { bd = d; best = e; } }
+          for (const e of enemiesIn(g, z.team, z.x, z.y, z.r, true)) { const d = hyp(e.x - z.x, e.y - z.y); if (d < bd) { bd = d; best = e; } }
           if (best) { line(g, z, best, '#fff176', 0.1); hit(g, z.owner, best, z.dmg, { skill: true, mul: z.mul }); }
         } else {
           for (const e of enemiesIn(g, z.team, z.x, z.y, z.r, true)) {
@@ -1570,7 +1599,7 @@
   for (let i = 0; i < NW; i++) { D.push(new Array(NW).fill(1e9)); NEXT.push(new Array(NW).fill(-1)); }
   for (let i = 0; i < NW; i++) {
     D[i][i] = 0; NEXT[i][i] = i;
-    for (let j = 0; j < NW; j++) if (i !== j && segClear(WP[i].x, WP[i].y, WP[j].x, WP[j].y, 10)) { D[i][j] = Math.hypot(WP[i].x - WP[j].x, WP[i].y - WP[j].y); NEXT[i][j] = j; }
+    for (let j = 0; j < NW; j++) if (i !== j && segClear(WP[i].x, WP[i].y, WP[j].x, WP[j].y, 10)) { D[i][j] = hyp(WP[i].x - WP[j].x, WP[i].y - WP[j].y); NEXT[i][j] = j; }
   }
   for (let k = 0; k < NW; k++) for (let i = 0; i < NW; i++) for (let j = 0; j < NW; j++) if (D[i][k] + D[k][j] < D[i][j]) { D[i][j] = D[i][k] + D[k][j]; NEXT[i][j] = NEXT[i][k]; }
 
@@ -1583,15 +1612,15 @@
     for (let i = 0; i < NW; i++) { vis[i] = segClear(u.x, u.y, WP[i].x, WP[i].y, r); visT[i] = segClear(WP[i].x, WP[i].y, tx, ty, r); }
     for (let i = 0; i < NW; i++) {
       if (!vis[i]) continue;
-      const di = Math.hypot(u.x - WP[i].x, u.y - WP[i].y);
+      const di = hyp(u.x - WP[i].x, u.y - WP[i].y);
       for (let j = 0; j < NW; j++) {
         if (!visT[j] || D[i][j] >= 1e9) continue;
-        const c = di + D[i][j] + Math.hypot(WP[j].x - tx, WP[j].y - ty);
+        const c = di + D[i][j] + hyp(WP[j].x - tx, WP[j].y - ty);
         if (c < best) { best = c; bi = i; bj = j; }
       }
     }
     if (bi < 0) return { x: tx, y: ty };
-    if (Math.hypot(u.x - WP[bi].x, u.y - WP[bi].y) < 14) {
+    if (hyp(u.x - WP[bi].x, u.y - WP[bi].y) < 14) {
       if (bi === bj) return { x: tx, y: ty };
       const n = NEXT[bi][bj];
       return { x: WP[n].x, y: WP[n].y };
@@ -1646,6 +1675,7 @@
   }
 
   TR.Sim = {
+    hyp: hyp, dsin: dsin, dcos: dcos, datan2: datan2,
     navPoint: navPoint,
     createGame: createGame, placeWard: placeWard, useItem: useItem, itemActives: itemActives, itemCdLeft: itemCdLeft, hit: hit, kill: kill, signal: signal, sigFor: sigFor, callSurrender: callSurrender, botWantsSurrender: botWantsSurrender, bushAt: bushAt, step: step, upgradeSkill: upgradeSkill, canUpgrade: canUpgrade, skillPts: skillPts, skillAim: skillAim, skillMul: skillMul, castSpell: castSpell, startRecall: startRecall, cancelRecall: cancelRecall, castSkill: castSkill, canCast: canCast,
     pickEnemy: pickEnemy, enemiesIn: enemiesIn, alliedHeroes: alliedHeroes, canTarget: canTarget,
