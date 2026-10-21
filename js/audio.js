@@ -130,6 +130,44 @@
   function suspend() { if (ctx && ctx.state === 'running') ctx.suspend(); }
   function resume() { if (ctx && ctx.state === 'suspended') ctx.resume(); }
 
+  /* ---------- ธีมหน้าปก: ระเบิดต่ำ + ลมหวีดรับแสงแฟลร์ + ฆ้อง + เสียงเบสค้าง + ระฆังเพนทาโทนิกลอย ---------- */
+  let ttGain = null, ttTimer = null, ttNodes = [];
+  function titleStart() {
+    if (!init() || ttGain) return;
+    const t0 = ctx.currentTime + 0.05;
+    ttGain = ctx.createGain(); ttGain.gain.value = 1; ttGain.connect(bMus);
+    // ลมหวีดไต่ขึ้น พีคตอนแฟลร์ (~1.2 วินาที) แล้วระเบิดต่ำ + ฆ้อง
+    noise({ dur: 1.5, f: 200, f2: 4200, q: 1.2, v: 0.5, bus: ttGain, at: t0 });
+    tone({ f: 55, f2: 28, dur: 3.2, type: 'sine', v: 0.7, bus: ttGain, at: t0 + 1.15, a: 0.02 });
+    noise({ dur: 1.6, f: 500, f2: 70, type: 'lowpass', v: 0.5, bus: ttGain, at: t0 + 1.15 });
+    [1, 2.76, 5.4, 8.9].forEach(function (m, i) { tone({ f: 110 * m, dur: 3.6 / (1 + i * 0.45), type: 'sine', v: 0.3 / (1 + i * 0.55), bus: ttGain, at: t0 + 1.2, a: 0.01 }); });
+    // เสียงเบสค้างแบบประสานเสียง (D, A, D, F, A) ค่อย ๆ ดังขึ้นและโยกช้า ๆ
+    [38, 45, 50, 53, 57].forEach(function (semi, i) {
+      const o = ctx.createOscillator(), g = ctx.createGain(), lfo = ctx.createOscillator(), lg = ctx.createGain();
+      o.type = i % 2 ? 'triangle' : 'sine'; o.frequency.value = FREQ(semi - 48); o.detune.value = (i - 2) * 4;
+      lfo.frequency.value = 0.08 + i * 0.03; lg.gain.value = 0.02; lfo.connect(lg); lg.connect(g.gain);
+      g.gain.setValueAtTime(0.0001, t0 + 1.0); g.gain.linearRampToValueAtTime(0.07 / (1 + i * 0.2), t0 + 4.5);
+      o.connect(g); g.connect(ttGain); o.start(t0 + 1.0); lfo.start(t0 + 1.0); ttNodes.push(o, lfo);
+    });
+    // ระฆังลอยเป็นระยะ (สเกลเพนทาโทนิก)
+    const sc = [0, 2, 4, 7, 9];
+    ttTimer = setInterval(function () {
+      if (!ctx || ctx.state !== 'running' || !ttGain) return;
+      const n = sc[Math.floor(Math.random() * sc.length)] + 12 * (1 + Math.floor(Math.random() * 2));
+      tone({ f: FREQ(n), dur: 2.4, type: 'triangle', v: 0.11, bus: ttGain, a: 0.004 });
+      tone({ f: FREQ(n) * 2.01, dur: 1.2, type: 'sine', v: 0.04, bus: ttGain, a: 0.004 });
+    }, 1700);
+    setTimeout(function () { if (ttGain) { /* ระฆังแรกหลังฆ้อง */ tone({ f: FREQ(21), dur: 2.4, type: 'triangle', v: 0.12, bus: ttGain }); } }, 3200);
+  }
+  function titleStop(sec) {
+    if (!ttGain) return;
+    const g = ttGain, t = ctx.currentTime; ttGain = null;
+    clearInterval(ttTimer); ttTimer = null;
+    g.gain.cancelScheduledValues(t); g.gain.setValueAtTime(g.gain.value, t); g.gain.linearRampToValueAtTime(0.0001, t + (sec || 1));
+    const nodes = ttNodes; ttNodes = [];
+    setTimeout(function () { nodes.forEach(function (n) { try { n.stop(); } catch (e) { /* ไม่เป็นไร */ } }); try { g.disconnect(); } catch (e) { /* ไม่เป็นไร */ } }, ((sec || 1) + 0.3) * 1000);
+  }
+
   /* ---------- เสียงประกาศ (เสียงพูดของเบราว์เซอร์ ถ้ามีเสียงไทย) ---------- */
   let thVoice = null;
   function pickVoice() {
@@ -148,5 +186,5 @@
   }
   if (root.speechSynthesis) try { root.speechSynthesis.onvoiceschanged = function () { thVoice = pickVoice(); }; } catch (e) { /* ไม่เป็นไร */ }
 
-  TR.Audio = { init: init, play: play, setVol: setVol, musicStart: musicStart, musicEra: musicEra, musicStop: musicStop, suspend: suspend, resume: resume, say: say, ready: function () { return !!ctx; } };
+  TR.Audio = { titleStart: titleStart, titleStop: titleStop, running: function () { return !!ctx && ctx.state === 'running'; }, init: init, play: play, setVol: setVol, musicStart: musicStart, musicEra: musicEra, musicStop: musicStop, suspend: suspend, resume: resume, say: say, ready: function () { return !!ctx; } };
 })(window);

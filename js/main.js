@@ -530,17 +530,31 @@
     const vg = c.createRadialGradient(cx, h * 0.5, Math.min(w, h) * 0.35, cx, h * 0.5, Math.max(w, h) * 0.85); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.78)');
     c.fillStyle = vg; c.fillRect(0, 0, w, h);
   }
+  // เริ่มโชว์หน้าปกพร้อมเสียง: ถ้าเบราว์เซอร์ยังไม่อนุญาตเสียง จะมีหน้าดำให้แตะก่อน (การแตะนี้คือสิ่งที่ปลดล็อกเสียง)
+  function titleGo(ts) {
+    $('title').classList.remove('gated'); titleT0 = 0; embers = [];
+    TR.Audio.setVol({ sfx: ctl.sfx, music: ctl.music, voice: ctl.voice });
+    TR.Audio.titleStart();
+  }
   function startTitle() {
     $('titleVer').textContent = TR.VERSION; $('nameIn').value = myName;
     requestAnimationFrame(drawTitle);
     TR.Net.wake();
+    TR.Audio.init();
+    if (TR.Audio.running()) titleGo();
+    else {
+      const g = function () { $('ttGate').removeEventListener('pointerdown', g); window.removeEventListener('keydown', g); TR.Audio.init(); TR.Audio.resume(); titleGo(); };
+      $('ttGate').addEventListener('pointerdown', g); window.addEventListener('keydown', g);
+      // ถ้าผู้เล่นปิดเสียงทั้งหมดไว้แล้ว ไม่ต้องมีหน้าดำ
+      if (ctl.music <= 0 && ctl.sfx <= 0) titleGo();
+    }
   }
   function leaveTitle() {
     const v = cleanName($('nameIn').value);
     if (!v) { const i = $('nameIn'); i.classList.remove('bad'); void i.offsetWidth; i.classList.add('bad'); i.focus(); return; }
     myName = v; try { localStorage.setItem('tr_name', v); } catch (e) { /* ไม่เป็นไร */ }
     titleOn = false; $('title').hidden = true;
-    if (TR.Audio.init()) TR.Audio.play('gong');
+    if (TR.Audio.init()) TR.Audio.play('ui');
     TR.Net.wake();
   }
   $('titleGo').addEventListener('click', leaveTitle);
@@ -568,7 +582,7 @@
     $('spBtn').querySelector('.ic').textContent = spd.icon; $('spBtn').querySelector('.nm').textContent = spd.name; $('spBtn').classList.remove('img'); $('spBtn').style.backgroundImage = ''; setIcon($('spBtn'), 'sp_' + spd.id);
     const em = TR.EMBLEMS[g.player.emblem];
     $('meName').innerHTML = pn(g.player) + ' <span style="color:' + em.color + '">· ใจ' + em.name + '</span>';
-    TR.Audio.init(); applyCtl(); TR.Audio.musicStart(0); TR.Audio.resume();
+    TR.Audio.init(); applyCtl(); TR.Audio.titleStop(1.2); TR.Audio.musicStart(0); TR.Audio.resume();
     tutStart();
     const bn = g.bans.me.concat(g.bans.bot).length ? ' · แบน: ' + g.bans.me.map(hn).join(', ') + ' (เรา) ' + g.bans.bot.map(hn).join(', ') + ' (ศัตรู)' : '';
     banner('ยุค' + TR.ERAS[0].name + ' เริ่มแล้ว', TR.ERAS[0].note + ' · ฮีโร่ยุคนี้แข็งขึ้น: ' + heroesOfEra(0) + bn, 4500);
