@@ -18,19 +18,25 @@
   /* ---------- ช่องทางออนไลน์ (WebSocket ไปยังตัวส่งต่อใน server/) ----------
      ส่งเฉพาะคำสั่ง รับหมายเลขจังหวะกลาง 'u' จากเซิร์ฟเวอร์ ส่วนเกมรันที่เครื่องเราเอง
      handlers: { open, joined, roster, start, u, desync, err, close } */
-  let ws = null, hd = {}, known = 0;
+  let ws = null, hd = {}, known = 0, rtt = -1, pingT = null, pingLoss = 0;
   function wsUrl() { return TR.NET.url.replace(/^http/, 'ws').replace(/\/$/, ''); }
   TR.Online = {
     known: function () { return known; },
+    ping: function () { return rtt; },   // ความหน่วงไป-กลับ (ms) แบบเฉลี่ยเรียบ, -1 = ยังไม่รู้
     isOpen: function () { return !!ws && ws.readyState === 1; },
     open: function (handlers, known0) {
-      TR.Online.close(); hd = handlers; known = known0 || 0;
+      TR.Online.close(); hd = handlers; known = known0 || 0; rtt = -1;
       let sock, dead = setTimeout(function () { if (ws === sock && sock.readyState !== 1) { try { sock.close(); } catch (e) { /* ไม่เป็นไร */ } } }, 90000);
       try { sock = ws = new WebSocket(wsUrl()); } catch (e) { clearTimeout(dead); if (hd.close) hd.close('connect'); return; }
-      sock.onopen = function () { clearTimeout(dead); if (hd.open) hd.open(); };
+      sock.onopen = function () {
+        clearTimeout(dead); if (hd.open) hd.open();
+        const pg = function () { TR.Online.send({ t: 'ping', c: performance.now() }); };
+        pg(); clearInterval(pingT); pingT = setInterval(pg, 2000);
+      };
       sock.onmessage = function (e) {
         let m; try { m = JSON.parse(e.data); } catch (x) { return; }
         if (!m || typeof m.t !== 'string') return;
+        if (m.t === 'pong') { const d = performance.now() - m.c; if (d >= 0 && d < 60000) rtt = rtt < 0 ? d : rtt * 0.6 + d * 0.4; return; }
         if (m.t === 'u' && typeof m.n === 'number') { if (hd.u) hd.u(m); known = m.n; return; }   // ส่งคำสั่งเข้าเกมก่อน แล้วค่อยขยับ known
         if (hd[m.t]) hd[m.t](m);
       };
@@ -38,6 +44,6 @@
       sock.onerror = function () { /* onclose จะตามมา */ };
     },
     send: function (o) { if (ws && ws.readyState === 1) { ws.send(JSON.stringify(o)); return true; } return false; },
-    close: function () { const s = ws; ws = null; if (s) { try { s.close(); } catch (e) { /* ไม่เป็นไร */ } } }
+    close: function () { clearInterval(pingT); rtt = -1; const s = ws; ws = null; if (s) { try { s.close(); } catch (e) { /* ไม่เป็นไร */ } } }
   };
 })(window);

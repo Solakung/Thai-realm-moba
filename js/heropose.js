@@ -109,4 +109,46 @@
       return { zap: fnAct(2.6, function (P, t) { const j = t > 0.9 && t < 1.7 ? Math.sin(t * 60) * 0.04 : 0; P[KI['torso.rx']] = 0.1 - (t > 0.9 ? 0.1 : 0); P[KI['head.ry']] = 0; P[KI['head.rx']] = t > 0.9 ? -0.1 : 0.2; const e = Math.min(1, t / 0.7); P[KI['shA.rx']] = -1.2 - 0.35 * e + j; P[KI['elA.rx']] = -1.5 + 1.3 * e; P[KI['wrA.rx']] = 0.6 + 0.4 * e; P[KI['shB.rx']] = -1.05; P[KI['elB.rx']] = -1.7 + 1.0 * e; P[KI['hpA.rx']] = -0.3 * e; P[KI['knA.rx']] = 0.2 + 0.3 * e; }, { fx: [{ t: 0.9, k: 'sparks' }, { t: 1.1, k: 'sparks' }, { t: 1.3, k: 'cast' }] }) };
     }
   };
+
+  /* ---------- ท่าตีและท่าร่ายสกิลในเกม (รายฮีโร่) ----------
+     แต่ละตัวเลือก "ท่าตี" 1 แบบ และ "ท่าร่ายสกิล" ของสกิล 1/2/3 ต่างกัน จากชุดท่าพื้นฐานด้านล่าง แล้วใส่ท่าถือ/จังหวะประจำตัวทับ
+     ใช้ผ่าน TR.S3D.HERO[id].game() → { gatk, gc0, gc1, gc2 } (เรียกตอน BASE เป็นท่านิ่งของฮีโร่ตัวนั้นแล้ว) */
+  const ARCH = {
+    thrust:   [{ 'shA.rx': -0.5, 'elA.rx': -1.5, 'torso.ry': 0.45, 'torso.rx': 0.05, 'hpA.rx': 0.2, 'hpB.rx': -0.4 }, merge(LUNGE, { 'shA.rx': -1.55, 'elA.rx': -0.1, 'wrA.rx': -0.2, 'torso.ry': -0.35, 'torso.rx': 0.25, 'shB.rz': -0.9 })],
+    overhead: [{ 'shA.rx': -3.0, 'elA.rx': -0.5, 'shB.rx': -2.2, 'elB.rx': -0.8, 'torso.rx': -0.3, 'head.rx': -0.2 }, merge(CROUCH, { 'shA.rx': -0.5, 'elA.rx': -0.2, 'shB.rx': -0.4, 'elB.rx': -0.3, 'torso.rx': 0.55, 'head.rx': 0.3 })],
+    sweep:    [{ 'shA.rz': 1.5, 'shA.rx': -0.2, 'elA.rx': -0.2, 'torso.ry': 0.8, 'hpA.rz': 0.3 }, merge(LUNGE, { 'shA.rz': 1.3, 'shA.rx': -1.2, 'elA.rx': -0.1, 'torso.ry': -0.9, 'torso.rx': 0.1 })],
+    raise:    [{ 'shA.rx': -0.9, 'shB.rx': -0.9, 'elA.rx': -1.6, 'elB.rx': -1.6, 'torso.rx': 0.12, 'head.rx': 0.1 }, { 'shA.rx': -2.9, 'shB.rx': -2.9, 'shA.rz': 0.25, 'shB.rz': -0.25, 'elA.rx': -0.2, 'elB.rx': -0.2, 'torso.rx': -0.3, 'head.rx': -0.35, 'hpA.rx': -0.1, 'hpB.rx': -0.1 }],
+    push:     [{ 'shA.rx': -0.7, 'shB.rx': -0.7, 'elA.rx': -1.9, 'elB.rx': -1.9, 'torso.rx': -0.1, 'hpA.rx': 0.2 }, merge(LUNGE, { 'shA.rx': -1.55, 'shB.rx': -1.55, 'elA.rx': -0.05, 'elB.rx': -0.05, 'wrA.rx': -0.3, 'wrB.rx': -0.3, 'torso.rx': 0.28 })],
+    slam:     [{ 'shA.rx': -2.7, 'shB.rx': -2.7, 'elA.rx': -0.9, 'elB.rx': -0.9, 'torso.rx': -0.35, 'head.rx': -0.25 }, merge(CROUCH, { 'shA.rx': -0.35, 'shB.rx': -0.35, 'elA.rx': -0.1, 'elB.rx': -0.1, 'torso.rx': 0.75, 'head.rx': 0.4 })],
+    throw:    [{ 'shB.rx': -2.7, 'elB.rx': -1.0, 'shA.rx': -0.5, 'elA.rx': -0.5, 'torso.ry': 0.6, 'torso.rx': -0.2, 'hpA.rx': 0.25 }, merge(LUNGE, { 'shB.rx': -0.5, 'elB.rx': -0.15, 'wrB.rx': 0.5, 'torso.ry': -0.55, 'torso.rx': 0.4, 'shA.rx': 0.3 })],
+    jab:      [{ 'shA.rx': -1.0, 'elA.rx': -2.1, 'shB.rx': -1.0, 'elB.rx': -2.1, 'torso.ry': 0.35, 'torso.rx': 0.05, 'hpA.rx': 0.1 }, merge(LUNGE, { 'shA.rx': -1.55, 'elA.rx': -0.05, 'shB.rx': -1.0, 'elB.rx': -2.1, 'torso.ry': -0.5, 'torso.rx': 0.12, 'head.ry': 0.2 })],
+    knee:     [{ 'shA.rx': -1.1, 'elA.rx': -2.0, 'shB.rx': -1.1, 'elB.rx': -2.0, 'torso.rx': -0.15, 'hpB.rx': 0.1 }, { 'shA.rx': -1.0, 'elA.rx': -1.7, 'shB.rx': -1.0, 'elB.rx': -1.7, 'torso.rx': 0.25, 'hpA.rx': -1.9, 'knA.rx': 1.6, 'hpB.rx': 0.15 }],
+    shoot:    [{ 'shA.rx': -1.45, 'elA.rx': -0.1, 'shB.rx': -1.2, 'elB.rx': -1.2, 'torso.ry': 0.3, 'head.ry': -0.2, 'hpA.rx': 0.15 }, { 'shA.rx': -1.5, 'elA.rx': -0.05, 'shB.rx': -1.35, 'elB.rx': -0.4, 'torso.ry': 0.25, 'torso.rx': -0.05, 'head.ry': -0.2 }],
+    crouch:   [{ 'torso.rx': 0.5, 'head.rx': 0.2, 'shA.rx': -0.4, 'shB.rx': -0.4, 'elA.rx': -0.8, 'elB.rx': -0.8, 'hpA.rx': -0.8, 'knA.rx': 1.3, 'hpB.rx': -0.8, 'knB.rx': 1.3 }, merge(LUNGE, { 'torso.rx': 0.4, 'shA.rx': -0.9, 'shB.rx': 0.5, 'elA.rx': -0.2, 'root.rx': 0.2 })]
+  };
+  const sw = function (a, b, d) { return tl(d || 1, [[0, {}], [0.3, ARCH[a][0], 'o'], [0.55, ARCH[a][1], 'o'], [1, {}]], { noTrail: false }); };
+  const spinAct = function (dir) { const B = S.arr(); return { dur: 1, noTrail: false, fn: function (t) { const P = Float32Array.from(B), k = Math.min(1, t / 0.75), e = k * k * (3 - 2 * k); P[KI['root.ry']] = dir * e * TAU; P[KI['shA.rz']] = 1.35; P[KI['shB.rz']] = -1.35; P[KI['shA.rx']] = -0.2; P[KI['shB.rx']] = -0.2; P[KI['elA.rx']] = -0.15; P[KI['elB.rx']] = -0.15; P[KI['hpA.rx']] = -0.35; P[KI['knA.rx']] = 0.5; return P; } }; };
+  // [ท่าตี, ท่าสกิล 1, 2, 3]  (spin / - = ใช้ชุดท่าของสไตล์เดิม)
+  const PLAN = {
+    nakdab:   ['-',      'thrust', 'sweep',  'overhead'],
+    phran:    ['-',      'shoot',  'crouch', 'raise'],
+    mohya:    ['push',   'push',   'raise',  'throw'],
+    kwan:     ['overhead', 'slam', 'sweep',  'raise'],
+    mothamma: ['push',   'raise',  'push',   'slam'],
+    muay:     ['jab',    'knee',   'spin',   'slam'],
+    seri:     ['-',      'throw',  'shoot',  'raise'],
+    yai:      ['sweep',  'slam',   'push',   'raise'],
+    spy:      ['thrust', 'throw',  'sweep',  'spin'],
+    mae:      ['throw',  'throw',  'push',   'raise'],
+    win:      ['sweep',  'spin',   'thrust', 'slam'],
+    chang:    ['push',   'raise',  'throw',  'slam']
+  };
+  Object.keys(PLAN).forEach(function (id) {
+    H[id].game = function () {
+      const pl = PLAN[id], out = {}, mk = function (n, i) { return n === '-' ? null : (n === 'spin' ? spinAct(i % 2 ? 1 : -1) : sw(n)); };
+      const a = mk(pl[0], 0); if (a) out.gatk = a;
+      for (let i = 1; i < 4; i++) out['gc' + (i - 1)] = mk(pl[i], i);
+      return out;
+    };
+  });
 })(typeof globalThis !== 'undefined' ? globalThis : this);

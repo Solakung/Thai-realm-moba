@@ -840,7 +840,7 @@
         if (u.untarget > g.t) al = 0.35; else if (stealth) al = own ? 0.45 : 0.1;
         if (u.dead) al = Math.max(0, 1 - Math.max(0, age - 0.55) / 0.45);
         const M3 = TR.Stage3D.modelFor(u.def);
-        TR.Stage3D.drawFigure(c, M3, { id: u.id, rt: rt, mv: u.dash ? 1.3 : an.mv, ph: an.ph, atkP: ap, castP: cp, dead: u.dead ? Math.min(1, age) : 0 }, { x: x, y: y, facing: faceAng(u, dt), pitch: Math.asin(ST.K), scale: HS3, alpha: al, flash: u.flash > g.t, amb: ERA_AMB[g.era] });
+        TR.Stage3D.drawFigure(c, M3, { id: u.id, rt: rt, mv: u.dash ? 1.3 : an.mv, ph: an.ph, atkP: ap, castP: cp, castS: u.vSlot | 0, dead: u.dead ? Math.min(1, age) : 0 }, { x: x, y: y, facing: faceAng(u, dt), pitch: Math.asin(ST.K), scale: HS3, alpha: al, flash: u.flash > g.t, amb: ERA_AMB[g.era] });
         hh3 = 36 * M3.scale * HS3 + 4;
       } else {
       c.save(); c.translate(x, y);

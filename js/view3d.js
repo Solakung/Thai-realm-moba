@@ -144,7 +144,7 @@
   }
   // สร้างท่าจากสถานะเกม: mv 0..1.3 (เดิน), ph เฟสก้าว (เรเดียน), atkP/castP 0..1 ขณะกำลังทำ (นอกช่วง = ≥1), dead 0..1
   function gamePose(M, st, out) {
-    const acts = S.actsFor(M.style);
+    const HG = S.HERO[M.id] && S.HERO[M.id].game ? S.actsFor(M.style, M.id) : null, acts = S.actsFor(M.style);
     out.set(M.rest || S.arrFor(M.id));
     const rt = st.rt || 0;
     const breathe = Math.sin(rt * 2.2 + (st.id || 0)) * 0.5 + 0.5;
@@ -161,7 +161,13 @@
       if (mv > 1) out[KI['root.rx']] += 0.25 * (mv - 1) / 0.3;
     }
     const legKeep = 1 - clamp(mv * 1.6, 0, 1);
-    if (st.atkP >= 0 && st.atkP < 1 && ATK[M.style]) {
+    if (HG && st.atkP >= 0 && st.atkP < 1 && HG.gatk) {
+      const w = sstep(st.atkP / 0.12) * sstep((1 - st.atkP) / 0.2);
+      overlay(out, HG.gatk, st.atkP * HG.gatk.dur, w, w * legKeep);
+    } else if (HG && st.castP >= 0 && st.castP < 1 && HG['gc' + ((st.castS | 0) % 3)]) {
+      const ca = HG['gc' + ((st.castS | 0) % 3)], w = sstep(st.castP / 0.12) * sstep((1 - st.castP) / 0.25);
+      overlay(out, ca, st.castP * ca.dur, w, w * legKeep);
+    } else if (st.atkP >= 0 && st.atkP < 1 && ATK[M.style]) {
       const a = ATK[M.style], w = sstep(st.atkP / 0.15) * sstep((1 - st.atkP) / 0.2);
       if (acts[a[0]]) overlay(out, acts[a[0]], a[1] + st.atkP * a[2], w, w * legKeep);
     } else if (st.castP >= 0 && st.castP < 1 && acts.cast) {

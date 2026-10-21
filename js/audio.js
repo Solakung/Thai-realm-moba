@@ -76,13 +76,60 @@
     lose: function () { [7, 3, 0, -5].forEach(function (s, i) { tone({ f: FREQ(12 + s), dur: 0.8, type: 'sine', v: 0.18, at: ctx.currentTime + i * 0.3 }); }); }
   };
   // ความถี่สูงสุดที่เล่นซ้ำได้ (วินาทีขั้นต่ำระหว่างเสียงชนิดเดียวกัน)
+
+  /* ---------- เสียงรายฮีโร่: เสียงตีปกติ 1 แบบ + เสียงสกิล 1/2/3 ต่างกันทุกตัว (ประกอบจากชิ้นเสียงพื้นฐาน) ---------- */
+  const P = {   // ชิ้นเสียงพื้นฐาน (v = ความดัง)
+    slash: function (v, f) { noise({ dur: 0.12, f: f || 2600, f2: 700, q: 1.2, type: 'bandpass', v: 0.2 * v }); tone({ f: 520, f2: 180, dur: 0.1, type: 'triangle', v: 0.07 * v }); },
+    clang: function (v, f) { f = f || 880; [1, 2.76, 5.4].forEach(function (m, i) { tone({ f: f * m, dur: 0.35 / (1 + i * 0.6), type: 'sine', v: 0.11 * v / (1 + i * 0.5), a: 0.002 }); }); noise({ dur: 0.04, f: 5000, type: 'highpass', v: 0.1 * v }); },
+    thud: function (v, f) { tone({ f: f || 150, f2: 45, dur: 0.18, type: 'sine', v: 0.4 * v }); noise({ dur: 0.08, f: 500, type: 'lowpass', v: 0.2 * v }); },
+    boom: function (v) { tone({ f: 85, f2: 30, dur: 0.7, type: 'sine', v: 0.45 * v }); noise({ dur: 0.6, f: 700, f2: 90, type: 'lowpass', v: 0.4 * v }); },
+    twang: function (v, f) { tone({ f: f || 640, f2: (f || 640) * 0.5, dur: 0.14, type: 'triangle', v: 0.14 * v }); noise({ dur: 0.07, f: 3000, f2: 1500, q: 2, v: 0.08 * v }); },
+    gun: function (v) { noise({ dur: 0.14, f: 1800, f2: 300, type: 'lowpass', v: 0.34 * v }); tone({ f: 160, f2: 60, dur: 0.12, type: 'square', v: 0.14 * v }); },
+    sparkle: function (v, s0) { s0 = s0 == null ? 19 : s0; [0, 4, 7, 12].forEach(function (s, i) { tone({ f: FREQ(s0 + s), dur: 0.28, type: 'sine', v: 0.09 * v, at: ctx.currentTime + i * 0.06 }); }); },
+    zap: function (v) { for (let i = 0; i < 5; i++) tone({ f: 500 + (i * 397) % 1300, f2: 200, dur: 0.05, type: 'square', v: 0.06 * v, at: ctx.currentTime + i * 0.035 }); noise({ dur: 0.2, f: 4000, type: 'highpass', v: 0.1 * v }); },
+    whoosh: function (v, f) { noise({ dur: 0.35, f: f || 500, f2: (f || 500) * 5, q: 0.8, v: 0.22 * v }); },
+    pour: function (v) { noise({ dur: 0.45, f: 1300, f2: 2400, q: 3, v: 0.16 * v }); tone({ f: 900, f2: 1500, dur: 0.4, type: 'sine', v: 0.05 * v }); },
+    chant: function (v, s0) { s0 = s0 == null ? 0 : s0; [0, 7].forEach(function (s, i) { tone({ f: FREQ(s0 + s), f2: FREQ(s0 + s + (i ? 1 : -1)), dur: 0.7, type: 'triangle', v: 0.09 * v, a: 0.12 }); }); },
+    sizzle: function (v) { noise({ dur: 0.5, f: 3500, f2: 6500, type: 'highpass', q: 0.7, v: 0.2 * v }); noise({ dur: 0.3, f: 300, f2: 120, type: 'lowpass', v: 0.2 * v }); },
+    roar: function (v) { tone({ f: 190, f2: 520, dur: 0.45, type: 'sawtooth', v: 0.16 * v, a: 0.04 }); tone({ f: 200, f2: 330, dur: 0.5, type: 'square', v: 0.07 * v, a: 0.05 }); },
+    punch: function (v) { noise({ dur: 0.05, f: 1200, q: 0.8, v: 0.28 * v }); tone({ f: 130, f2: 55, dur: 0.1, type: 'triangle', v: 0.3 * v }); },
+    engine: function (v, up) { tone({ f: up ? 70 : 110, f2: up ? 320 : 150, dur: 0.5, type: 'sawtooth', v: 0.14 * v, a: 0.06 }); noise({ dur: 0.45, f: 400, f2: 900, type: 'lowpass', v: 0.12 * v }); },
+    horn: function (v) { tone({ f: 420, dur: 0.22, type: 'square', v: 0.12 * v }); tone({ f: 530, dur: 0.22, type: 'square', v: 0.1 * v }); },
+    poof: function (v) { noise({ dur: 0.3, f: 900, f2: 200, type: 'lowpass', v: 0.3 * v }); },
+    buzz: function (v) { tone({ f: 100, dur: 0.5, type: 'sawtooth', v: 0.12 * v, a: 0.03 }); tone({ f: 200, f2: 210, dur: 0.5, type: 'square', v: 0.06 * v }); noise({ dur: 0.45, f: 3000, type: 'highpass', v: 0.07 * v }); },
+    conch: function (v) { tone({ f: 196, f2: 262, dur: 0.9, type: 'sawtooth', v: 0.12 * v, a: 0.1 }); tone({ f: 392, dur: 0.9, type: 'sine', v: 0.06 * v, a: 0.1 }); },
+    dark: function (v) { tone({ f: 600, f2: 60, dur: 0.7, type: 'sawtooth', v: 0.14 * v }); noise({ dur: 0.5, f: 2000, f2: 150, type: 'lowpass', v: 0.2 * v }); }
+  };
+  const later = function (ms, fn) { setTimeout(function () { try { fn(); } catch (e) { /* ไม่เป็นไร */ } }, ms); };
+  const HS = {   // [ตีปกติ, สกิล 1, สกิล 2, สกิล 3]
+    nakdab:   [function (v) { P.slash(v); }, function (v) { P.whoosh(v, 600); P.clang(v, 700); }, function (v) { P.slash(v, 2000); later(110, function () { P.slash(v, 3000); }); }, function (v) { P.roar(v); P.clang(v, 520); later(180, function () { P.boom(v * 0.7); }); }],
+    phran:    [function (v) { P.twang(v); }, function (v) { P.twang(v, 760); later(90, function () { P.twang(v, 700); }); }, function (v) { P.clang(v * 0.7, 1500); P.thud(v * 0.5, 220); }, function (v) { for (let i = 0; i < 5; i++) later(i * 70, function () { P.twang(v * 0.8, 600 + i * 60); }); }],
+    mohya:    [function (v) { P.sparkle(v * 0.5, 24); }, function (v) { P.pour(v); }, function (v) { P.sparkle(v, 19); }, function (v) { P.chant(v, 0); later(250, function () { P.sparkle(v, 24); }); }],
+    kwan:     [function (v) { P.thud(v, 120); }, function (v) { P.roar(v); }, function (v) { P.thud(v, 90); later(120, function () { P.boom(v * 0.8); }); }, function (v) { P.roar(v); later(260, function () { P.boom(v); }); }],
+    mothamma: [function (v) { P.zap(v * 0.5); }, function (v) { P.chant(v, 2); }, function (v) { P.sizzle(v); P.whoosh(v, 400); }, function (v) { P.chant(v, -2); later(300, function () { P.boom(v); }); }],
+    muay:     [function (v) { P.punch(v); }, function (v) { P.punch(v); later(80, function () { P.punch(v); }); }, function (v) { P.whoosh(v, 700); later(150, function () { P.punch(v); }); }, function (v) { P.roar(v * 0.8); later(150, function () { P.punch(v * 1.2); P.thud(v, 100); }); }],
+    seri:     [function (v) { P.gun(v * 0.8); }, function (v) { P.clang(v * 0.4, 2400); P.whoosh(v * 0.6, 900); }, function (v) { P.gun(v); }, function (v) { for (let i = 0; i < 4; i++) later(i * 90, function () { P.gun(v * 0.8); }); }],
+    yai:      [function (v) { P.thud(v, 180); }, function (v) { P.boom(v * 0.7); }, function (v) { P.clang(v, 330); }, function (v) { P.conch(v); later(300, function () { P.clang(v, 260); }); }],
+    spy:      [function (v) { P.slash(v * 0.6, 4000); }, function (v) { P.whoosh(v * 0.7, 1200); later(160, function () { P.clang(v * 0.4, 2800); }); }, function (v) { P.poof(v); }, function (v) { for (let i = 0; i < 3; i++) later(i * 90, function () { P.slash(v, 3500 - i * 500); }); }],
+    mae:      [function (v) { P.clang(v * 0.4, 1800); }, function (v) { P.sizzle(v * 0.8); }, function (v) { P.clang(v * 0.9, 600); P.thud(v * 0.4, 200); }, function (v) { P.sizzle(v); later(200, function () { P.sparkle(v * 0.8, 21); }); }],
+    win:      [function (v) { P.engine(v * 0.5, true); P.thud(v * 0.5, 160); }, function (v) { P.engine(v, true); }, function (v) { P.horn(v); later(120, function () { P.horn(v); }); }, function (v) { P.engine(v, true); later(300, function () { P.boom(v * 0.8); }); }],
+    chang:    [function (v) { P.zap(v * 0.6); }, function (v) { P.zap(v); later(120, function () { P.zap(v * 0.8); }); }, function (v) { P.buzz(v); }, function (v) { P.dark(v); later(350, function () { P.boom(v); }); }]
+  };
+  // เสียงเฉพาะตัว: 'at:<hero>' = ตีปกติ, 'sk:<hero>:<0-2>' = สกิล
+  function heroSfx(name, v) {
+    const q = name.split(':'), t = HS[q[1]]; if (!t) return false;
+    const f = t[q[0] === 'at' ? 0 : 1 + (q[2] | 0)]; if (!f) return false;
+    f(v == null ? 1 : v); return true;
+  }
   const GAP = { hit: 0.05, hitHero: 0.07, shoot: 0.08, cast: 0.05, minion: 0.12, shot: 0.12, die: 0.1 };
   function play(name, v) {
-    if (!ctx || vol.sfx <= 0 || !SFX[name]) return;
-    const now = ctx.currentTime, gap = GAP[name] || 0.03;
+    if (!ctx || vol.sfx <= 0) return;
+    const hero = name.charCodeAt(2) === 58 && (name.charCodeAt(0) === 97 || name.charCodeAt(0) === 115);   // 'at:' / 'sk:'
+    if (!hero && !SFX[name]) return;
+    const now = ctx.currentTime, gap = hero ? 0.06 : (GAP[name] || 0.03);
     if (lastPlay[name] && now - lastPlay[name] < gap) return;
     lastPlay[name] = now;
-    try { SFX[name](v == null ? 1 : v); } catch (e) { /* ไม่เป็นไร */ }
+    try { if (hero) { heroSfx(name, v); } else SFX[name](v == null ? 1 : v); } catch (e) { /* ไม่เป็นไร */ }
   }
 
   /* ---------- เพลงประจำยุค (สร้างจากสเกลเพนทาโทนิก วนต่อเนื่อง) ---------- */

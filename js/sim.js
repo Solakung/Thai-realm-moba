@@ -1004,7 +1004,7 @@
     u.lastCast = g.t;
     const st = findFxStealth(u);
     ring(g, u.x, u.y, 14, u.def.colors.accent, 0.2);
-    sfx(g, slot === 2 ? 'ult' : 'cast', u.x, u.y, u === g.player);
+    sfx(g, 'sk:' + u.def.id + ':' + slot, u.x, u.y, u === g.player);
     u.vSlot = slot;
     if (VIS) { let rr = 0; for (const f of sk.fx) rr = Math.max(rr, f.r || f.range || 0); vfx(g, { k: 'sk', h: u.def.id, s: slot, u: u, x: u.x, y: u.y, dx: u.face[0], dy: u.face[1], r: rr }); }
     for (const fx of sk.fx) doEffect(g, u, fx, ctx, sk);
@@ -1467,6 +1467,7 @@
     if (u.isPlayer && u.atkMode === 'button' && !u.atkHold && u.atkBuf < g.t) return;
     u.atkCd = 1 / (r.as * u.m.atkSpd);
     u.lastAtk = g.t;
+    if (VIS) sfx(g, 'at:' + u.def.id, u.x, u.y, u === g.player);
     u.face = dirToward(u, tgt);
     const st = findFxStealth(u); if (st) removeFx(u, st);
     if (r.range > 60) {

@@ -275,6 +275,7 @@
       if (A.cast && !keep.cast && style === 'staff') keep.cast = A.cast;
       A = keep;
       if (H.sig) { const extra = H.sig(); Object.keys(extra).forEach(function (n) { A[n] = extra[n]; }); }
+      if (H.game) { const gm = H.game(); Object.keys(gm).forEach(function (n) { if (gm[n]) A[n] = gm[n]; }); }
     }
     BASE = b;
     return (ACTS[key] = A);

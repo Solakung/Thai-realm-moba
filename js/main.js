@@ -89,7 +89,7 @@
     h.skills.forEach(function (s, i) {
       info.appendChild(el('div', 'sk', '<b>' + (i === 2 ? 'อัลติ' : 'สกิล ' + (i + 1)) + ' · ' + s.name + '</b> (' + s.cd + ' วิ) — ' + s.desc));
     });
-    buildEmblems(); buildSpells(); buildLanes();
+    buildEmblems(); buildSpells(); buildLanes(); rmBuild();
     const nm = $('stageName');
     nm.querySelector('.et').textContent = 'ยุค' + TR.ERAS[h.era].name;
     nm.querySelector('.nm').textContent = h.name;
@@ -135,39 +135,46 @@
   }
 
   const LANES = [[0, '⬆️', 'เลนบน'], [1, '⏺️', 'เลนกลาง'], [2, '⬇️', 'เลนล่าง'], [-1, '🌲', 'ตีป่า']];
+  function twinGrids(ids, mk) {   // วาดปุ่มลงทั้งตารางหน้าเมนูและตารางในห้องออนไลน์ให้ตรงกัน
+    ids.forEach(function (id) { const grid = $(id); grid.innerHTML = ''; mk(grid); });
+  }
   function buildLanes() {
-    const grid = $('laneGrid'); grid.innerHTML = '';
-    LANES.forEach(function (l) {
-      const b = document.createElement('button'); b.className = sel.lane === l[0] ? 'sel' : '';
-      b.innerHTML = '<span class="ic">' + l[1] + '</span>' + l[2];
-      b.addEventListener('click', function () { sel.lane = l[0]; try { localStorage.setItem('tr_lane', String(l[0])); } catch (e) { /* ไม่เป็นไร */ } buildLanes(); lobbySync(); });
-      grid.appendChild(b);
+    twinGrids(['laneGrid', 'rmLane'], function (grid) {
+      LANES.forEach(function (l) {
+        const b = document.createElement('button'); b.className = sel.lane === l[0] ? 'sel' : '';
+        b.innerHTML = '<span class="ic">' + l[1] + '</span>' + l[2];
+        b.addEventListener('click', function () { sel.lane = l[0]; try { localStorage.setItem('tr_lane', String(l[0])); } catch (e) { /* ไม่เป็นไร */ } buildLanes(); lobbySync(); });
+        grid.appendChild(b);
+      });
     });
   }
   function buildSpells() {
-    const grid = $('spellGrid'); grid.innerHTML = '';
-    TR.SPELLS.forEach(function (sp) {
-      const b = document.createElement('button');
-      b.className = 'spbtn' + (sel.spell === sp.id ? ' sel' : '');
-      b.innerHTML = '<span class="ic">' + sp.icon + '</span>' + sp.name;
-      b.addEventListener('click', function () { sel.spell = sp.id; try { localStorage.setItem('tr_spell', sp.id); } catch (e) { /* ไม่เป็นไร */ } buildSpells(); lobbySync(); });
-      grid.appendChild(b);
+    twinGrids(['spellGrid', 'rmSpell'], function (grid) {
+      TR.SPELLS.forEach(function (sp) {
+        const b = document.createElement('button');
+        b.className = (grid.id === 'spellGrid' ? 'spbtn' : '') + (sel.spell === sp.id ? ' sel' : '');
+        b.innerHTML = '<span class="ic">' + sp.icon + '</span>' + sp.name; b.title = sp.desc;
+        b.addEventListener('click', function () { sel.spell = sp.id; try { localStorage.setItem('tr_spell', sp.id); } catch (e) { /* ไม่เป็นไร */ } buildSpells(); lobbySync(); });
+        grid.appendChild(b);
+      });
     });
     const sp = TR.SPELL_BY_ID[sel.spell];
     $('spellInfo').innerHTML = '<b>' + sp.icon + ' ' + sp.name + '</b> · คูลดาวน์ ' + sp.cd + ' วิ<br>' + sp.desc;
   }
   function buildEmblems() {
-    const grid = $('emblemGrid');
-    grid.innerHTML = '';
     const fit = TR.FIT[sel.hero];
-    TR.EMBLEM_ORDER.forEach(function (k, i) {
-      const em = TR.EMBLEMS[k];
-      const b = document.createElement('button');
-      b.className = 'ebtn' + (sel.emblem === k ? ' sel' : '');
-      b.style.borderColor = sel.emblem === k ? em.color : '';
-      b.innerHTML = '<div class="en" style="color:' + em.color + '">' + em.name + '</div><div class="ef fit-' + fit[i] + '">เหมาะ: ' + TR.FIT_LABEL[fit[i]] + '</div>';
-      b.addEventListener('click', function () { sel.emblem = k; sel.emblemTouched = true; buildEmblems(); });
-      grid.appendChild(b);
+    twinGrids(['emblemGrid', 'rmEmblem'], function (grid) {
+      TR.EMBLEM_ORDER.forEach(function (k, i) {
+        const em = TR.EMBLEMS[k];
+        const b = document.createElement('button');
+        const full = grid.id === 'emblemGrid';
+        b.className = (full ? 'ebtn' : '') + (sel.emblem === k ? ' sel' : '');
+        b.style.borderColor = sel.emblem === k ? em.color : '';
+        b.innerHTML = full ? '<div class="en" style="color:' + em.color + '">' + em.name + '</div><div class="ef fit-' + fit[i] + '">เหมาะ: ' + TR.FIT_LABEL[fit[i]] + '</div>'
+          : '<span style="color:' + em.color + '">' + em.name + '</span> <small class="fit-' + fit[i] + '">' + TR.FIT_LABEL[fit[i]] + '</small>';
+        b.addEventListener('click', function () { sel.emblem = k; sel.emblemTouched = true; buildEmblems(); lobbySync(); });
+        grid.appendChild(b);
+      });
     });
     const em = TR.EMBLEMS[sel.emblem];
     $('emblemInfo').innerHTML = '<b>' + em.name + '</b> · ' + em.stat + ' · ราคา: ' + em.cost + '<br>พลังแฝง: ' + em.latent;
@@ -1119,27 +1126,36 @@
     const dt0 = performance.now();
     camCache = TR.Render.draw(ctx, g, paused ? 1 : acc / CFG.dt);
     if (!paused) watchPerf(performance.now() - dt0);
-    if (ts - hudT > 100) { hudT = ts; updateHud(); }
+    if (ts - hudT > 100) { hudT = ts; updateHud(); pingShow($('pingTag')); }
     if (ts - miniT > 200) { miniT = ts; TR.Render.drawMinimap(mctx, g, mini.width, mini.height, camCache); }
   }
 
   /* ---------- ออนไลน์: ห้อง/ล็อบบี้ และตัวเดินเกมตามจังหวะกลาง ----------
      ทุกเครื่องรันเกมเอง รับเฉพาะ "คำสั่ง + หมายเลขจังหวะ" จากเซิร์ฟเวอร์ แล้วเดินเกมตามจังหวะนั้นเป๊ะ ๆ */
   let room = null;   // { code, uid, host, list, ready, sent }
+  // แสดงค่าความหน่วง: เขียว <80 ms, เหลือง <160, แดงเกินนั้น (ออนไลน์เท่านั้น)
+  function pingShow(el) {
+    if (!el) return;
+    if (!online && !(room && !$('lobby').hidden)) { el.hidden = true; return; }
+    const r = TR.Online.ping(); el.hidden = false;
+    if (r < 0) { el.textContent = TR.Online.isOpen() ? '📶 …' : '📶 ขาดการเชื่อมต่อ'; el.className = TR.Online.isOpen() ? '' : 'r'; return; }
+    el.textContent = '📶 ' + Math.round(r) + ' ms'; el.className = r < 80 ? 'g' : (r < 160 ? 'y' : 'r');
+  }
   function lbStatus(t) { $('lbStatus').textContent = t || ''; }
   function lbPick(ready) {
     return { t: 'pick', hero: sel.hero, emblem: sel.emblem || bestEmblem(sel.hero), spell: sel.spell, lane: sel.lane, ready: !!ready };
   }
   function lobbySync() {
     if (!room || online) return;
-    if (room.ready) { room.ready = false; TR.Online.send(lbPick(false)); renderRoom(); }
+    if (room.ready) room.ready = false;
+    TR.Online.send(lbPick(false)); renderRoom();   // เลือกอะไรเพื่อนเห็นทันที (เปลี่ยนแล้วต้องกดพร้อมใหม่)
   }
   function lobbyOpen() {
     if (!TR.Net.configured()) { toast('ยังไม่ได้ตั้งค่าเซิร์ฟเวอร์ออนไลน์'); return; }
     TR.Net.wake(); $('lobby').hidden = false;
   }
   function lobbyLeave() {
-    TR.Online.close(); rjClear(); room = null; online = false; net = null; lastKnown = 0; rcTry = 0; clearTimeout(rcTimer); $('lobby').hidden = true; $('lbEntry').hidden = false; $('lbRoom').hidden = true; lbStatus('');
+    TR.Online.close(); rjClear(); room = null; online = false; net = null; lastKnown = 0; rcTry = 0; clearTimeout(rcTimer); $('lobby').hidden = true; $('lobby').classList.remove('full'); $('lbEntry').hidden = false; $('lbRoom').hidden = true; lbStatus('');
   }
   /* ---------- กลับเข้าเกมเมื่อหลุด: เก็บโทเคนห้องไว้ในเครื่อง ---------- */
   const RJ_KEY = 'tr_rejoin';
@@ -1151,7 +1167,7 @@
   function onHandlers(first) {
     return {
       open: function () { if (first) { if (first.t !== 'rejoin') first.name = myName; TR.Online.send(first); } lbStatus('เชื่อมต่อแล้ว'); },
-      joined: function (m) { room = { code: m.room, uid: m.uid, host: 0, list: [], ready: false, tok: m.tok }; rjSave({ room: m.room, uid: m.uid, tok: m.tok }); $('lbEntry').hidden = true; $('lbRoom').hidden = false; $('lbCodeTx').textContent = m.room; lbStatus(''); TR.Online.send(lbPick(false)); },
+      joined: function (m) { room = { code: m.room, uid: m.uid, host: 0, list: [], ready: false, tok: m.tok }; rjSave({ room: m.room, uid: m.uid, tok: m.tok }); $('lbEntry').hidden = true; $('lbRoom').hidden = false; $('lobby').classList.add('full'); $('lbCodeTx').textContent = m.room; rmBuild(); lbStatus(''); TR.Online.send(lbPick(false)); },
       rejoined: function (m) {
         const sv = rjLoad(); rcTry = 0; clearTimeout(rcTimer);
         if (!room) room = { code: m.room, uid: m.uid, host: m.host, list: [], ready: true, tok: sv ? sv.tok : '' };
@@ -1166,7 +1182,7 @@
       close: function () {
         $('lbCreate').disabled = $('lbJoin').disabled = false;
         if (online && g && !g.over) autoRejoin();
-        else if (!online) { room = null; $('lbEntry').hidden = false; $('lbRoom').hidden = true; lbStatus('⚠ เชื่อมต่อไม่ได้ ลองใหม่อีกครั้ง'); }
+        else if (!online) { room = null; $('lobby').classList.remove('full'); $('lbEntry').hidden = false; $('lbRoom').hidden = true; lbStatus('⚠ เชื่อมต่อไม่ได้ ลองใหม่อีกครั้ง'); }
       }
     };
   }
@@ -1191,6 +1207,31 @@
     TR.Online.open(onHandlers({ t: 'rejoin', room: sv.room, uid: sv.uid, tok: sv.tok, since: 0 }));
     return true;
   }
+  function rmBuild() {   // การ์ดเลือกฮีโร่ + ข้อมูลตัวที่เลือก ในหน้าห้อง
+    const box = $('rmHeroes'); if (!box) return;
+    if (!box.children.length) {
+      TR.HEROES.forEach(function (h) {
+        const b = document.createElement('button'); b.className = 'rh'; b.dataset.id = h.id;
+        const cv = document.createElement('canvas'); cv.width = 112; cv.height = 128; TR.Render.drawHeroIcon(cv.getContext('2d'), h, 112, 128, 0);
+        const n = document.createElement('div'); n.textContent = h.name;
+        b.appendChild(cv); b.appendChild(n);
+        b.addEventListener('click', function () { pickHero(h.id); });
+        box.appendChild(b);
+      });
+    }
+    const h = TR.HERO_BY_ID[sel.hero];
+    Array.prototype.forEach.call(box.children, function (c) {
+      c.classList.toggle('sel', c.dataset.id === sel.hero);
+      const owner = room && room.list.find(function (x) { return x.hero === c.dataset.id && x.uid !== room.uid; });
+      c.classList.toggle('taken', !!owner);
+      let w = c.querySelector('.who');
+      if (owner) { if (!w) { w = document.createElement('div'); w.className = 'who'; c.appendChild(w); } w.textContent = owner.name; } else if (w) w.remove();
+    });
+    TR.Render.drawHeroIcon($('rmIcon').getContext('2d'), h, 112, 128, 0);
+    $('rmInfo').innerHTML = '<b>' + esc(h.name) + '</b><br>ยุค' + TR.ERAS[h.era].name + ' · ' + TR.ROLES[h.role].name + '<br>' + esc(h.strength) + '<br><small>' + h.skills.map(function (k) { return esc(k.name); }).join(' · ') + '</small>';
+  }
+  setInterval(function () { if (room && !$('lobby').hidden) pingShow($('lbPing')); }, 1000);
+  const LANE_NAME = { '-1': '🌲 ป่า', 0: '⬆️ บน', 1: '⏺️ กลาง', 2: '⬇️ ล่าง' };
   function renderRoom() {
     if (!room) return;
     const me = room.list.find(function (x) { return x.uid === room.uid; });
@@ -1199,14 +1240,17 @@
       room.list.filter(function (x) { return x.team === t; }).forEach(function (x) {
         const dup = x.hero && room.list.some(function (y) { return y.uid < x.uid && y.hero === x.hero; });
         const d = document.createElement('div'); d.className = 'lb-p' + (x.uid === room.uid ? ' me' : '');
-        d.innerHTML = '<span>' + esc(x.name) + (x.uid === room.host ? ' 👑' : '') + '</span><span class="' + (dup ? 'dup' : (x.ready ? 'ok' : 'no')) + '">' + (x.hero ? hn(x.hero) : '-') + (x.ready ? ' ✔' : '') + '</span>';
+        const em = x.emblem && TR.EMBLEMS[x.emblem], sp = x.spell && TR.SPELL_BY_ID[x.spell];
+        d.innerHTML = '<div class="row1"><span>' + esc(x.name) + (x.uid === room.host ? ' 👑' : '') + '</span><span class="' + (dup ? 'dup' : (x.ready ? 'ok' : 'no')) + '">' + (x.hero ? hn(x.hero) : 'ยังไม่เลือก') + (x.ready ? ' ✔' : '') + '</span></div>'
+          + '<div class="sub">' + (em ? em.name : '-') + ' · ' + (LANE_NAME[x.lane] || '') + ' · ' + (sp ? sp.icon + sp.name : '') + '</div>';
         box.appendChild(d);
       });
     });
+    rmBuild();
     const dupMine = me && room.list.some(function (y) { return y.uid !== room.uid && y.hero === sel.hero; });
     $('lbReady').textContent = me && me.ready ? 'ยกเลิกพร้อม' : 'พร้อม';
     $('lbReady').disabled = !!dupMine && !(me && me.ready);
-    $('lbHint').textContent = dupMine ? 'ฮีโร่นี้มีเพื่อนเลือกแล้ว เปลี่ยนฮีโร่ที่หน้าเมนูก่อน' : 'เลือกฮีโร่ ชุดใจ เลน สเปล ที่หน้าเมนูก่อน แล้วกด "พร้อม" · ที่ว่างในทีมบอทเติมให้';
+    $('lbHint').textContent = dupMine ? 'ฮีโร่นี้มีเพื่อนเลือกแล้ว เลือกตัวอื่นก่อน' : 'เลือกฮีโร่ ชุดใจ เลน สเปล ในหน้านี้ แล้วกด "พร้อม" · ที่ว่างในทีมบอทเติมให้';
     const host = room.uid === room.host;
     $('lbStart').hidden = !host;
     $('lbStart').disabled = !(host && room.list.length && room.list.every(function (x) { return x.ready; }));
@@ -1214,7 +1258,7 @@
   function startOnline(m) {
     if (!room) return;
     if (m.rejoin) { room.uid = room.uid; }
-    $('lobby').hidden = true; online = true; onBuf = 3; lastStarve = 0;
+    $('lobby').hidden = true; $('lobby').classList.remove('full'); online = true; onBuf = 3; lastStarve = 0;
     net = { send: function (c) { return TR.Online.send({ t: 'cmd', c: c }); } };
     tutorial = false;
     beginGame({ seed: m.seed, humans: m.list, me: room.uid, diff: 'normal' });

@@ -22,6 +22,7 @@
       <span id="eraTag"></span>
       <span id="clock"></span>
       <span id="score"></span>
+      <span id="pingTag" hidden></span>
     </div>
     <div id="quick" hidden></div>
     <div id="specHint" hidden>ตายแล้ว · ลากจอหรือแตะมินิแมพเพื่อดูสนามรบ · แตะตัวฮีโร่เพื่อติดตาม</div>
@@ -140,10 +141,21 @@
     <div class="lb-join"><input id="lbCode" maxlength="4" placeholder="รหัสห้อง 4 ตัว" autocomplete="off" autocapitalize="characters"><button id="lbJoin" class="ghost">เข้าห้อง</button></div>
   </div>
   <div id="lbRoom" hidden>
-    <div class="lb-code">รหัสห้อง <b id="lbCodeTx"></b><button id="lbCopy" class="ghost">คัดลอกลิงก์ชวนเพื่อน</button></div>
-    <div class="lb-teams"><div><h4 class="b">ทีมน้ำเงิน</h4><div id="lbT0"></div></div><div><h4 class="r">ทีมแดง</h4><div id="lbT1"></div></div></div>
-    <div class="lb-btns"><button id="lbTeam" class="ghost">สลับทีม</button><button id="lbReady" class="primary">พร้อม</button><button id="lbStart" class="primary" hidden>เริ่มเกม</button></div>
-    <p class="hint" id="lbHint">เลือกฮีโร่ ชุดใจ เลน สเปล ที่หน้าเมนูก่อน แล้วกด "พร้อม" · ที่ว่างในทีมบอทเติมให้</p>
+    <div class="lb-code">รหัสห้อง <b id="lbCodeTx"></b><span id="lbPing"></span><button id="lbCopy" class="ghost">คัดลอกลิงก์ชวนเพื่อน</button></div>
+    <div class="rm-main">
+      <div class="rm-left">
+        <div class="lb-teams"><div><h4 class="b">ทีมน้ำเงิน</h4><div id="lbT0"></div></div><div><h4 class="r">ทีมแดง</h4><div id="lbT1"></div></div></div>
+        <div class="lb-btns"><button id="lbTeam" class="ghost">สลับทีม</button><button id="lbReady" class="primary">พร้อม</button><button id="lbStart" class="primary" hidden>เริ่มเกม</button></div>
+        <p class="hint" id="lbHint"></p>
+      </div>
+      <div class="rm-mid"><h3>เลือกฮีโร่ <small>(ชื่อเพื่อนที่เลือกแล้วขึ้นบนการ์ด)</small></h3><div id="rmHeroes"></div></div>
+      <div class="rm-side">
+        <div class="rm-sel"><canvas id="rmIcon" width="112" height="128"></canvas><div id="rmInfo"></div></div>
+        <h3>ชุดใจ</h3><div id="rmEmblem" class="rm-grid"></div>
+        <h3>เลน</h3><div id="rmLane" class="rm-grid"></div>
+        <h3>สเปล</h3><div id="rmSpell" class="rm-grid"></div>
+      </div>
+    </div>
   </div>
 </div>
 

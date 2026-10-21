@@ -51,6 +51,7 @@ wss.on('connection', function (ws) {
     const now = Date.now(); if (now - winStart > 1000) { winStart = now; cnt = 0; } if (++cnt > 80) return;   // กันยิงถี่เกิน
     let m; try { m = JSON.parse(raw); } catch (e) { return; }
     if (!m || typeof m.t !== 'string') return;
+    if (m.t === 'ping') { try { ws.send(JSON.stringify({ t: 'pong', c: typeof m.c === 'number' ? m.c : 0 })); } catch (e) { /* ไม่เป็นไร */ } return; }   // วัดความหน่วงไป-กลับ
     if (m.t === 'rejoin') {   // กลับเข้าห้องที่เล่นอยู่ (หลุด/รีเฟรช) ด้วยโทเคนที่ได้ตอนเข้าห้อง
       if (room) return;
       const r = rooms.get(str(m.room, 6).toUpperCase()), uid = m.uid | 0, seat = r && r.seats && r.seats[uid];
