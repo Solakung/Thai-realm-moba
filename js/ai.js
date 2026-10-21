@@ -33,7 +33,7 @@
 
     const dir = u.team === 0 ? 1 : -1;
     const role = TR.ROLES[u.role];
-    const rng = role.range;
+    const rng = TR.atkRange(u.def);
     const ranged = rng > 60;
     const hpR = u.hp / u.maxHp;
     const homeX = u.team === 0 ? 100 : CFG.W - 100;

@@ -1519,7 +1519,7 @@
     return best.e || best;
   }
   function autoAttack(g, u) {
-    const r = TR.ROLES[u.role];
+    const r = { range: TR.atkRange(u.def) };
     const range = r.range * (u.m.blind ? 0.6 : 1);
     let tgt = null;
     const tn = findFx(u, 'taunt');

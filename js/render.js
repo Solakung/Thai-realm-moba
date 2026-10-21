@@ -859,7 +859,7 @@
         drawStatus(c, g, u, x, y, rt, hh);
         if (pl && u === pl && (u.atkHold || u.atkBuf > g.t)) {   // กดโจมตี: แสดงวงระยะตีปกติ
           c.save(); c.setLineDash([7, 5]); c.lineWidth = 1.6; c.strokeStyle = 'rgba(255,255,255,.7)'; c.fillStyle = 'rgba(255,214,102,.07)';
-          const ar = TR.ROLES[u.role].range * (u.m && u.m.blind ? 0.6 : 1); c.beginPath(); c.ellipse(x, y, ar, ar * ST.K, 0, 0, TAU); c.fill(); c.stroke(); c.restore();
+          const ar = TR.atkRange(u.def) * (u.m && u.m.blind ? 0.6 : 1); c.beginPath(); c.ellipse(x, y, ar, ar * ST.K, 0, 0, TAU); c.fill(); c.stroke(); c.restore();
         }
         if (u.recall) {
           const pr = clamp((g.t - u.recall.start) / (u.recall.end - u.recall.start), 0, 1);
