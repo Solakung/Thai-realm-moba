@@ -457,9 +457,50 @@
     c.restore();
   }
 
+
+  /* ---------- กลับพระนครแบบเฉพาะตัวฮีโร่ (วาดทุกเฟรมตอนร่ายค้าง) + ตอนหายตัว/ปรากฏตัว (rcend) ---------- */
+  const RC = {   // ฮีโร่ → [ธีม, สีหลัก, สีรอง]
+    nakdab: ['banner', '#ffd54f', '#ff8f00'], phran: ['orbit', '#81c784', '#33691e'], mohya: ['orbit', '#f8bbd0', '#aed581'], kwan: ['stomp', '#ffb300', '#8d6e63'],
+    mothamma: ['glyph', '#ce93d8', '#7b1fa2'], muay: ['lotus', '#ffb74d', '#ef6c00'], seri: ['flag', '#ffffff', '#1565c0'], yai: ['bell', '#ffd54f', '#8d6e63'],
+    spy: ['smoke', '#b0bec5', '#263238'], mae: ['steam', '#fff3e0', '#f06292'], win: ['exhaust', '#ff7043', '#78909c'], chang: ['electric', '#fff176', '#fbc02d']
+  };
+  const RCT = {};
+  const due = function (id, dt) { const n = (typeof performance !== 'undefined' ? performance.now() : Date.now()) / 1000; if (!RCT[id] || n - RCT[id] > dt) { RCT[id] = n; return true; } return false; };
+  function recall(c, u, x, y, rt, pr, K) {
+    const m = RC[u.def.id] || ['banner', '#80d8ff', '#0277bd'], th = m[0], c1 = m[1], c2 = m[2], id = 'rc' + u.id, e = clamp(pr, 0, 1);
+    c.save(); c.globalCompositeOperation = 'lighter';
+    // เสาแสงสีของฮีโร่ + วงพื้นหมุน
+    const gr = c.createLinearGradient(0, y - 90, 0, y); gr.addColorStop(0, hex(c1) + '00'); gr.addColorStop(1, hex(c1) + '88');
+    c.globalAlpha = 0.35 + 0.5 * e; c.fillStyle = gr; c.fillRect(x - 8 - e * 4, y - 90, 16 + e * 8, 90);
+    c.save(); c.translate(x, y); c.scale(1, K); ringS(c, 0, 0, 14 + 6 * e, c1, 1.6, 0.9); glyph(c, 0, 0, 20, rt * 1.5, c2, 0.5 + 0.4 * e, 6); c.restore();
+    const orb = function (n, r, col, sz, h0) { for (let i = 0; i < n; i++) { const a = rt * 3 + i * TAU / n, hh = ((i / n + rt * 0.45) % 1) * 46; c.globalAlpha = 0.9; c.fillStyle = col; c.beginPath(); c.ellipse(x + Math.cos(a) * r, y - (h0 || 6) - hh + Math.sin(a) * r * 0.35 * K, sz, sz * 0.6, a, 0, TAU); c.fill(); } };
+    if (th === 'banner') { rays(c, x, y - 30, 10, 20 + 8 * e, 10, c1, rt, 0.7, 1.4); if (due(id, 0.08)) dots(x, y - 4, 2, c1, 20, 0.9, 1.8, 40); }
+    else if (th === 'orbit') { orb(7, 16, c1, 2.4); if (due(id, 0.1)) dots(x, y - 4, 1, c2, 12, 1, 2, 30); }
+    else if (th === 'stomp') { const pul = (rt * 2) % 1; c.save(); c.translate(x, y); c.scale(1, K); ringS(c, 0, 0, 10 + pul * 26, c1, 2.2, 1 - pul); for (let i = 0; i < 7; i++) { const a = i / 7 * TAU + 0.3; c.globalAlpha = 0.7; c.strokeStyle = c2; c.lineWidth = 1.4; c.beginPath(); c.moveTo(Math.cos(a) * 8, Math.sin(a) * 8); c.lineTo(Math.cos(a) * (14 + pul * 10), Math.sin(a) * (14 + pul * 10)); c.stroke(); } c.restore(); if (due(id, 0.16)) puffs(x, y, 3, '#a1887f', 24, 0.8, 3, 6); }
+    else if (th === 'glyph') { c.save(); c.translate(x, y); c.scale(1, K); glyph(c, 0, 0, 30, -rt * 2, c1, 0.9, 5); glyph(c, 0, 0, 20, rt * 2.6, '#ffffff', 0.5, 3); c.restore(); orb(4, 12, c1, 2, 12); }
+    else if (th === 'lotus') { const pul = (rt * 1.2) % 1; c.save(); c.translate(x, y); c.scale(1, K); for (let i = 0; i < 2; i++) { const q = (pul + i * 0.5) % 1; ringS(c, 0, 0, 8 + q * 28, c1, 2, 1 - q); } c.restore(); glow(c, x, y - 14, 18 + 4 * Math.sin(rt * 5), c1, 0.45); }
+    else if (th === 'flag') { for (let i = 0; i < 3; i++) { c.globalAlpha = 0.55 + 0.25 * e; c.fillStyle = i === 1 ? c2 : '#ffffff'; c.fillRect(x - 12 + i * 8, y - 70 - 14 * Math.sin(rt * 4 + i), 8, 70); } c.fillStyle = '#d32f2f'; c.globalAlpha = 0.5; c.fillRect(x - 12, y - 70, 8, 70); c.fillRect(x + 4, y - 70, 8, 70); if (due(id, 0.12)) dots(x, y - 6, 2, '#ffffff', 22, 0.8, 1.6, 36); }
+    else if (th === 'bell') { const pul = (rt * 1.5) % 1; for (let i = 0; i < 3; i++) { const q = (pul + i / 3) % 1; c.save(); c.translate(x, y - 16); ringS(c, 0, 0, 8 + q * 34, c1, 1.6, (1 - q) * 0.8); c.restore(); } if (due(id, 0.3)) dots(x, y - 20, 3, c1, 26, 0.8, 1.8, 14); }
+    else if (th === 'smoke') { c.globalCompositeOperation = 'source-over'; if (due(id, 0.05)) puffs(x, y - 6, 3, c2, 26, 0.9, 4.2, 22); if (due(id, 0.2)) dots(x, y - 20, 1, '#ff1744', 8, 0.6, 1.6, 10); }
+    else if (th === 'steam') { c.globalCompositeOperation = 'source-over'; if (due(id, 0.07)) puffs(x, y - 8, 3, '#ffffff', 16, 1.1, 3.8, 34); if (due(id, 0.4)) dots(x, y - 24, 1, c2, 10, 1.2, 2.6, 30); }
+    else if (th === 'exhaust') { const sd = u.face && u.face[0] < 0 ? 1 : -1; if (due(id, 0.04)) { puffs(x + sd * 12, y - 6, 2, '#90a4ae', 30, 0.7, 3.4, 6); dots(x + sd * 14, y - 5, 2, '#ffab40', 40, 0.3, 1.5, 4); } c.save(); c.translate(x, y); c.scale(1, K); ringS(c, 0, 0, 12 + 3 * Math.sin(rt * 40), c1, 1.4, 0.7); c.restore(); }
+    else if (th === 'electric') { if (due(id, 0.06)) { const a = Math.random() * TAU; jag(c, x + Math.cos(a) * 6, y - 20 + Math.sin(a) * 6, x + Math.cos(a) * 24, y - 20 + Math.sin(a) * 18, c1, 1.4, 0.9, Math.floor(rt * 20), 5); dots(x, y - 20, 2, c1, 40, 0.3, 1.4, 4); } glow(c, x, y - 20, 16, c1, 0.25 + 0.2 * Math.sin(rt * 30)); }
+    c.restore();
+  }
+  function rcend(c, f, k) {
+    const m = RC[f.h] || ['banner', '#80d8ff', '#0277bd'];
+    c.save(); H.GT(c); c.globalCompositeOperation = 'lighter';
+    ringS(c, f.x, f.y, 10 + 34 * ease(k), m[1], 3 * (1 - k) + 0.5, 1 - k); ringS(c, f.x, f.y, 6 + 22 * ease(k), m[2], 2, 1 - k);
+    H.UP(c, f.y); const gr = c.createLinearGradient(0, f.y - 110, 0, f.y); gr.addColorStop(0, hex(m[1]) + '00'); gr.addColorStop(1, hex(m[1]) + 'cc');
+    c.globalAlpha = (1 - k) * (f.s ? 0.9 : 0.8); c.fillStyle = gr; const w = (f.s ? 16 * (1 - k) : 16 * k + 3); c.fillRect(f.x - w, f.y - 110, w * 2, 110);
+    rays(c, f.x, f.y - 20, 8, 30 * ease(k) + 10, 12, m[1], k * 3, 1 - k, 1.6);
+    once(f, function () { dots(f.x, f.y - 8, 18, m[1], 70, 0.8, 2, 40); puffs(f.x, f.y - 2, 5, m[2], 36, 0.7, 3.4, 10); });
+    c.restore();
+  }
+
   /* ---------- ตัวเข้าถึงจาก render.js ---------- */
   const DUR = { 'sk:nakdab:0': 0.5, 'sk:nakdab:2': 0.9, 'sk:kwan:2': 1.1, 'sk:mothamma:0': 0.8, 'sk:mothamma:1': 0.9, 'sk:mothamma:2': 1.1, 'sk:muay:2': 0.7, 'sk:seri:2': 1.2, 'sk:yai:0': 0.9, 'sk:yai:2': 1.3, 'sk:mae:2': 1.2, 'sk:chang:2': 0.9, 'sk:mohya:1': 0.9,
-    imp: 0.45, boom: 0.7, muz: 0.22, dash: 0.5, link: 4, throw: 0.3, bolt: 0.28, aura: 3, sk: 0.7 };
+    imp: 0.45, boom: 0.7, muz: 0.22, dash: 0.5, link: 4, rcend: 0.9, throw: 0.3, bolt: 0.28, aura: 3, sk: 0.7 };
   function dur(h, s, kind) { return DUR[kind + ':' + h + ':' + s] || DUR[kind] || 0.7; }
 
   function draw(c, g, f, k, rt) {
@@ -481,9 +522,10 @@
       else if (f.k === 'aura') aura(c, f, g, k, rt);
       else if (f.k === 'link') link(c, f, g, k, rt);
       else if (f.k === 'throw') thr(c, f, k, rt);
+      else if (f.k === 'rcend') rcend(c, f, k);
     } catch (e) { if (typeof console !== 'undefined' && !f._err) { f._err = true; console.error('vfx', f.k, f.h, f.s, e); } }
     c.restore();
   }
 
-  TR.Vfx = { bind: function (h) { H = h; }, draw: draw, proj: proj, zone: zone, dur: dur, KINDS: { sk: 1, imp: 1, muz: 1, boom: 1, dash: 1, bolt: 1, aura: 1, link: 1, throw: 1 } };
+  TR.Vfx = { bind: function (h) { H = h; }, recall: recall, draw: draw, proj: proj, zone: zone, dur: dur, KINDS: { sk: 1, imp: 1, muz: 1, boom: 1, dash: 1, bolt: 1, aura: 1, link: 1, throw: 1, rcend: 1 } };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

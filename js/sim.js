@@ -777,9 +777,9 @@
     if (g.t >= r.end) {
       u.recall = null;
       const sp = spawnPos(u.team, u.slot);
-      ring(g, u.x, u.y, 30, '#80d8ff', 0.5);
+      ring(g, u.x, u.y, 30, '#80d8ff', 0.5); if (VIS) vfx(g, { k: 'rcend', h: u.def.id, s: 0, x: u.x, y: u.y });
       u.x = sp.x; u.y = sp.y; u.px = u.x; u.py = u.y;
-      ring(g, u.x, u.y, 36, '#80d8ff', 0.6);
+      ring(g, u.x, u.y, 36, '#80d8ff', 0.6); if (VIS) vfx(g, { k: 'rcend', h: u.def.id, s: 1, x: u.x, y: u.y });
     }
   }
   function canSpell(g, u) { return !g.over && !u.dead && u.spCd <= 0 && !u.casting && !u.dash && !(u.m.stun && u.spell !== 'purify'); }
@@ -1639,7 +1639,8 @@
     const beh = TR.ERAS[g.era].tower;
     let tgt = u.tgt;
     if (tgt && (tgt.dead || !canTarget(g, u, tgt) || dist(u, tgt) - tgt.radius > u.range)) tgt = null;
-    if (!beh.focus || !tgt) tgt = chooseTowerTarget(g, u);
+    const pri = chooseTowerTarget(g, u, true);   // ผู้ที่ตีฮีโร่ฝั่งป้อม (หรือตัวยั่วป้อม) มาก่อนเสมอ แม้ป้อมล็อกเป้าอื่นอยู่
+    if (pri) tgt = pri; else if (!beh.focus || !tgt) tgt = chooseTowerTarget(g, u);
     u.tgt = tgt;
     if (tgt && u.cdAtk <= 0) {
       u.cdAtk = beh.rate;
@@ -1652,7 +1653,7 @@
     }
   }
 
-  function chooseTowerTarget(g, u) {
+  function chooseTowerTarget(g, u, onlyPri) {
     let taunter = null, aggro = null, ab = 1e9, minion = null, md = 1e9, hero = null, hd = 1e9;
     for (const e of g.units) {
       if (e.team === u.team || e.dead || !canTarget(g, u, e)) continue;
@@ -1660,11 +1661,11 @@
       if (d > u.range) continue;
       if (e.type === 'hero') {
         if (findFx(e, 'towerTaunt')) taunter = e;
-        if (e.lastHeroHit > g.t - 2.5 && e.lastHitTeam === u.team && d < ab) { ab = d; aggro = e; }
+        if (e.lastHeroHit > g.t - CFG.towerAggro && e.lastHitTeam === u.team && d < ab) { ab = d; aggro = e; }
         if (d < hd) { hd = d; hero = e; }
       } else if (e.type === 'minion' && d < md) { md = d; minion = e; }
     }
-    return taunter || aggro || minion || hero;
+    return onlyPri ? (taunter || aggro) : (taunter || aggro || minion || hero);
   }
 
   function updateProjs(g, dt) {

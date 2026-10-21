@@ -357,6 +357,49 @@
 
   /* ---------- ปุ่มสกิล: แตะ = ใช้ทันที (เล็งออโต้) / ลาก = เล็งเอง / ▲ = อัปเลเวล ---------- */
   const AIM_PX = 16, CANCEL_PX = 170, FULL_PX = 95;
+
+  /* ---------- รายละเอียดสกิลตอนกดค้าง/เอาเมาส์ชี้: ชนิดดาเมจ ตัวเลขจริงตามค่าสถานะและเลเวลสกิล ---------- */
+  const FXN = { counter: 'สวนกลับ', dash: 'พุ่งชน', shot: 'กระสุน', trap: 'กับดัก', cone: 'ลูกแฉก', nova: 'คลื่นรอบตัว', blast: 'ระเบิดพื้นที่', zone: 'พื้นที่ต่อเนื่อง', combo: 'ชุดต่อเนื่อง', strike: 'พุ่งฟัน', chain: 'ลูกโซ่' };
+  function skMulAt(slot, lv) { return slot < 2 ? CFG.skillBase + CFG.skillStep * lv : CFG.ultBase + CFG.ultStep * lv; }
+  function skillTipHtml(pl, i) {
+    const def = pl.def, s = def.skills[i], lv = pl.sl[i], maxLv = 3, shown = Math.max(1, lv);
+    const mag = !!def.skillMag, pw = (pl.dmgBase || 1) * (pl.m ? pl.m.dmg : 1);
+    const cd = s.cd * (1 - CFG.skillCd * (shown - 1)) * (1 - Math.min(CFG.cdrCap, pl.itm ? pl.itm.cdr : 0));
+    const spec = TR.Sim.skillAim(s);
+    const val = function (d, l) { return Math.round(d * pw * skMulAt(i, l)); };
+    let rows = '', anyDmg = false;
+    s.fx.forEach(function (f) {
+      const nm = FXN[f.k] || '', parts = [];
+      if (f.dmg) {
+        anyDmg = true;
+        const hits = f.n && (f.k === 'cone' || f.k === 'combo' || f.k === 'chain') ? ' × ' + f.n + (f.k === 'cone' ? ' ดอก' : ' ครั้ง') : '';
+        const tick = f.tick ? ' ทุก ' + f.tick + ' วิ' : '';
+        parts.push('<b class="dm ' + (mag ? 'mg' : 'ph') + '">' + val(f.dmg, shown) + '</b>' + hits + tick + (lv < maxLv ? ' <small>(เลเวลสูงสุด ' + val(f.dmg, maxLv) + ')</small>' : ''));
+      }
+      if (f.reduce) parts.push('ลดดาเมจที่โดน ' + Math.round(f.reduce * 100) + '%');
+      if (f.stun) parts.push('สตัน ' + f.stun + ' วิ'); if (f.root) parts.push('ตรึง ' + f.root + ' วิ'); if (f.blind) parts.push('ตาบอด');
+      if (f.slow) parts.push(Array.isArray(f.slow) ? 'ชะลอ ' + Math.round(f.slow[0] * 100) + '% นาน ' + f.slow[1] + ' วิ' : 'ชะลอ ' + Math.round(f.slow * 100) + '%');
+      if (f.pct && f.k === 'heal') parts.push('ฟื้นเลือด ' + Math.round(f.pct * 100) + '% ของเลือดสูงสุด' + (f.hot ? ' ต่อเนื่อง ' + f.hot + ' วิ' : '') + (f.who === 'lowest' ? ' (เพื่อนเลือดน้อยสุดในระยะ)' : ''));
+      if (f.heal) parts.push('ฟื้นเลือดผู้ที่อยู่ในพื้นที่');
+      if (f.lifesteal) parts.push('ดูดเลือด ' + Math.round(f.lifesteal * 100) + '%'); if (f.ccImmune) parts.push('กันสถานะคุม');
+      if (f.dmgMul) parts.push('ดาเมจ +' + Math.round((f.dmgMul - 1) * 100) + '%'); if (f.speedMul) parts.push('วิ่ง ' + (f.speedMul >= 1 ? '+' : '') + Math.round((f.speedMul - 1) * 100) + '%');
+      if (f.armorAdd) parts.push('เกราะ +' + Math.round(f.armorAdd * 100) + '%'); if (f.stealth) parts.push('ล่องหน');
+      if (f.dur && f.k !== 'zone') parts.push('นาน ' + f.dur + ' วิ'); if (f.k === 'zone' && f.dur) parts.push('คงอยู่ ' + f.dur + ' วิ');
+      if (f.execBelow) parts.push('ปิดจ๊อบเป้าเลือดต่ำกว่า ' + Math.round(f.execBelow * 100) + '% (ดาเมจ ×' + (f.execMul || 1) + ')');
+      if (f.rootedMul) parts.push('ใส่เป้าที่ถูกตรึง ×' + f.rootedMul); if (f.mark || f.k === 'mark') parts.push('ติดเป้าหมาย');
+      if (f.k === 'taunt') parts.push('ยั่วให้ศัตรูหันมาตี');
+      if (parts.length) rows += '<div class="tr"><span class="tk">' + (nm || '•') + '</span><span>' + parts.join(' · ') + '</span></div>';
+    });
+    const typ = anyDmg ? (mag ? '<span class="chip mg">🔮 ดาเมจเวทมนตร์ · ลดด้วยค่าต้านเวทของเป้า</span>' : '<span class="chip ph">⚔️ ดาเมจกายภาพ · ลดด้วยเกราะของเป้า</span>') : '<span class="chip">✨ สกิลเสริม/ไม่ทำดาเมจ</span>';
+    const rng = spec.range ? 'ระยะ ' + Math.round(spec.range) + (spec.r ? ' · รัศมี ' + Math.round(spec.r) : '') : (spec.r ? 'รัศมี ' + Math.round(spec.r) : 'ใช้กับตัวเอง');
+    return '<div class="th"><b>' + esc(s.name) + '</b> <small>' + SK_KEYS[i] + ' · ' + (lv ? 'เลเวล ' + lv + '/' + maxLv : 'ยังไม่ได้เรียน (แสดงค่าเลเวล 1)') + '</small></div>'
+      + '<div class="tc">' + typ + ' <span class="chip">⏱ คูลดาวน์ ' + cd.toFixed(1) + ' วิ</span> <span class="chip">📏 ' + rng + '</span></div>'
+      + '<div class="td">' + esc(s.desc) + '</div>' + (rows ? '<div class="tb">' + rows + '</div>' : '')
+      + (anyDmg ? '<div class="tn">ตัวเลขคำนวณจากพลังโจมตีตอนนี้ของคุณ (เลเวล ' + pl.level + ' + ไอเทม) ก่อนหักเกราะ/ต้านเวทของเป้า</div>' : '');
+  }
+  const skTip = $('skTip');
+  function skTipShow(b, i) { if (!g || !g.player) return; skTip.innerHTML = skillTipHtml(g.player, i); skTip.hidden = false; const r = b.getBoundingClientRect(); skTip.style.left = Math.max(8, Math.min(window.innerWidth - skTip.offsetWidth - 8, r.right - skTip.offsetWidth)) + 'px'; skTip.style.top = Math.max(8, r.top - skTip.offsetHeight - 10) + 'px'; }
+  function skTipHide() { skTip.hidden = true; }
   function buildSkillButtons(def) {
     const box = $('skills');
     box.innerHTML = '';
@@ -376,6 +419,7 @@
         try { b.setPointerCapture(e.pointerId); } catch (x) { /* ไม่เป็นไร */ }
         const r = b.getBoundingClientRect();
         drag = { id: e.pointerId, cx: r.left + r.width / 2, cy: r.top + r.height / 2, on: false };
+        clearTimeout(drag.tt); drag.tt = setTimeout(function () { skTipShow(b, i); }, 230);   // กดค้าง: ขึ้นรายละเอียดสกิล
         if (aimSpec.type === 'self' || !ctl.dragAim) { queue.push({ slot: i }); drag.done = true; }
       });
       b.addEventListener('pointermove', function (e) {
@@ -390,12 +434,14 @@
       });
       const end = function (e) {
         if (!drag || e.pointerId !== drag.id) return;
-        TR.Render.setAim(null); b.classList.remove('aiming');
+        TR.Render.setAim(null); b.classList.remove('aiming'); clearTimeout(drag.tt); skTipHide();
         if (!drag.done) { if (drag.on) { if (!drag.cancel) queue.push({ slot: i, aim: drag.aim }); } else queue.push({ slot: i }); }
         drag = null;
       };
       b.addEventListener('pointerup', end);
-      b.addEventListener('pointercancel', function (e) { if (drag && e.pointerId === drag.id) { TR.Render.setAim(null); b.classList.remove('aiming'); drag = null; } });
+      b.addEventListener('pointercancel', function (e) { if (drag && e.pointerId === drag.id) { clearTimeout(drag.tt); skTipHide(); TR.Render.setAim(null); b.classList.remove('aiming'); drag = null; } });
+      b.addEventListener('mouseenter', function () { if (window.matchMedia && matchMedia('(pointer:fine)').matches) skTipShow(b, i); });
+      b.addEventListener('mouseleave', skTipHide);
       box.appendChild(b);
     });
     layoutCtl();

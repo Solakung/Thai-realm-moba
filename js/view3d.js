@@ -148,6 +148,7 @@
     out[KI['root.y']] += TMPP[KI['root.y']] * w;
   }
   // สร้างท่าจากสถานะเกม: mv 0..1.3 (เดิน), ph เฟสก้าว (เรเดียน), atkP/castP 0..1 ขณะกำลังทำ (นอกช่วง = ≥1), dead 0..1
+  const RCA = { nakdab: 'salute', phran: 'scout', mohya: 'brew', kwan: 'stomp', mothamma: 'chant', muay: 'wai', seri: 'reload', yai: 'declare', spy: 'flourish', mae: 'serve', win: 'rev', chang: 'zap' };   // ท่ากลับพระนคร = ท่าประจำตัวหน้าเลือกตัว
   function gamePose(M, st, out) {
     const HG = S.HERO[M.id] && S.HERO[M.id].game ? S.actsFor(M.style, M.id) : null, acts = S.actsFor(M.style);
     out.set(M.rest || S.arrFor(M.id));
@@ -168,7 +169,10 @@
       if (mv > 1) out[KI['root.rx']] += 0.25 * (mv - 1) / 0.3;
     }
     const legKeep = 1 - clamp(mv * 1.6, 0, 1);
-    if (HG && st.atkP >= 0 && st.atkP < 1 && HG.gatk) {
+    if (HG && st.rcT >= 0 && RCA[M.id] && HG[RCA[M.id]]) {   // กำลังกลับพระนคร: ทำท่าประจำตัวเป็นลูป
+      const ra = HG[RCA[M.id]], w = sstep(st.rcT / 0.35);
+      overlay(out, ra, st.rcT % ra.dur, w, w * 0.8);
+    } else if (HG && st.atkP >= 0 && st.atkP < 1 && HG.gatk) {
       const w = sstep(st.atkP / 0.12) * sstep((1 - st.atkP) / 0.2);
       overlay(out, HG.gatk, st.atkP * HG.gatk.dur, w, w * legKeep);
     } else if (HG && st.castP >= 0 && st.castP < 1 && HG['gc' + ((st.castS | 0) % 3)]) {

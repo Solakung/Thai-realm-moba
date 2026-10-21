@@ -840,7 +840,7 @@
         if (u.untarget > g.t) al = 0.35; else if (stealth) al = own ? 0.45 : 0.1;
         if (u.dead) al = Math.max(0, 1 - Math.max(0, age - 0.55) / 0.45);
         const M3 = TR.Stage3D.modelFor(u.def);
-        TR.Stage3D.drawFigure(c, M3, { id: u.id, rt: rt, mv: u.dash ? 1.3 : an.mv, ph: an.ph, atkP: ap, castP: cp, castS: u.vSlot | 0, dead: u.dead ? Math.min(1, age) : 0 }, { x: x, y: y, facing: faceAng(u, dt), pitch: Math.asin(ST.K), scale: HS3, alpha: al, flash: u.flash > g.t, amb: ERA_AMB[g.era] });
+        TR.Stage3D.drawFigure(c, M3, { id: u.id, rt: rt, mv: u.dash ? 1.3 : an.mv, ph: an.ph, atkP: ap, castP: cp, castS: u.vSlot | 0, rcT: u.recall ? g.t - u.recall.start : -1, dead: u.dead ? Math.min(1, age) : 0 }, { x: x, y: y, facing: faceAng(u, dt), pitch: Math.asin(ST.K), scale: HS3, alpha: al, flash: u.flash > g.t, amb: ERA_AMB[g.era] });
         hh3 = 36 * M3.scale * HS3 + 4;
       } else {
       c.save(); c.translate(x, y);
@@ -857,10 +857,14 @@
         if (u.dash) spawnPart(x, y - 8, 0, 0, 0.3, 4.5, u.def.colors.accent, 'ghost');
         const hh = hh3 || 32 * sc / HERO_SC * 0.9;
         drawStatus(c, g, u, x, y, rt, hh);
+        if (pl && u === pl && (u.atkHold || u.atkBuf > g.t)) {   // กดโจมตี: แสดงวงระยะตีปกติ
+          c.save(); c.setLineDash([7, 5]); c.lineWidth = 1.6; c.strokeStyle = 'rgba(255,255,255,.7)'; c.fillStyle = 'rgba(255,214,102,.07)';
+          const ar = TR.ROLES[u.role].range * (u.m && u.m.blind ? 0.6 : 1); c.beginPath(); c.ellipse(x, y, ar, ar * ST.K, 0, 0, TAU); c.fill(); c.stroke(); c.restore();
+        }
         if (u.recall) {
           const pr = clamp((g.t - u.recall.start) / (u.recall.end - u.recall.start), 0, 1);
           const gr = c.createLinearGradient(0, y - 80, 0, y); gr.addColorStop(0, 'rgba(128,216,255,0)'); gr.addColorStop(1, 'rgba(128,216,255,.55)');
-          c.fillStyle = gr; c.fillRect(x - 9, y - 80, 18, 80);
+          if (TR.Vfx && TR.Vfx.recall) TR.Vfx.recall(c, u, x, y, rt, pr, ST.K); else { c.fillStyle = gr; c.fillRect(x - 9, y - 80, 18, 80); }
           c.strokeStyle = '#80d8ff'; c.lineWidth = 2; c.beginPath(); c.ellipse(x, y, 17, 17 * ST.K, 0, -Math.PI / 2, -Math.PI / 2 + TAU * pr); c.stroke();
           c.fillStyle = '#e1f7ff'; c.font = 'bold 6px sans-serif'; c.textAlign = 'center'; c.fillText(TR.RECALL.name, x, y + 14);
         }
