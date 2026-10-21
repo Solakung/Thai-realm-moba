@@ -4,7 +4,7 @@
   'use strict';
   const TR = (G.TR = G.TR || {});
 
-  TR.VERSION = '0.22.3';
+  TR.VERSION = '0.22.4';
 
   TR.CFG = {
     dt: 0.05,          // ตรรกะเกม 20 ครั้งต่อวินาที
@@ -137,7 +137,7 @@
   TR.atkRange = function (def) { const v = TR.HERO_RANGE[def.id]; return v != null ? v : TR.ROLES[def.role].range; };
 
   // ตัวคูณปรับสมดุลรายฮีโร่ (จากผลรันบอทหลายรอบ) hp/dmg 1 = ปกติ
-  TR.HERO_BAL = { chang: { hp: 0.94, dmg: 0.93 }, win: { hp: 1.06, dmg: 1.08 }, kwan: { hp: 0.9, dmg: 0.93 }, muay: { hp: 0.92, dmg: 0.93 }, mae: { hp: 1.06, dmg: 1.06 }, yai: { hp: 1.04, dmg: 1.04 }, press: { hp: 0.95, dmg: 0.94 } };
+  TR.HERO_BAL = { chang: { hp: 0.92, dmg: 0.91 }, win: { hp: 1.06, dmg: 1.08 }, kwan: { hp: 0.9, dmg: 0.93 }, muay: { hp: 0.92, dmg: 0.93 }, mae: { hp: 1.06, dmg: 1.06 }, yai: { hp: 1.08, dmg: 1.08 }, press: { hp: 0.93, dmg: 0.92 }, yamada: { hp: 1.06, dmg: 1.08 }, nakdab: { hp: 1.06, dmg: 1.06 }, mohya: { hp: 0.95, dmg: 1 }, mothamma: { hp: 0.96, dmg: 0.97 } };
   // ตัวเลขพลังติดตัวของฮีโร่ชุดใหม่ (v0.22)
   TR.PASSIVE = {
     nopphamat: { shield: 0.07, dur: 2 }, khunsuek: { still: 1, armor: 0.12 },
@@ -682,6 +682,16 @@
      ทุกครั้งที่อัปเดตเกม: เพิ่มรายการใหม่ไว้บนสุด และแก้ TR.VERSION ให้ตรงกัน
      ผู้เล่นที่ยังไม่เคยเห็นเวอร์ชันนั้นจะเห็นกล่องอัปเดตขึ้นเองตอนเปิดเกม */
   TR.CHANGELOG = [
+    {
+      version: '0.22.4',
+      date: '2026-10-21',
+      title: 'ปรับสมดุลจากบอท 240 แมตช์',
+      items: [
+        'ลดแรง: ช่างภาพข่าว (ชนะ ~60%) · ช่างไฟนักประดิษฐ์ (~62%) · หมอยาสมุนไพร (~65%) · หมอธรรม (~58%)',
+        'เสริมแรง: ยามาดะอาสา (~38%) · นักดาบอาสา (~38%) · ผู้ใหญ่บ้านพิทักษ์ (~40%)',
+        'ฮีโร่ใหม่ที่เหลืออยู่ในช่าง 47-55% ไม่แตะ · ตัวเลขทั้งหมดอยู่ที่ TR.HERO_BAL ใน js/data.js'
+      ]
+    },
     {
       version: '0.22.3',
       date: '2026-10-21',
