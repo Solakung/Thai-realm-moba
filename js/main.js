@@ -257,6 +257,7 @@
     set($('atkMin'), g1, y0, SM); set($('atkTwr'), g1 + SM + 6 * f, y0, SM);
     const spX = g1 + SM + 6 * f + SM / 2 + SP / 2 + 16 * f;
     set($('spBtn'), spX, M + SP / 2, SP); set($('rcBtn'), spX + SP + 8 * f, M + SP / 2, SP);
+    set($('wdBtn'), spX + 2 * (SP + 8 * f), M + SP / 2, SP);
     itPos = { x: spX, y: M + SP + 10 * f + SP / 2, size: SP, step: SP + 8 * f };
     layoutItems();
   }
@@ -297,7 +298,7 @@
     mini.style.width = base + 'px'; mini.style.height = Math.round(base * 0.375) + 'px';
     mini.width = base * 2; mini.height = Math.round(base * 0.75);
     $('pauseBtn').style.right = 'calc(' + rs + ' + ' + (base + 10) + 'px)'; $('shopBtn').style.right = 'calc(' + rs + ' + ' + (base + 50) + 'px)';
-    $('chatBtn').style.right = 'calc(' + rs + ' + ' + (base + 90) + 'px)'; $('chatPanel').style.right = 'calc(' + rs + ' + ' + (base + 10) + 'px)';
+    $('boardBtn').style.right = 'calc(' + rs + ' + ' + (base + 130) + 'px)'; $('chatBtn').style.right = 'calc(' + rs + ' + ' + (base + 90) + 'px)'; $('chatPanel').style.right = 'calc(' + rs + ' + ' + (base + 10) + 'px)';
     $('feed').style.top = (Math.round(base * 0.375) + (window.innerHeight <= 460 ? 10 : 16)) + 'px';
   }
   /* ---------- สัญญาณทีม: ส่งไปที่จุดที่กล้องมองอยู่ (ตัวเอง / จุดที่แอบดู / ตอนตายคือจุดที่ดูอยู่) ---------- */
@@ -437,10 +438,13 @@
   };
   canvas.addEventListener('pointerup', panEnd); canvas.addEventListener('pointercancel', panEnd);
 
-  let tutorial = false;
+  let tutorial = false, banPick = [];
+  const hn = function (id) { return TR.HERO_BY_ID[id].name; };
+  const opt = { diff: 'normal', ban: false };
+  try { const d = localStorage.getItem('tr_diff'); if (TR.DIFFS[d]) opt.diff = d; opt.ban = localStorage.getItem('tr_banmode') === '1'; } catch (e) { /* ไม่เป็นไร */ }
   function startGame() {
     if (endTimer) { clearTimeout(endTimer); endTimer = null; }
-    g = TR.Sim.createGame({ playerHero: sel.hero, playerEmblem: sel.emblem, playerSpell: sel.spell, playerLane: sel.lane, tutorial: tutorial });
+    g = TR.Sim.createGame({ playerHero: sel.hero, playerEmblem: sel.emblem, playerSpell: sel.spell, playerLane: sel.lane, tutorial: tutorial, diff: tutorial ? 'normal' : opt.diff, playerBans: tutorial ? [] : banPick });
     window.TRGame = g;
     acc = 0; paused = false; playing = true; queue.length = 0; shopOpen = false; $('shop').hidden = true; $('chatPanel').hidden = true;
     $('menu').hidden = true; $('result').hidden = true; $('pauseBox').hidden = true;
@@ -454,7 +458,8 @@
     $('meName').innerHTML = g.player.def.name + ' <span style="color:' + em.color + '">· ใจ' + em.name + '</span>';
     TR.Audio.init(); applyCtl(); TR.Audio.musicStart(0); TR.Audio.resume();
     tutStart();
-    banner('ยุค' + TR.ERAS[0].name + ' เริ่มแล้ว', TR.ERAS[0].note + ' · ฮีโร่ยุคนี้แข็งขึ้น: ' + heroesOfEra(0), 4500);
+    const bn = g.bans.me.concat(g.bans.bot).length ? ' · แบน: ' + g.bans.me.map(hn).join(', ') + ' (เรา) ' + g.bans.bot.map(hn).join(', ') + ' (ศัตรู)' : '';
+    banner('ยุค' + TR.ERAS[0].name + ' เริ่มแล้ว', TR.ERAS[0].note + ' · ฮีโร่ยุคนี้แข็งขึ้น: ' + heroesOfEra(0) + bn, 4500);
     fit();
     lastTs = performance.now();
     showIntro();
@@ -532,6 +537,78 @@
   $('profClose').addEventListener('click', function () { $('profSet').hidden = true; });
   $('profReset').addEventListener('click', function () { if (confirm('ล้างสถิติสะสมทั้งหมด?')) { try { localStorage.removeItem('tr_profile'); } catch (e) { /* ไม่เป็นไร */ } showProfile(); } });
 
+  /* ---------- ตะเกียงส่องทาง ---------- */
+  function placeWardKey() {
+    if (!g || !playing || paused) return;
+    if (!TR.Sim.placeWard(g, g.player)) toast(g.player.wardN <= 0 ? 'ตะเกียงหมด รอได้คืน' : 'วางตะเกียงใกล้กันเกินไป');
+  }
+  $('wdBtn').addEventListener('pointerdown', function (e) { e.preventDefault(); placeWardKey(); });
+  function wardHud(pl) {
+    const b = $('wdBtn'); b.querySelector('.nm').textContent = 'ตะเกียง ×' + pl.wardN;
+    b.classList.toggle('wait', pl.wardN <= 0 || pl.dead); b.querySelector('.cd').textContent = pl.wardN <= 0 ? Math.ceil(pl.wardCd) : '';
+  }
+
+  /* ---------- ตารางคะแนน (กด Tab ค้าง หรือปุ่ม 📋) ---------- */
+  let boardLock = false;
+  function boardShow(on) { if (!g || !playing) return; $('board').hidden = !(on || boardLock); if (!$('board').hidden) boardRender(); }
+  $('boardBtn').addEventListener('pointerdown', function (e) { e.preventDefault(); boardLock = !boardLock; boardShow(false); });
+  function boardRender() {
+    const hs = g.units.filter(function (u) { return u.type === 'hero'; });
+    let html = '<table><tr><th>ฮีโร่</th><th>Lv</th><th>ฆ่า/ตาย/ช่วย</th><th>ลูกกระจ๊อก</th><th>ทองรวม</th><th>ไอเทม</th></tr>';
+    [0, 1].forEach(function (t) {
+      const sum = hs.filter(function (u) { return u.team === t; });
+      html += '<tr class="tm"><td colspan="6" class="' + (t === 0 ? 'b' : 'r') + '">ทีม' + (t === 0 ? 'ฟ้า' : 'แดง') + ' · ฆ่า ' + g.score[t] + ' · ทอง ' + Math.round(sum.reduce(function (a, u) { return a + u.goldTotal; }, 0)) + '</td></tr>';
+      sum.sort(function (a, b) { return a.slot - b.slot; }).forEach(function (u) {
+        html += '<tr class="' + (u === g.player ? 'me' : '') + '"><td class="' + (t === 0 ? 'b' : 'r') + '">' + u.def.name + (u.dead ? ' 💀' : '') + '</td><td>' + u.level + '</td><td>' + u.kills + '/' + u.deaths + '/' + u.assists + '</td><td>' + u.cs + '</td><td>' + Math.round(u.goldTotal) + '</td><td class="it">' + u.items.map(function (id) { return TR.ITEM_BY_ID[id].icon; }).join('') + '</td></tr>';
+      });
+    });
+    $('board').innerHTML = html + '</table>';
+  }
+
+  /* ---------- สรุปความตาย ---------- */
+  function recapHud(pl) {
+    const r = pl.recap, box = $('recap');
+    if (!pl.dead || !r || g.t - r.t > 20) { box.hidden = true; return; }
+    const mx = Math.max(1, r.rows.length ? r.rows[0].d : 1);
+    let html = '<h4>💀 ถูก ' + r.by + ' ปราบ</h4><div style="color:#ddd;margin-bottom:3px">ดาเมจที่ได้รับ 10 วิสุดท้าย ' + r.total + ' (เวท ' + r.magPct + '%)</div>';
+    r.rows.forEach(function (w) { html += '<div class="rw"><span style="min-width:62px">' + w.n + '</span><i style="width:' + Math.round(100 * w.d / mx * 0.7) + 'px"></i><span>' + w.d + '</span></div>'; });
+    if (r.total > 0) html += '<div class="tip">' + (r.magPct >= 55 ? '💡 โดนเวทเป็นหลัก ลองซื้อสายต้านเวท' : (r.magPct <= 30 ? '💡 โดนกายภาพเป็นหลัก ลองซื้อสายป้องกัน/เกราะ' : '💡 โดนทั้งสองแบบ ผสมเกราะกับต้านเวท')) + '</div>';
+    box.innerHTML = html; box.hidden = false;
+  }
+
+  /* ---------- ความยากบอท + โหมดแบน (เมนู) ---------- */
+  function buildOptRows() {
+    const d = $('diffRow'), b = $('banRow'); d.innerHTML = ''; b.innerHTML = '';
+    Object.keys(TR.DIFFS).forEach(function (k) {
+      const x = document.createElement('button'); x.textContent = 'บอท' + TR.DIFFS[k].name; x.title = TR.DIFFS[k].note; x.className = opt.diff === k ? 'sel' : '';
+      x.addEventListener('click', function () { opt.diff = k; try { localStorage.setItem('tr_diff', k); } catch (e) { /* ไม่เป็นไร */ } buildOptRows(); }); d.appendChild(x);
+    });
+    [[false, 'ไม่แบนฮีโร่'], [true, 'โหมดแบนฮีโร่']].forEach(function (o) {
+      const x = document.createElement('button'); x.textContent = o[1]; x.className = opt.ban === o[0] ? 'sel' : '';
+      x.addEventListener('click', function () { opt.ban = o[0]; try { localStorage.setItem('tr_banmode', o[0] ? '1' : '0'); } catch (e) { /* ไม่เป็นไร */ } buildOptRows(); }); b.appendChild(x);
+    });
+  }
+  function openBan() {
+    banPick = [];
+    $('banHint').textContent = 'เลือกฮีโร่ที่ไม่อยากให้ใครใช้ได้ ' + CFG.ban.n + ' ตัว (บอทศัตรูแบนของเขาเองด้วย) · ฮีโร่ของคุณแบนไม่ได้';
+    const grid = $('banGrid'); grid.innerHTML = '';
+    TR.HEROES.forEach(function (h) {
+      if (h.id === sel.hero) return;
+      const b = document.createElement('button'), cv = document.createElement('canvas'); cv.width = 64; cv.height = 72;
+      TR.Render.drawHeroIcon(cv.getContext('2d'), h, 64, 72, 0); b.appendChild(cv); b.appendChild(document.createTextNode(h.name));
+      b.addEventListener('click', function () {
+        const i = banPick.indexOf(h.id);
+        if (i >= 0) banPick.splice(i, 1); else { if (banPick.length >= CFG.ban.n) banPick.shift(); banPick.push(h.id); }
+        Array.prototype.forEach.call(grid.children, function (c, j) { c.classList.toggle('sel', banPick.indexOf(TR.HEROES.filter(function (x) { return x.id !== sel.hero; })[j].id) >= 0); });
+        $('banGo').disabled = banPick.length === 0;
+      });
+      grid.appendChild(b);
+    });
+    $('banGo').disabled = true; $('banSet').hidden = false;
+  }
+  $('banGo').addEventListener('click', function () { $('banSet').hidden = true; startGame(); });
+  $('banSkip').addEventListener('click', function () { $('banSet').hidden = true; banPick = []; startGame(); });
+
   /* ---------- หน้า VS ก่อนเริ่มแมตช์ ---------- */
   function showIntro() {
     const L = $('vsLeft'), Rr = $('vsRight');
@@ -565,7 +642,7 @@
   $('intro').addEventListener('pointerdown', function () { if (introEnd && performance.now() < introEnd - 600) introEnd = performance.now() + 50; });
 
   function toMenu() {
-    playing = false; g = null; TR.Audio.musicStop(); $('tut').hidden = true;
+    playing = false; g = null; $('board').hidden = true; $('recap').hidden = true; TR.Audio.musicStop(); $('tut').hidden = true;
     document.body.classList.remove('playing');
     shopOpen = false; $('shop').hidden = true; $('hud').hidden = true; $('result').hidden = true; $('menu').hidden = false; $('pauseBtn').style.display = 'none';
   }
@@ -653,6 +730,7 @@
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].indexOf(e.code) >= 0) e.preventDefault();
     if (e.repeat) return;
     keys[e.code] = true;
+    if (e.code === 'Tab') { e.preventDefault(); boardShow(true); return; }
     if (e.code === 'KeyV') { $('chatPanel').hidden = !$('chatPanel').hidden; return; }
     if (!$('chatPanel').hidden && /^Digit[1-5]$/.test(e.code)) { sendSignal(SIG_ORDER[+e.code.slice(5) - 1]); return; }
     if (e.code === 'KeyQ' || e.code === 'Digit1') keySkill(0);
@@ -663,12 +741,13 @@
     else if (e.code === 'KeyX') atkPress('tower', true, $('atkTwr'));
     else if (e.code === 'KeyF') castPlayerSpell();
     else if (e.code === 'KeyC') recallPlayer();
+    else if (e.code === 'KeyN') placeWardKey();
     else if (IT_KEYS.indexOf(e.code) >= 0) useItemKey(IT_KEYS.indexOf(e.code));
     else if (e.code === 'KeyB') toggleShop();
     else if (e.code === 'Escape' && shopOpen) toggleShop(false);
     else if (e.code === 'KeyP' || e.code === 'Escape') togglePause();
   });
-  window.addEventListener('keyup', function (e) { keys[e.code] = false; if (e.code === 'Space' || e.code === 'KeyJ') atkPress(null, false, $('atkBtn')); else if (e.code === 'KeyZ') atkPress('minion', false, $('atkMin')); else if (e.code === 'KeyX') atkPress('tower', false, $('atkTwr')); });
+  window.addEventListener('keyup', function (e) { if (e.code === 'Tab') boardShow(false); keys[e.code] = false; if (e.code === 'Space' || e.code === 'KeyJ') atkPress(null, false, $('atkBtn')); else if (e.code === 'KeyZ') atkPress('minion', false, $('atkMin')); else if (e.code === 'KeyX') atkPress('tower', false, $('atkTwr')); });
   window.addEventListener('blur', function () { for (const k in keys) keys[k] = false; });
   document.addEventListener('visibilitychange', function () { if (document.hidden && playing && !paused) togglePause(); });
   window.addEventListener('contextmenu', function (e) { if (playing) e.preventDefault(); });
@@ -864,7 +943,7 @@
     const dead = !!pl.dead;
     if (wasDead && !dead) TR.Render.clearCam();
     wasDead = dead; $('specHint').hidden = !dead;
-    syncItems(pl); tutTick(pl);
+    syncItems(pl); tutTick(pl); wardHud(pl); recapHud(pl); if (!$('board').hidden) boardRender();
     const spb = $('spBtn'), sc = pl.spCd;
     spb.classList.toggle('wait', sc > 0 || pl.dead); spb.querySelector('.cd').textContent = sc > 0 ? Math.ceil(sc) : '';
     $('rcBtn').classList.toggle('wait', !!pl.recall); $('rcBtn').querySelector('.cd').textContent = pl.recall ? Math.max(0, Math.ceil(pl.recall.end - g.t)) : '';
@@ -908,7 +987,7 @@
   }
 
   /* ---------- ผูกปุ่ม ---------- */
-  $('startBtn').addEventListener('click', function () { tutorial = false; startGame(); });
+  $('startBtn').addEventListener('click', function () { tutorial = false; if (opt.ban) openBan(); else { banPick = []; startGame(); } });
   $('tutBtn').addEventListener('click', function () { tutorial = true; startGame(); });
   $('againBtn').addEventListener('click', startGame);
   $('menuBtn').addEventListener('click', toMenu);
@@ -927,7 +1006,7 @@
   $('updClose').addEventListener('click', closeUpdate);
   window.addEventListener('resize', fit);
 
-  buildMenu();
+  buildMenu(); buildOptRows();
   fit();
   if (getSeen() !== TR.VERSION) { $('updDot').hidden = false; showUpdate(); }
   requestAnimationFrame(frame);

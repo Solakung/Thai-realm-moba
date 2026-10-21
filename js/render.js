@@ -885,7 +885,20 @@
   }
   /* ---------- หมุดสัญญาณทีม: วงคลื่นบนพื้น + ไอคอนลอย (ถ้าอยู่นอกจอจะติดขอบจอ) ---------- */
   function activePings(g) { return (g.pings || []).filter(function (p) { return g.t < p.until && (!g.player || p.team === g.player.team); }); }
+  // ตะเกียงส่องทางของทีมเรา (ศัตรูมองไม่เห็น)
+  function drawWards(c, g, rt) {
+    if (!g.player) return;
+    for (const w of g.wards) {
+      if (w.team !== g.player.team) continue;
+      const left = w.until - g.t, a = left < 8 ? 0.4 + 0.4 * Math.sin(g.t * 8) : 0.85;
+      c.globalAlpha = 0.18; c.strokeStyle = '#ffe082'; c.lineWidth = 1.5; c.setLineDash([6, 6]);
+      c.beginPath(); c.ellipse(w.x, w.y, TR.CFG.ward.r, TR.CFG.ward.r, 0, 0, TAU); c.stroke(); c.setLineDash([]);
+      c.globalAlpha = a; c.fillStyle = '#ffd54f'; c.beginPath(); c.arc(w.x, w.y - 8, 6, 0, TAU); c.fill();
+      c.fillStyle = '#6d4c41'; c.fillRect(w.x - 4, w.y - 3, 8, 8); c.globalAlpha = 1;
+    }
+  }
   function drawPingsGround(c, g, rt) {
+    drawWards(c, g, rt);
     for (const p of activePings(g)) {
       const S0 = TR.SIGNALS[p.type], k = (g.t - p.t), col = S0 ? S0.color : '#fff';
       c.strokeStyle = col; c.lineWidth = 2;
@@ -1169,6 +1182,7 @@
       if (isMe) { c.strokeStyle = 'rgba(255,235,59,.75)'; c.lineWidth = 1 * k; c.beginPath(); c.arc(x, y, r + 3 * k, 0, TAU); c.stroke(); }
       if (u.hp < u.maxHp * 0.35 && !isMe) { c.strokeStyle = '#ff1744'; c.lineWidth = 1.2 * k; c.beginPath(); c.arc(x, y, r + 2 * k, 0, TAU); c.stroke(); }
     }
+    if (g.player) for (const w of g.wards) { if (w.team !== g.player.team) continue; c.fillStyle = '#ffd54f'; c.globalAlpha = 0.9; c.beginPath(); c.arc(w.x * sx, w.y * sy, 2.4 * k, 0, TAU); c.fill(); c.strokeStyle = 'rgba(255,224,130,.35)'; c.lineWidth = 1 * k; c.beginPath(); c.arc(w.x * sx, w.y * sy, TR.CFG.ward.r * sx, 0, TAU); c.stroke(); c.globalAlpha = 1; }
     for (const p of activePings(g)) {
       const S0 = TR.SIGNALS[p.type]; if (!S0) continue; const x = p.x * sx, y = p.y * sy, ph = ((g.t - p.t) * 1.2) % 1;
       c.strokeStyle = S0.color; c.lineWidth = 1.6 * k; c.globalAlpha = 1 - ph; c.beginPath(); c.arc(x, y, (5 + ph * 14) * k, 0, TAU); c.stroke(); c.globalAlpha = 1;

@@ -239,7 +239,7 @@ button.ghost, .card button:not(.primary) { background: var(--panel2); border: 1p
 #laneGrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 4px; }
 #laneGrid button { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 8px 2px; color: #fff; font-size: 12px; text-align: center; }
 #laneGrid button .ic { display: block; font-size: 20px; } #laneGrid button.sel { border-color: #ffd54f; background: rgba(255,213,79,.12); }
-#chatBtn { position: absolute; top: 8px; width: 34px; height: 28px; background: rgba(15,23,32,.75); border: 1px solid var(--line); border-radius: 6px; pointer-events: auto; font-size: 14px; padding: 0; color: #fff; }
+#chatBtn, #boardBtn { position: absolute; top: 8px; width: 34px; height: 28px; background: rgba(15,23,32,.75); border: 1px solid var(--line); border-radius: 6px; pointer-events: auto; font-size: 14px; padding: 0; color: #fff; }
 #chatPanel { position: absolute; top: 40px; display: flex; flex-direction: column; gap: 4px; background: rgba(12,18,28,.94); border: 1px solid var(--line); border-radius: 10px; padding: 6px; z-index: 14; box-shadow: 0 6px 24px rgba(0,0,0,.6); }
 #chatPanel[hidden] { display: none; }
 #chatPanel > * { pointer-events: auto; }
@@ -275,3 +275,13 @@ button.ghost, .card button:not(.primary) { background: var(--panel2); border: 1p
 #profBody table { width: 100%; border-collapse: collapse; font-size: 12px; } #profBody th, #profBody td { padding: 4px 6px; border-bottom: 1px solid var(--line); text-align: center; } #profBody td:first-child, #profBody th:first-child { text-align: left; }
 #tut { position: fixed; z-index: 40; left: 50%; transform: translateX(-50%); top: 44px; width: min(440px, calc(100vw - 24px)); background: rgba(10,20,40,.86); border: 2px solid #ffd54f; border-radius: 12px; padding: 8px 12px; color: #fff; pointer-events: none; }
 #tut[hidden] { display: none; } #tut .tt { font-size: 11px; color: #ffd54f; font-weight: 700; } #tut .tx { font-size: 14px; margin-top: 2px; } #tut button { pointer-events: auto; position: absolute; right: 8px; top: 6px; background: transparent; border: 1px solid #888; color: #ccc; border-radius: 6px; font-size: 10px; padding: 2px 6px; }
+
+#boardBtn { position: absolute; top: 8px; width: 34px; height: 28px; background: rgba(15,23,32,.75); border: 1px solid var(--line); border-radius: 6px; pointer-events: auto; font-size: 14px; color: #fff; padding: 0; }
+#board { position: absolute; z-index: 30; left: 50%; top: 44px; transform: translateX(-50%); width: min(720px, calc(100vw - 16px)); max-height: calc(100% - 60px); overflow: auto; background: rgba(8,14,26,.92); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; pointer-events: none; font-size: 12px; }
+#board[hidden] { display: none; } #board table { width: 100%; border-collapse: collapse; } #board th, #board td { padding: 3px 5px; text-align: center; white-space: nowrap; } #board td:first-child, #board th:first-child { text-align: left; }
+#board tr.tm td { text-align: left; font-weight: 700; padding-top: 6px; } #board .b { color: #64b5f6; } #board .r { color: #ef5350; } #board tr.me td { background: rgba(255,235,59,.12); } #board .it { letter-spacing: 1px; }
+#recap { position: absolute; z-index: 25; left: 10px; top: 92px; width: 210px; background: rgba(40,10,10,.88); border: 1px solid #ef5350; border-radius: 10px; padding: 8px 10px; font-size: 12px; pointer-events: none; }
+#recap[hidden] { display: none; } #recap h4 { margin: 0 0 4px; font-size: 13px; color: #ff9b8a; } #recap .rw { display: flex; align-items: center; gap: 6px; margin: 2px 0; } #recap .rw i { display: block; height: 6px; background: #ef5350; border-radius: 3px; } #recap .rw span { white-space: nowrap; } #recap .tip { margin-top: 5px; color: #ffe082; font-size: 11px; }
+#banSet { position: fixed; inset: 0; z-index: 70; background: rgba(0,0,0,.65); display: flex; align-items: center; justify-content: center; } #banSet[hidden] { display: none; }
+#banSet .card { width: min(560px, calc(100vw - 20px)); max-height: calc(100vh - 20px); overflow: auto; }
+#banGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 8px; margin: 8px 0; } #banGrid button { background: var(--panel); border: 2px solid var(--line); border-radius: 10px; padding: 4px; color: #fff; font-size: 11px; } #banGrid button.sel { border-color: #ef5350; background: rgba(239,83,80,.2); } #banGrid canvas { display: block; margin: 0 auto 2px; }
