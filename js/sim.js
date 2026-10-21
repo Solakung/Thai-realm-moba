@@ -70,7 +70,7 @@
       rand: mulberry32(opts.seed == null ? (Date.now() & 0x7fffffff) : opts.seed),
       vrand: mulberry32(20241021),   // ตัวสุ่มสำหรับภาพเท่านั้น ห้ามกระทบสถานะเกม
       over: false, winner: -1, era: 0, warned: -1, nextWave: CFG.firstWave, waveNo: 0,
-      tutorial: !!opts.tutorial, diff: TR.DIFFS[opts.diff] ? opts.diff : 'normal', wards: [], bans: { me: [], bot: [] }, score: [0, 0], sfx: [], idc: 1, player: null, opts: opts, aiThink: TR.AI ? TR.AI.think : null
+      cmds: [], cmdSeq: 0, byId: {}, tutorial: !!opts.tutorial, diff: TR.DIFFS[opts.diff] ? opts.diff : 'normal', wards: [], bans: { me: [], bot: [] }, score: [0, 0], sfx: [], idc: 1, player: null, opts: opts, aiThink: TR.AI ? TR.AI.think : null
     };
     // ป้อม
     g.towers = [[[], [], []], [[], [], []]];   // [ทีม][เลน][ชั้น]
@@ -171,7 +171,7 @@
     const u = Object.assign({ id: g.idc++, x: 0, y: 0, dead: false, fx: [], face: [1, 0], atkCd: 0, radius: 8, flash: 0,
       baseArmor: 0, m: { speed: 1, armor: 0, dmg: 1, ls: 0, tower: 1, stun: false, root: false, slow: 0, blind: false, stealth: false, atkSpd: 1, mres: 0 } }, o);
     u.px = u.x; u.py = u.y;
-    g.units.push(u);
+    g.units.push(u); g.byId[u.id] = u;
     return u;
   }
 
@@ -729,6 +729,47 @@
     dst.recap = { t: g.t, total: Math.round(tot), magPct: tot ? Math.round(100 * mg / tot) : 0, rows: rows.slice(0, 6).map(function (r) { return { n: r.n, d: Math.round(r.d), hero: r.hero }; }), by: src && src.type === 'hero' ? src.def.name : (rows[0] ? rows[0].n : '-') };
   }
 
+  /* ---------- คำสั่งผู้เล่น (ช่องทางเดียวที่ผู้เล่นเปลี่ยนสถานะเกมได้) ----------
+     ออฟไลน์: เรียก exec ทันที · ออนไลน์: ทุกเครื่องเรียก submit ด้วยจังหวะ (tick) เดียวกัน แล้ว step จะ exec ตามลำดับที่ตรงกันทุกเครื่อง
+     คำสั่งมาจากเครือข่ายได้ จึงตรวจค่าให้เข้มทุกจุด (ห้ามเชื่อค่าที่ส่งมา) */
+  const num = function (v, lo, hi, d) { v = +v; return v === v ? Math.max(lo, Math.min(hi, v)) : d; };
+  function exec(g, u, c) {
+    if (!u || u.type !== 'hero' || !c || typeof c.k !== 'string') return false;
+    switch (c.k) {
+      case 'in': u.input.dx = num(c.dx, -2, 2, 0); u.input.dy = num(c.dy, -2, 2, 0); return true;
+      case 'cast': { const sl = c.slot | 0; if (sl < 0 || sl > 2) return false; let aim = null; if (c.aim) aim = { dx: num(c.aim.dx, -1, 1, 0), dy: num(c.aim.dy, -1, 1, 0), k: num(c.aim.k, 0.15, 1, 1) }; return castSkill(g, u, sl, aim); }
+      case 'spell': return castSpell(g, u);
+      case 'recall': if (u.recall) { cancelRecall(g, u); return true; } return startRecall(g, u);
+      case 'buy': return typeof c.id === 'string' ? buy(g, u, c.id) : false;
+      case 'sell': return typeof c.id === 'string' ? sell(g, u, c.id) : false;
+      case 'up': return upgradeSkill(g, u, c.i | 0);
+      case 'item': return typeof c.id === 'string' ? useItem(g, u, c.id) : false;
+      case 'ward': return placeWard(g, u);
+      case 'atk':
+        if (c.on) { u.atkType = c.type === 'minion' || c.type === 'tower' ? c.type : null; u.atkHold = true; u.atkBuf = g.t + 0.45; } else { u.atkHold = false; u.atkType = null; }
+        return true;
+      case 'lock': { const t = c.id == null ? null : g.byId[c.id | 0]; u.lockT = t && t.team !== u.team && !t.dead ? (u.lockT === t ? null : t) : null; return true; }
+      case 'set':
+        if (c.atkMode === 'button' || c.atkMode === 'auto') u.atkMode = c.atkMode;
+        if (c.prio === 'near' || c.prio === 'lowhp' || c.prio === 'hero') u.prio = c.prio;
+        if (c.autoSkill != null) u.autoSkill = !!c.autoSkill;
+        return true;
+      case 'sig': if (!TR.SIGNALS[c.type]) return false; signal(g, u.team, c.type, num(c.x, 0, CFG.W, 0), num(c.y, 0, CFG.H, 0), u); return true;
+      case 'sur': return callSurrender(g, u.team).ok;
+    }
+    return false;
+  }
+  // ส่งคำสั่งเข้าคิว จะถูกใช้เมื่อเกมเดินถึงจังหวะ tick (ค่าเริ่มต้น = จังหวะถัดไป)
+  function submit(g, uid, c, tick) { g.cmds.push({ tick: tick == null ? g.tick + 1 : tick, uid: uid, seq: g.cmdSeq++, c: c }); }
+  function runCmds(g) {
+    if (!g.cmds.length) return;
+    const due = [], keep = [];
+    for (const x of g.cmds) (x.tick <= g.tick ? due : keep).push(x);
+    g.cmds = keep;
+    due.sort(function (a, b) { return a.tick - b.tick || a.uid - b.uid || a.seq - b.seq; });
+    for (const x of due) exec(g, g.byId[x.uid], x.c);
+  }
+
   /* ---------- ไอเทมใช้งาน ---------- */
   const ACTIVE_IDS = ['def3', 'regen3', 'move3', 'ward3'];
   function itemActives(u) { return ACTIVE_IDS.filter(function (id) { return u.itmFx && u.itmFx[id]; }); }
@@ -1159,6 +1200,7 @@
     const dt = CFG.dt;
     for (const u of g.units) { u.px = u.x; u.py = u.y; }
     g.t += dt; g.tick++;
+    runCmds(g);
 
     // ยุค
     const ne = Math.min(TR.ERAS.length - 1, Math.floor(g.t / CFG.eraLen));
@@ -1677,7 +1719,7 @@
   TR.Sim = {
     hyp: hyp, dsin: dsin, dcos: dcos, datan2: datan2,
     navPoint: navPoint,
-    createGame: createGame, placeWard: placeWard, useItem: useItem, itemActives: itemActives, itemCdLeft: itemCdLeft, hit: hit, kill: kill, signal: signal, sigFor: sigFor, callSurrender: callSurrender, botWantsSurrender: botWantsSurrender, bushAt: bushAt, step: step, upgradeSkill: upgradeSkill, canUpgrade: canUpgrade, skillPts: skillPts, skillAim: skillAim, skillMul: skillMul, castSpell: castSpell, startRecall: startRecall, cancelRecall: cancelRecall, castSkill: castSkill, canCast: canCast,
+    createGame: createGame, exec: exec, submit: submit, placeWard: placeWard, useItem: useItem, itemActives: itemActives, itemCdLeft: itemCdLeft, hit: hit, kill: kill, signal: signal, sigFor: sigFor, callSurrender: callSurrender, botWantsSurrender: botWantsSurrender, bushAt: bushAt, step: step, upgradeSkill: upgradeSkill, canUpgrade: canUpgrade, skillPts: skillPts, skillAim: skillAim, skillMul: skillMul, castSpell: castSpell, startRecall: startRecall, cancelRecall: cancelRecall, castSkill: castSkill, canCast: canCast,
     pickEnemy: pickEnemy, enemiesIn: enemiesIn, alliedHeroes: alliedHeroes, canTarget: canTarget,
     towerVuln: towerVuln, buy: buy, sell: sell, canShop: canShop, netCost: netCost, ownedInLine: ownedInLine, wantShop: wantShop, dist: dist, norm: norm, findFx: findFx, lowestAlly: lowestAlly, recalc: recalc
   };

@@ -213,7 +213,7 @@
   ];
   function saveCtl() { try { localStorage.setItem('tr_ctl', JSON.stringify(ctl)); } catch (e) { /* ไม่เป็นไร */ } }
   function applyCtl() {
-    if (g && g.player) { const pl = g.player; pl.atkMode = ctl.atkMode; pl.prio = ctl.prio; pl.autoSkill = !!ctl.autoSkill; }
+    if (g && g.player) act({ k: 'set', atkMode: ctl.atkMode, prio: ctl.prio, autoSkill: !!ctl.autoSkill });
     layoutCtl(); layoutMini();
     TR.Audio.setVol({ sfx: ctl.sfx, music: ctl.music, voice: ctl.voice });
   }
@@ -290,7 +290,7 @@
   }
   function useItemKey(i) {
     if (!g || !playing || paused) return;
-    const ids = TR.Sim.itemActives(g.player); if (ids[i]) TR.Sim.useItem(g, g.player, ids[i]);
+    const ids = TR.Sim.itemActives(g.player); if (ids[i]) act({ k: 'item', id: ids[i] });
   }
   window.addEventListener('resize', function () { layoutCtl(); layoutMini(); });
   function layoutMini() {
@@ -315,7 +315,7 @@
   function sendSignal(id) {
     if (!g || !playing || paused) return;
     const pt = TR.Render.camPoint(g);
-    TR.Sim.signal(g, g.player.team, id, pt.x, pt.y, g.player);
+    act({ k: 'sig', type: id, x: pt.x, y: pt.y });
     feed('คุณ: ' + TR.SIGNALS[id].icon + ' ' + TR.SIGNALS[id].name, g.player.team);
     $('chatPanel').hidden = true;
   }
@@ -337,7 +337,7 @@
   /* ---------- ปุ่มโจมตี / สั่งตีลูกกระจ๊อก / สั่งตีป้อม ---------- */
   function atkPress(type, on, el) {
     if (!g || !playing) return; const pl = g.player;
-    if (on) { pl.atkType = type; pl.atkHold = true; pl.atkBuf = g.t + 0.45; } else { pl.atkHold = false; pl.atkType = null; }
+    act({ k: 'atk', on: !!on, type: type });
     if (el) el.classList.toggle('on', on);
   }
   [['atkBtn', null], ['atkMin', 'minion'], ['atkTwr', 'tower']].forEach(function (d) {
@@ -361,7 +361,7 @@
       const aimSpec = TR.Sim.skillAim(s);
       let drag = null;
       const K = function () { return TR.Render.tilt.K || 1; };
-      b.querySelector('.up').addEventListener('pointerdown', function (e) { e.preventDefault(); e.stopPropagation(); if (g) TR.Sim.upgradeSkill(g, g.player, i); });
+      b.querySelector('.up').addEventListener('pointerdown', function (e) { e.preventDefault(); e.stopPropagation(); if (g) act({ k: 'up', i: i }); });
       b.addEventListener('pointerdown', function (e) {
         if (e.target.classList.contains('up')) return;
         e.preventDefault(); if (!g || !playing || paused) return;
@@ -419,7 +419,7 @@
       const d = Math.hypot(u.x - w.x, u.y - (w.y + 12)) - u.radius;
       if (d < bd) { bd = d; best = u; }
     }
-    if (best) pl.lockT = pl.lockT === best ? null : best;
+    if (best) act({ k: 'lock', id: best.id });
   });
   canvas.addEventListener('pointermove', function (e) {
     if (!pan || e.pointerId !== pan.id) return;
@@ -438,6 +438,9 @@
   };
   canvas.addEventListener('pointerup', panEnd); canvas.addEventListener('pointercancel', panEnd);
 
+  // ช่องทางเดียวที่ผู้เล่นสั่งงานเกม: ออฟไลน์ทำทันที (ออนไลน์จะส่งผ่านเครือข่ายแทน)
+  let net = null;
+  function act(c) { return net ? net.send(c) : TR.Sim.exec(g, g.player, c); }
   let tutorial = false, banPick = [];
   const hn = function (id) { return TR.HERO_BY_ID[id].name; };
   const opt = { diff: 'normal', ban: false };
@@ -541,7 +544,7 @@
   /* ---------- ตะเกียงส่องทาง ---------- */
   function placeWardKey() {
     if (!g || !playing || paused) return;
-    if (!TR.Sim.placeWard(g, g.player)) toast(g.player.wardN <= 0 ? 'ตะเกียงหมด รอได้คืน' : 'วางตะเกียงใกล้กันเกินไป');
+    if (!act({ k: 'ward' })) toast(g.player.wardN <= 0 ? 'ตะเกียงหมด รอได้คืน' : 'วางตะเกียงใกล้กันเกินไป');
   }
   $('wdBtn').addEventListener('pointerdown', function (e) { e.preventDefault(); placeWardKey(); });
   function wardHud(pl) {
@@ -783,7 +786,7 @@
     for (let n = 0; n < 6; n++) {
       const st = buildSteps(pl)[0]; if (!st) return;
       const net = TR.Sim.netCost(pl, st); if (net == null || pl.gold < net) return;
-      if (!TR.Sim.buy(g, pl, st.id)) return;
+      if (!act({ k: 'buy', id: st.id })) return;
       toast('🛒 ซื้อ ' + st.name + ' ให้ตามเซ็ต'); shopSig = '';
     }
   }
@@ -804,7 +807,7 @@
         if (net == null) { toast(st.name + ': ซื้อไม่ได้ (ช่องเต็ม)'); return; }
         if (!TR.Sim.canShop(cur)) { toast(ctl.autoBuy ? 'ไม่อยู่ที่ฐาน — ระบบจะซื้อ ' + st.name + ' ให้เมื่อกลับถึงฐาน (กด C กลับพระนคร)' : 'ต้องอยู่ที่ฐานหรือตอนตายถึงจะซื้อได้'); return; }
         if (cur.gold < net) { toast('เงินไม่พอ ' + st.name + ' ขาดอีก ' + Math.ceil(net - cur.gold)); return; }
-        if (TR.Sim.buy(g, cur, st.id)) { toast('🛒 ซื้อ ' + st.name); quickSig = ''; shopSig = ''; }
+        if (act({ k: 'buy', id: st.id })) { toast('🛒 ซื้อ ' + st.name); quickSig = ''; shopSig = ''; }
       });
       box.appendChild(b);
     });
@@ -859,8 +862,8 @@
     const lower = TR.Sim.ownedInLine(pl, it.line);
     info.innerHTML = '<span class="tx"><b>' + it.icon + ' ' + it.name + '</b> (ชั้น ' + it.tier + ')<br>' + TR.itemDesc(it) + (lower && !have && net != null ? ' · ต่อยอดจาก ' + lower.name : '') + '</span>';
     const btn = document.createElement('button');
-    if (have) { btn.textContent = 'ขาย +' + Math.floor(it.cost * 0.7); btn.disabled = !can; btn.addEventListener('click', function () { if (TR.Sim.sell(g, pl, it.id)) renderShop(true); }); }
-    else { btn.textContent = net == null ? 'ซื้อไม่ได้' : 'ซื้อ ' + net; btn.disabled = !can || net == null || pl.gold < net; btn.addEventListener('click', function () { if (TR.Sim.buy(g, pl, it.id)) renderShop(true); }); }
+    if (have) { btn.textContent = 'ขาย +' + Math.floor(it.cost * 0.7); btn.disabled = !can; btn.addEventListener('click', function () { if (act({ k: 'sell', id: it.id })) renderShop(true); }); }
+    else { btn.textContent = net == null ? 'ซื้อไม่ได้' : 'ซื้อ ' + net; btn.disabled = !can || net == null || pl.gold < net; btn.addEventListener('click', function () { if (act({ k: 'buy', id: it.id })) renderShop(true); }); }
     info.appendChild(btn);
     const inB = build.indexOf(it.id) >= 0, bt = document.createElement('button'); bt.className = 'alt';
     bt.textContent = inB ? '− เอาออกจากเซ็ต' : '＋ เพิ่มเข้าเซ็ต'; bt.addEventListener('click', function () { if (inB) buildRemove(it.id); else buildAdd(it.id); renderShop(true); });
@@ -908,10 +911,11 @@
   zone.addEventListener('pointerup', endStick);
   zone.addEventListener('pointercancel', endStick);
 
-  function castPlayerSpell() { if (g && playing && !paused) TR.Sim.castSpell(g, g.player); }
-  function recallPlayer() { if (!g || !playing || paused) return; const pl = g.player; if (pl.recall) TR.Sim.cancelRecall(g, pl); else TR.Sim.startRecall(g, pl); }
+  function castPlayerSpell() { if (g && playing && !paused) act({ k: 'spell' }); }
+  function recallPlayer() { if (!g || !playing || paused) return; act({ k: 'recall' }); }
   $('spBtn').addEventListener('pointerdown', function (e) { e.preventDefault(); castPlayerSpell(); });
   $('rcBtn').addEventListener('pointerdown', function (e) { e.preventDefault(); recallPlayer(); });
+  let lastIn = [0, 0];
   function readInput() {
     const pl = g.player;
     let dx = 0, dy = 0;
@@ -920,8 +924,8 @@
     if (keys.KeyW || keys.ArrowUp) dy -= 1;
     if (keys.KeyS || keys.ArrowDown) dy += 1;
     if (stick.active) { dx += stick.dx; dy += stick.dy; }
-    pl.input.dx = dx; pl.input.dy = dy;
-    while (queue.length) { const q = queue.shift(); TR.Sim.castSkill(g, pl, q.slot, q.aim); }
+    if (!net || dx !== lastIn[0] || dy !== lastIn[1]) { lastIn = [dx, dy]; act({ k: 'in', dx: dx, dy: dy }); }
+    while (queue.length) { const q = queue.shift(); act({ k: 'cast', slot: q.slot, aim: q.aim }); }
   }
 
   /* ---------- HUD ---------- */
@@ -994,7 +998,7 @@
   $('menuBtn').addEventListener('click', toMenu);
   $('surBtn').addEventListener('click', function () {
     if (!g) return;
-    const r = TR.Sim.callSurrender(g, g.player.team);
+    const r = TR.Sim.callSurrender(g, g.player.team);   // TODO ออนไลน์: ต้องเป็นโหวตของทีมจริง ไม่ใช่บอท
     $('surMsg').textContent = r.msg;
     if (r.passed) { paused = false; $('pauseBox').hidden = true; lastTs = performance.now(); handleEvents(); }
   });

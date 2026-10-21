@@ -15,18 +15,30 @@
   function detRun(TR, seed, secs) {
     const g = TR.Sim.createGame({ seed: seed, playerHero: 'chang', playerEmblem: 'kro', playerSpell: 'heal', playerLane: 1 });
     const pl = g.player, out = [], n = Math.ceil(secs / TR.CFG.dt);
+    pl.gold = 6000;   // ให้มีเงินซื้อของตั้งแต่ต้นเพื่อให้คำสั่งทุกชนิดได้ทำงานจริง
     for (let i = 0; i < n && !g.over; i++) {
-      // สคริปต์ผู้เล่น (ไม่ใช้ตัวสุ่ม): เดินวนตามจังหวะ ใช้สกิลเป็นช่วง ๆ
-      const ph = Math.floor(i / 60) % 4;
-      pl.input.dx = ph === 0 ? 1 : (ph === 2 ? -1 : 0); pl.input.dy = ph === 1 ? 1 : (ph === 3 ? -1 : 0);
-      if (i % 37 === 5) TR.Sim.castSkill(g, pl, i % 3, { dx: 1, dy: ph === 1 ? 1 : 0, k: 1 });
-      if (i % 400 === 3 && i > 0) { TR.Sim.upgradeSkill && TR.Sim.upgradeSkill(g, pl, (i / 400) % 3 | 0); }
-      if (i % 90 === 0) { TR.Sim.buy(g, pl, ['atk1', 'cdr1', 'def1', 'spd1'][(i / 90 | 0) % 4]); }
-      if (i % 233 === 7) TR.Sim.placeWard(g, pl);
+      // สคริปต์ผู้เล่น: ส่งคำสั่งผ่านคิว submit (จังหวะล่วงหน้า 3 tick) เหมือนที่ออนไลน์จะทำ ไม่ใช้ตัวสุ่ม
+      const ph = Math.floor(i / 60) % 4, S = TR.Sim, T = g.tick + 3, send = function (c) { S.submit(g, pl.id, c, T); };
+      if (i % 60 === 0) send({ k: 'in', dx: ph === 0 ? 1 : (ph === 2 ? -1 : 0), dy: ph === 1 ? 1 : (ph === 3 ? -1 : 0) });
+      if (i % 37 === 5) send({ k: 'cast', slot: i % 3, aim: { dx: 1, dy: ph === 1 ? 1 : 0, k: 1 } });
+      if (i === 1) send({ k: 'up', i: 0 });
+      if (i % 400 === 3 && i > 0) send({ k: 'up', i: (i / 400) % 3 | 0 });
+      if (i % 90 === 0) send({ k: 'buy', id: ['atk1', 'cdr1', 'def1', 'spd1', 'def2', 'ward1'][(i / 90 | 0) % 6] });
+      if (i % 700 === 11) send({ k: 'sell', id: 'atk1' });
+      if (i % 233 === 7) send({ k: 'ward' });
+      if (i % 151 === 9) send({ k: 'spell' });
+      if (i % 311 === 13) send({ k: 'recall' });
+      if (i % 120 === 17) send({ k: 'atk', on: (i / 120 | 0) % 2 === 0, type: (i / 240 | 0) % 3 === 1 ? 'minion' : null });
+      if (i % 200 === 19) { const e = g.units.find(function (x) { return x.type === 'hero' && x.team === 1 && !x.dead; }); if (e) send({ k: 'lock', id: e.id }); }
+      if (i % 500 === 21) send({ k: 'item', id: 'def3' });
+      if (i % 600 === 23) send({ k: 'sig', type: 'go', x: 1600, y: 600 });
+      if (i === 30) send({ k: 'set', atkMode: 'auto', prio: 'hero', autoSkill: true });
+      if (i === 40) send({ k: 'nonsense', x: 1 }), send({ k: 'in', dx: NaN, dy: 99999 }), send({ k: 'buy', id: 12345 });   // คำสั่งขยะต้องไม่ทำให้พัง
       TR.Sim.step(g);
       if (i % 200 === 199) out.push(hashState(g));
     }
     out.push('end:' + g.tick + ':' + hashState(g));
+    detRun.last = { items: pl.items.join(','), sl: pl.sl.join(','), cast: pl.lastCast > 0, kills: pl.kills, deaths: pl.deaths, x: Math.round(pl.x), wards: g.wards.length };
     return out;
   }
   root.detRun = detRun;
@@ -38,6 +50,7 @@
     const same = JSON.stringify(a) === JSON.stringify(b);
     console.log('รอบ 1 == รอบ 2 :', same ? 'ตรงกัน ✔' : 'ไม่ตรง ✘', '(' + a.length + ' จุดตรวจ)');
     console.log('hash ท้ายเกม:', a[a.length - 1]);
+    console.log('ผู้เล่นสคริปต์ทำอะไรได้บ้าง:', JSON.stringify(detRun.last));
     if (!same) { for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) { console.log('ต่างกันครั้งแรกที่จุดตรวจ', i); break; } process.exit(1); }
   }
 })(typeof window !== 'undefined' ? window : globalThis);
