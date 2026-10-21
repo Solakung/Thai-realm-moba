@@ -454,6 +454,7 @@
         if (!drag || drag.done || e.pointerId !== drag.id) return;
         const vx = e.clientX - drag.cx, vy = e.clientY - drag.cy, len = Math.hypot(vx, vy);
         if (len < AIM_PX) { drag.on = false; TR.Render.setAim(null); b.classList.remove('aiming'); return; }
+        if (!drag.on) { clearTimeout(drag.tt); skTipHide(); }   // เริ่มลากเล็ง: ซ่อนรายละเอียดสกิลไม่ให้บังการเล็ง
         drag.on = true; b.classList.add('aiming');
         const d = [vx, vy / K()], dl = Math.hypot(d[0], d[1]) || 1;
         // ลากแล้วตำแหน่งตามนิ้ว: สกิลพื้นที่/พุ่ง ใช้ระยะจริงในโลกคูณซูมจอ (ระยะไกลลากไกลขึ้น) ไม่ใช่จอยสติกคงที่ — ปล่อยใกล้ปุ่ม = ยกเลิก
