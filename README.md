@@ -114,3 +114,6 @@ node tools/balance.js 300 42   # 300 แมตช์ เริ่ม seed ที
 - ท่าตี/ท่าสกิลรายฮีโร่: `js/heropose.js` (`PLAN` + `ARCH` + `H[id].game()`), ใช้ใน `gamePose` (`js/view3d.js`) · ถ้าฮีโร่ไม่มี `game()` จะถอยกลับไปใช้ท่าตามอาวุธเดิม
 - เสียงรายฮีโร่: `js/audio.js` ตาราง `HS` (`at:<id>` ตีปกติ, `sk:<id>:<0-2>` สกิล) · sim ส่งชื่อเสียงผ่าน `sfx()` (ไม่กระทบ determinism)
 - ห้องเต็มจอ: `#lobby.full` · ping: `TR.Online.ping()` (เซิร์ฟเวอร์ตอบ `pong` ต่อ `ping`)
+
+## ไอเทมประจำยุค (v0.18)
+- `TR.ERA_ITEMS` / `TR.ITEM_FX_ERA` ใน `js/data.js` (ค่าสมดุลทั้งหมดอยู่ที่นั่น + `CFG.recipeFloor`, `CFG.botEraItems`) · ตรรกะซื้อ/หักราคา `netCost`/`buy`/`recipeParts` ใน `js/sim.js` · ร้านค้าหมวดล่างสุดใน `renderShop` (`js/main.js`)

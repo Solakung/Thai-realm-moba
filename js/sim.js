@@ -213,7 +213,7 @@
     const u = mkUnit(g, {
       type: 'hero', def: def, team: team, role: def.role, emblem: emblem, isPlayer: isPlayer, slot: slot,
       x: sp.x, y: sp.y, hp: 1, maxHp: 1, radius: r.radius, baseArmor: r.armor, baseMres: r.mres || 0, itmFx: {}, itemCd: {}, wardN: CFG.ward.max, wardCd: 0, wardNext: 0, dmgLog: [], recap: null,
-      level: 1, xp: 0, gold: 0, items: [], itm: zeroItm(), cd: [0, 0, 0], spell: 'heal', spCd: 0, sl: [0, 0, 0], atkHold: false, atkBuf: -99, atkType: null, lockT: null, prio: 'near', autoSkill: !isPlayer, atkMode: 'auto', recall: null, hurtT: -99, input: { dx: 0, dy: 0 }, kills: 0, deaths: 0, cs: 0,
+      level: 1, xp: 0, gold: 0, era: 0, items: [], itm: zeroItm(), cd: [0, 0, 0], spell: 'heal', spCd: 0, sl: [0, 0, 0], atkHold: false, atkBuf: -99, atkType: null, lockT: null, prio: 'near', autoSkill: !isPlayer, atkMode: 'auto', recall: null, hurtT: -99, input: { dx: 0, dy: 0 }, kills: 0, deaths: 0, cs: 0,
       bush: -1, revealT: 0, hid: [false, false], streak: 0, mkN: 0, mkT: -99, lastHitTeam: -1, stDmg: 0, stTwr: 0, stTaken: 0, stHeal: 0, stTowers: 0, stMon: 0, assists: 0, recent: {}, greedCount: 0, greedReady: false, decoyCd: 0, untarget: 0, still: 0, lastHeroHit: -99, auraT: 0,
       respawnAt: 0, casting: null, dash: null, aiTarget: null, nextMul: 0, goldTotal: 0,
       ai: { next: 0, retreat: false, yOff: (slot - 2) * 14, lane: lane0 < 0 ? 1 : lane0, jungle: lane0 < 0, defend: false, chk: 0 }
@@ -244,7 +244,20 @@
     return null;
   }
   // ราคาจริงหลังหักชิ้นล่างของสายเดียวกัน (null = ซื้อไม่ได้)
+  // ไอเทมประจำยุค: ชิ้นย่อยที่ถืออยู่และนับเป็นส่วนประกอบ
+  function recipeParts(u, it) {
+    const out = [];
+    it.recipe.forEach(function (rid) { const r = TR.ITEM_BY_ID[rid], hv = ownedInLine(u, r.line); if (hv && hv.tier >= r.tier && out.indexOf(hv) < 0) out.push(hv); });
+    return out;
+  }
   function netCost(u, it) {
+    if (it.recipe) {
+      if ((u.era | 0) < it.era || u.items.indexOf(it.id) >= 0) return null;
+      const parts = recipeParts(u, it);
+      if (u.items.length - parts.length >= CFG.shopSlots) return null;
+      let c = it.cost; parts.forEach(function (p) { c -= p.cost; });
+      return Math.max(Math.round(it.cost * CFG.recipeFloor), c);
+    }
     const have = ownedInLine(u, it.line);
     if (have && have.tier >= it.tier) return null;
     if (!have && u.items.length >= CFG.shopSlots) return null;
@@ -255,6 +268,11 @@
     if (!it || !canShop(u)) return false;
     const c = netCost(u, it);
     if (c == null || u.gold < c) return false;
+    if (it.recipe) {
+      recipeParts(u, it).forEach(function (p) { u.items.splice(u.items.indexOf(p.id), 1); });
+      u.gold -= c; u.items.push(id); sumItems(u); recalc(g, u); if (u === g.player) sfx(g, 'buy', u.x, u.y, true);
+      return true;
+    }
     const have = ownedInLine(u, it.line);
     if (have) u.items.splice(u.items.indexOf(have.id), 1);
     u.gold -= c; u.items.push(id); sumItems(u); recalc(g, u); if (u === g.player) sfx(g, 'buy', u.x, u.y, true);
@@ -268,7 +286,20 @@
   }
 
   // บอท: เก็บทีละสายตามลำดับของบทบาท ถ้าเงินไม่พอจะเก็บเงินรอ (ไม่ซื้อสายอื่นแทรก)
+  function botEraItem(u) {
+    if (u.items.length < 1) return null;
+    let n = 0; u.items.forEach(function (id) { if (TR.ITEM_BY_ID[id].recipe) n++; });
+    if (n >= CFG.botEraItems) return null;
+    for (let i = 0; i < TR.ERA_ITEMS.length; i++) {
+      const it = TR.ERA_ITEMS[i];
+      if (it.roles.indexOf(u.role) < 0) continue;
+      const c = netCost(u, it);
+      if (c != null && u.gold >= c) return it.id;
+    }
+    return null;
+  }
   function botNextItem(u) {
+    const ei = botEraItem(u); if (ei) return ei;
     const list = (u.ai && u.ai.jungle ? TR.ITEM_BUILD_JUNGLE : TR.ITEM_BUILD[u.role]) || TR.ITEM_BUILD.fighter;
     for (let i = 0; i < list.length; i++) {
       const have = ownedInLine(u, list[i]), tier = have ? have.tier : 0;
@@ -463,6 +494,10 @@
       if ((vx * dst.face[0] + vy * dst.face[1]) / l < -0.3) mul *= 1.3;
     }
     if (o.basic && src.itmFx && src.itmFx.atk3 && dst.hp / dst.maxHp < 0.3) mul *= 1.25;
+    if (o.basic && src.itmFx) {
+      if (src.itmFx.e1a && dst.m && (dst.m.stun || dst.m.root || dst.m.slow > 0.05)) mul *= 1 + TR.ITEM_FX.e1a.amp;
+      if (src.itmFx.e2a && src.bush >= 0) mul *= 1 + TR.ITEM_FX.e2a.amp;
+    }
     return mul;
   }
   function onHitEffects(g, src, dst, d, o) {
@@ -473,6 +508,10 @@
     const F = src.itmFx || {};
     const pid = src.def.passive && src.def.passive.id;
     if (o.basic) {
+      if (o.basic && dst.type === 'hero') {
+        if (F.e0a) healUnit(g, src, src.maxHp * TR.ITEM_FX.e0a.heal);
+        if (F.e3c) for (let ci = 0; ci < 3; ci++) src.cd[ci] = Math.max(0, src.cd[ci] - TR.ITEM_FX.e3c.cd);
+      }
       if (F.spd3 && dst.type !== 'tower') addFx(dst, { type: 'slow', tag: 'spd3' + src.id, pct: 0.15, until: g.t + 1.5 });
       if (F.pen3 && dst.type === 'hero') {
         const tag = 'shred' + src.id; let cur = null;
@@ -540,6 +579,9 @@
     if (d <= 0) return 0;
     dst.hp -= d;
     dst.flash = g.t + 0.08;
+    if (dst.itmFx && dst.itmFx.e2b && dst.type === 'hero' && dst.hp > 0 && dst.hp / dst.maxHp < TR.ITEM_FX.e2b.below && (dst.itemCd.e2b || 0) <= g.t) {
+      dst.itemCd.e2b = g.t + TR.ITEM_FX.e2b.cd; addFx(dst, { type: 'shield', tag: 'it_e2b', amt: dst.maxHp * TR.ITEM_FX.e2b.shield, until: g.t + 3 });
+    }
     if (dst.type === 'hero') { dst.hurtT = g.t; dst.stTaken += d; if (dst.isPlayer) logDmg(g, dst, src, d, mag); }
     if (src && src.type === 'hero') {
       if (dst.type === 'hero') { src.stDmg += d; dst.recent[src.id] = { u: src, t: g.t }; } else if (dst.type === 'tower') src.stTwr += d;
@@ -684,6 +726,7 @@
         const gm = goldMul(src);
         addGold(src, 20 * gm + (src.itmFx && src.itmFx.gold3 ? 8 : 0));
         src.cs++;
+        if (src.itmFx && src.itmFx.e0c) healUnit(g, src, src.maxHp * TR.ITEM_FX.e0c.heal);
         if (o && o.basic && src.emblem === 'lob') { src.greedCount++; if (src.greedCount >= 3) { src.greedCount = 0; src.greedReady = true; } }
       }
     } else if (dst.type === 'monster') {
@@ -832,12 +875,12 @@
   }
 
   /* ---------- ไอเทมใช้งาน ---------- */
-  const ACTIVE_IDS = ['def3', 'regen3', 'move3', 'ward3'];
+  const ACTIVE_IDS = ['def3', 'regen3', 'move3', 'ward3', 'e0b', 'e1b', 'e2c', 'e3a', 'e3b'];
   function itemActives(u) { return ACTIVE_IDS.filter(function (id) { return u.itmFx && u.itmFx[id]; }); }
   function itemCdLeft(g, u, id) { return Math.max(0, (u.itemCd[id] || 0) - g.t); }
   function useItem(g, u, id) {
     if (g.over || u.dead || !u.itmFx || !u.itmFx[id] || itemCdLeft(g, u, id) > 0) return false;
-    if (u.m.stun && id !== 'ward3') return false;
+    if (u.m.stun && id !== 'ward3' && id !== 'e1b') return false;
     const F = TR.ITEM_FX[id];
     switch (id) {
       case 'def3': addFx(u, { type: 'shield', tag: 'it_def3', amt: u.maxHp * 0.18, until: g.t + 3 }); ring(g, u.x, u.y, 36, '#ffd54f', 0.5); break;
@@ -848,6 +891,17 @@
       case 'ward3':
         for (let i = u.fx.length - 1; i >= 0; i--) if (SPELL_NEG.indexOf(u.fx[i].type) >= 0) u.fx.splice(i, 1);
         addFx(u, { type: 'buff', tag: 'it_ward3', mresAdd: 0.5, until: g.t + 2.5 }); ring(g, u.x, u.y, 30, '#b388ff', 0.5); break;
+      case 'e0b':
+        for (const e of g.units) if (e.type === 'hero' && e.team !== u.team && !e.dead && hyp(e.x - u.x, e.y - u.y) <= F.r) addFx(e, { type: 'slow', tag: 'it_e0b' + u.id, pct: F.slow, until: g.t + F.dur });
+        ring(g, u.x, u.y, F.r, '#ffd54f', 0.5); break;
+      case 'e1b':
+        for (let i = u.fx.length - 1; i >= 0; i--) if (SPELL_NEG.indexOf(u.fx[i].type) >= 0) u.fx.splice(i, 1);
+        addFx(u, { type: 'shield', tag: 'it_e1b', amt: u.maxHp * F.shield, until: g.t + F.dur }); ring(g, u.x, u.y, 38, '#ffb74d', 0.5); break;
+      case 'e2c':
+        for (const a of alliedHeroes(g, u.team, u.x, u.y, F.r)) addFx(a, { type: 'buff', tag: 'it_e2c', speedMul: F.speed, until: g.t + F.dur });
+        ring(g, u.x, u.y, F.r, '#aed581', 0.5); break;
+      case 'e3a': addFx(u, { type: 'buff', tag: 'it_e3a', atkSpd: F.atkSpd, until: g.t + F.dur }); ring(g, u.x, u.y, 30, '#4fc3f7', 0.4); break;
+      case 'e3b': addFx(u, { type: 'hot', tag: 'it_e3b', perSec: u.maxHp * F.heal / F.dur, until: g.t + F.dur }); ring(g, u.x, u.y, 30, '#ef5350', 0.5); break;
     }
     u.itemCd[id] = g.t + F.cd; sfx(g, 'item', u.x, u.y, u === g.player);
     return true;
@@ -860,6 +914,12 @@
     if (u.itmFx.regen3 && hp < 0.5) useItem(g, u, 'regen3');
     if (u.itmFx.move3 && ((hurt && hp < 0.35) || u.m.slow > 0.2 || u.m.root)) useItem(g, u, 'move3');
     if (u.itmFx.ward3 && (u.m.stun || u.m.root || (u.m.slow > 0.3 && hurt))) useItem(g, u, 'ward3');
+    if (u.itmFx.e1b && ((hurt && hp < 0.5) || u.m.stun)) useItem(g, u, 'e1b');
+    if (u.itmFx.e3b && hp < 0.4) useItem(g, u, 'e3b');
+    if (u.itmFx.e0b || u.itmFx.e2c || u.itmFx.e3a) {
+      let foes = 0; for (const e of g.units) if (e.type === 'hero' && e.team !== u.team && !e.dead && hyp(e.x - u.x, e.y - u.y) <= 150) foes++;
+      if (foes) { if (u.itmFx.e0b) useItem(g, u, 'e0b'); if (u.itmFx.e2c && hurt) useItem(g, u, 'e2c'); if (u.itmFx.e3a) useItem(g, u, 'e3a'); }
+    }
   }
   function castSpell(g, u) {
     if (!canSpell(g, u)) return false;
@@ -999,6 +1059,7 @@
     if (u.greedReady) { ctx.mul *= 1.08; u.greedReady = false; }
     if (u.def.passive && u.def.passive.id === 'mothamma') { u.pC = (u.pC || 0) + 1; if (u.pC >= 3) { u.pC = 0; ctx.mul *= 1.3; ring(g, u.x, u.y, 24, '#ffd54f', 0.3); } }
     if (u.itmFx && u.itmFx.cdr3) u.sbT = g.t + 4;
+    if (u.itmFx && u.itmFx.e1c) healUnit(g, u, u.maxHp * TR.ITEM_FX.e1c.heal);
     cancelRecall(g, u);
     u.cd[slot] = sk.cd * (1 - CFG.skillCd * (u.sl[slot] - 1)) * (1 - Math.min(CFG.cdrCap, u.itm ? u.itm.cdr : 0));
     u.lastCast = g.t;
@@ -1277,7 +1338,7 @@
 
     // ยุค
     const ne = Math.min(TR.ERAS.length - 1, Math.floor(g.t / CFG.eraLen));
-    if (ne !== g.era) { g.era = ne; g.events.push({ k: 'era', era: ne }); }
+    if (ne !== g.era) { g.era = ne; for (const hu of g.units) if (hu.type === 'hero') hu.era = ne; g.events.push({ k: 'era', era: ne }); }
     const toNext = (g.era + 1) * CFG.eraLen - g.t;
     if (g.era < TR.ERAS.length - 1 && toNext <= CFG.eraWarn && g.warned !== g.era) { g.warned = g.era; g.events.push({ k: 'warn', era: g.era + 1 }); }
 

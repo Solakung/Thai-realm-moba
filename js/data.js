@@ -4,7 +4,7 @@
   'use strict';
   const TR = (G.TR = G.TR || {});
 
-  TR.VERSION = '0.17.0';
+  TR.VERSION = '0.18.0';
 
   TR.CFG = {
     dt: 0.05,          // ตรรกะเกม 20 ครั้งต่อวินาที
@@ -30,6 +30,8 @@
     respawnPerLevel: 1.6,
     maxLevel: 10,
     levelBonus: 0.07,  // ต่อเลเวล: เลือดและดาเมจ
+    recipeFloor: 0.2,   // ไอเทมประจำยุค: ราคาสุทธิหลังหักชิ้นย่อย ต่ำสุดคิดเป็นกี่ส่วนของราคาเต็ม
+    botEraItems: 2,     // บอทซื้อไอเทมประจำยุคได้กี่ชิ้นต่อเกม
     shopSlots: 6,      // ช่องไอเทมต่อคน (ไอเทมแต่ละชิ้นซื้อได้ชิ้นเดียว)
     skillMax: 4,       // เลเวลสกิล 1-2 สูงสุด
     ultLevels: [4, 7, 10], // ฮีโร่เลเวลเท่านี้ถึงอัปอัลติเป็นเลเวล 1/2/3
@@ -484,12 +486,46 @@
   };
   TR.ITEM_BY_ID = {};
   TR.ITEMS.forEach(function (it) { TR.ITEM_BY_ID[it.id] = it; });
+  /* ไอเทมประจำยุค: ปลดล็อกเมื่อเกมเข้ายุคนั้น ประกอบจากชิ้นย่อย (recipe) — ถือชิ้นย่อยอยู่จะหักราคาและชิ้นย่อยถูกใช้ไป
+     recipe = ชิ้นย่อยที่นับ (ถือชิ้นสายเดียวกันที่ชั้นเท่ากันหรือสูงกว่าก็นับ) · roles = บทบาทที่บอทจะซื้อ
+     พลังแฝง/ใช้งาน: ค่าตัวเลขอยู่ใน TR.ITEM_FX (ด้านล่าง) */
+  TR.ERA_ITEMS = [
+    { id: 'e0a', line: 'e0a', tier: 3, era: 0, name: 'ดาบพ่อขุนรามฯ', icon: '⚔️', cost: 2200, recipe: ['atk2', 'crit1'], roles: ['fighter', 'assassin', 'marksman'], s: { dmg: 0.17, crit: 0.1 } },
+    { id: 'e0b', line: 'e0b', tier: 3, era: 0, name: 'ระฆังไล่ภัย', icon: '🔔', cost: 1900, recipe: ['move2', 'ward1'], roles: ['tank', 'support', 'mage'], s: { speed: 0.1, mres: 0.08, hp: 0.06 } },
+    { id: 'e0c', line: 'e0c', tier: 3, era: 0, name: 'หม้อยาพ่อขุน', icon: '🍲', cost: 1900, recipe: ['regen2', 'life1'], roles: ['tank', 'fighter', 'support'], s: { hp: 0.16, regen: 0.01 } },
+    { id: 'e1a', line: 'e1a', tier: 3, era: 1, name: 'หอกกุนไชย', icon: '🔱', cost: 2500, recipe: ['pen2', 'atk2'], roles: ['marksman', 'fighter', 'assassin'], s: { dmg: 0.12, pen: 0.12 } },
+    { id: 'e1b', line: 'e1b', tier: 3, era: 1, name: 'เกราะพญาช้าง', icon: '🐘', cost: 2400, recipe: ['def2', 'wall2'], roles: ['tank', 'fighter'], s: { hp: 0.24, armor: 0.1 } },
+    { id: 'e1c', line: 'e1c', tier: 3, era: 1, name: 'ตำราพิชัยสงคราม', icon: '📜', cost: 2100, recipe: ['cdr2', 'mpen1'], roles: ['mage', 'support', 'assassin'], s: { cdr: 0.15, dmg: 0.06, mpen: 0.08 } },
+    { id: 'e2a', line: 'e2a', tier: 3, era: 2, name: 'ปืนไรเฟิลสนาม', icon: '🔫', cost: 2500, recipe: ['spd2', 'crit2'], roles: ['marksman', 'assassin'], s: { atkSpd: 0.2, crit: 0.14, dmg: 0.05 } },
+    { id: 'e2b', line: 'e2b', tier: 3, era: 2, name: 'เสื้อเกราะกันกระสุน', icon: '🦺', cost: 2300, recipe: ['def2', 'regen2'], roles: ['tank', 'fighter'], s: { armor: 0.14, hp: 0.12 } },
+    { id: 'e2c', line: 'e2c', tier: 3, era: 2, name: 'วิทยุสนาม', icon: '📻', cost: 1900, recipe: ['move2', 'cdr1'], roles: ['support', 'tank', 'assassin'], s: { speed: 0.1, cdr: 0.08, hp: 0.06 } },
+    { id: 'e3a', line: 'e3a', tier: 3, era: 3, name: 'สมาร์ตโฟน', icon: '📱', cost: 2000, recipe: ['cdr2', 'gold1'], roles: ['marksman', 'mage', 'fighter'], s: { cdr: 0.12, gold: 0.08, dmg: 0.05 } },
+    { id: 'e3b', line: 'e3b', tier: 3, era: 3, name: 'เครื่องกระตุกหัวใจ', icon: '🫀', cost: 2400, recipe: ['life2', 'regen2'], roles: ['tank', 'support', 'fighter'], s: { hp: 0.22, regen: 0.01 } },
+    { id: 'e3c', line: 'e3c', tier: 3, era: 3, name: 'พาวเวอร์แบงก์', icon: '🔋', cost: 2300, recipe: ['spd2', 'mpen2'], roles: ['mage', 'marksman', 'assassin'], s: { atkSpd: 0.12, mpen: 0.1, dmg: 0.06 } }
+  ];
+  TR.ITEM_FX_ERA = {
+    e0a: { passive: 'พ่อขุนผู้ยุติธรรม', heal: 0.015, desc: 'ตีปกติโดนฮีโร่ศัตรู ฟื้นเลือด 1.5% ของเลือดสูงสุด' },
+    e0b: { active: 'เสียงระฆังสุโขทัย', cd: 75, r: 130, slow: 0.4, dur: 2, icon: '🔔', desc: 'กดใช้: ฮีโร่ศัตรูรอบตัว (ระยะ 130) ชะลอ 40% นาน 2 วินาที' },
+    e0c: { passive: 'อาหารทิพย์', heal: 0.025, desc: 'ปราบลูกกระจ๊อก ฟื้นเลือด 2.5% ของเลือดสูงสุด' },
+    e1a: { passive: 'ล่าเหยื่อติดกับ', amp: 0.2, desc: 'ตีปกติใส่เป้าที่ถูกชะลอ ตรึง หรือสตัน ดาเมจเพิ่ม 20%' },
+    e1b: { active: 'ตั้งรับบนหลังช้าง', cd: 70, shield: 0.22, dur: 3, icon: '🐘', desc: 'กดใช้: ล้างสถานะเสีย และเกราะกั้น 22% ของเลือดสูงสุด 3 วินาที' },
+    e1c: { passive: 'ยุทธวิธี', heal: 0.03, desc: 'ใช้สกิลแต่ละครั้ง ฟื้นเลือด 3% ของเลือดสูงสุด' },
+    e2a: { passive: 'พลซุ่มยิง', amp: 0.2, desc: 'ตีปกติขณะอยู่ในพุ่มไม้ ดาเมจเพิ่ม 20%' },
+    e2b: { passive: 'ผ้าพันแผลสนาม', cd: 60, below: 0.35, shield: 0.15, desc: 'เลือดต่ำกว่า 35% ได้เกราะ 15% ของเลือดสูงสุด 3 วินาที (คูลดาวน์ 60 วินาที)' },
+    e2c: { active: 'เรียกระดมพล', cd: 80, r: 320, speed: 1.25, dur: 3, icon: '📻', desc: 'กดใช้: ตัวเองและเพื่อนในระยะ 320 วิ่งเร็วขึ้น 25% นาน 3 วินาที' },
+    e3a: { active: 'บูสต์ 5G', cd: 85, atkSpd: 1.45, dur: 4, icon: '📱', desc: 'กดใช้: ตีเร็วขึ้น 45% นาน 4 วินาที' },
+    e3b: { active: 'ปั๊มหัวใจ', cd: 120, heal: 0.5, dur: 3, icon: '🫀', desc: 'กดใช้: ฟื้นเลือด 50% ของเลือดสูงสุดใน 3 วินาที' },
+    e3c: { passive: 'ไฟสถิต', cd: 0.3, desc: 'ตีปกติโดนฮีโร่ศัตรู ลดคูลดาวน์สกิลทุกอัน 0.3 วินาที' }
+  };
+  TR.ERA_ITEMS.forEach(function (it) { TR.ITEM_FX[it.id] = TR.ITEM_FX_ERA[it.id]; });
+  TR.ERA_ITEMS.forEach(function (it) { TR.ITEM_BY_ID[it.id] = it; });
   TR.itemAt = function (line, tier) { for (let i = 0; i < TR.ITEMS.length; i++) if (TR.ITEMS[i].line === line && TR.ITEMS[i].tier === tier) return TR.ITEMS[i]; return null; };
   // คำอธิบายสร้างจากค่าใน s (ไม่ต้องเขียนซ้ำ)
   TR.itemDesc = function (it) {
     const L = { mpen: 'ทะลวงเวท', mres: 'ต้านเวท', dmg: 'ดาเมจ', atkSpd: 'ตีเร็ว', hp: 'เลือด', speed: 'วิ่งเร็ว', tower: 'ดาเมจใส่ป้อม', armor: 'ลดดาเมจรับ', ls: 'ดูดเลือด', crit: 'โอกาสคริติคอล', pen: 'ทะลวงเกราะ', regen: 'ฟื้นเลือด/วิ', cdr: 'ลดคูลดาวน์', jungle: 'ดาเมจใส่มอนป่า', gold: 'ทองที่ได้' }, out = [];
     TR.ITEM_STATS.forEach(function (k) { if (it.s[k]) out.push(L[k] + ' +' + (k === 'regen' ? (it.s[k] * 100).toFixed(1) : Math.round(it.s[k] * 100)) + '%'); });
     const fx = TR.ITEM_FX[it.id];
+    if (it.recipe) out.push('🏯 ประจำยุค' + TR.ERAS[it.era].name + ' · ประกอบจาก ' + it.recipe.map(function (r) { return TR.ITEM_BY_ID[r].name; }).join(' + '));
     if (fx) out.push((fx.active ? '⚡ ใช้งาน ' + fx.active + ' (คูลดาวน์ ' + fx.cd + ' วิ)' : '✦ ' + fx.passive) + ': ' + fx.desc);
     return out.join(' · ');
   };
@@ -508,6 +544,17 @@
      ทุกครั้งที่อัปเดตเกม: เพิ่มรายการใหม่ไว้บนสุด และแก้ TR.VERSION ให้ตรงกัน
      ผู้เล่นที่ยังไม่เคยเห็นเวอร์ชันนั้นจะเห็นกล่องอัปเดตขึ้นเองตอนเปิดเกม */
   TR.CHANGELOG = [
+    {
+      version: '0.18.0',
+      date: '2026-10-21',
+      title: 'ไอเทมประจำยุค 12 ชิ้น + ระบบประกอบจากชิ้นย่อย',
+      items: [
+        'ร้านมีหมวดใหม่ "ไอเทมประจำยุค" ยุคละ 3 ชิ้น (รวม 12 ชิ้น) ปลดล็อกเมื่อเกมเข้ายุคนั้น: สุโขทัย ดาบพ่อขุนรามฯ · ระฆังไล่ภัย · หม้อยาพ่อขุน / อยุธยา หอกกุนไชย · เกราะพญาช้าง · ตำราพิชัยสงคราม / ยุคสงคราม ปืนไรเฟิลสนาม · เสื้อเกราะกันกระสุน · วิทยุสนาม / ปัจจุบัน สมาร์ตโฟน · เครื่องกระตุกหัวใจ · พาวเวอร์แบงก์',
+        'ประกอบจากชิ้นย่อย: ถือชิ้นย่อยตามสูตรอยู่ (เช่น ดาบพ่อขุนรามฯ = ดาบทมิฬ + มีดหมอพราน) จะหักราคาให้และชิ้นย่อยถูกใช้ไป ช่องไอเทมจึงไม่เต็มเร็ว',
+        'มีไอเทมใช้งานใหม่ 5 ชิ้น (ระฆังชะลอศัตรู · ตั้งรับบนหลังช้าง · เรียกระดมพล · บูสต์ 5G · ปั๊มหัวใจ) กดด้วยปุ่ม G H T Y B N ตามลำดับที่ถือ และพลังแฝง 7 แบบ เช่น ซุ่มในพุ่มตีแรงขึ้น ผ้าพันแผลสนามให้โล่ตอนเลือดต่ำ ไฟสถิตลดคูลดาวน์ตอนตีโดน',
+        'บอทซื้อไอเทมประจำยุคตามบทบาท (สูงสุด 2 ชิ้นต่อเกม)'
+      ]
+    },
     {
       version: '0.17.0',
       date: '2026-10-21',

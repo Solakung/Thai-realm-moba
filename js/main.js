@@ -270,7 +270,7 @@
     layoutItems();
   }
   // ไอเทมใช้งาน: ปุ่มซ้อนอยู่เหนือปุ่มสเปล/กลับพระนคร
-  var itPos, IT_KEYS = ['KeyG', 'KeyH', 'KeyT', 'KeyY'], IT_LBL = ['G', 'H', 'T', 'Y'];
+  var itPos, IT_KEYS = ['KeyG', 'KeyH', 'KeyT', 'KeyY', 'KeyB', 'KeyN'], IT_LBL = ['G', 'H', 'T', 'Y', 'B', 'N'];
   function layoutItems() {
     if (!itPos) return;
     const bs = $('itBox').children;
@@ -994,15 +994,26 @@
         list.appendChild(b);
       }
     });
+    const eh = document.createElement('div'); eh.className = 'sline'; eh.textContent = '🏯 ไอเทมประจำยุค (ปลดล็อกตามยุค · ประกอบจากชิ้นย่อย หักราคาให้)'; list.appendChild(eh);
+    TR.ERA_ITEMS.forEach(function (it) {
+      const have = pl.items.indexOf(it.id) >= 0, net = TR.Sim.netCost(pl, it), locked = (pl.era | 0) < it.era;
+      const afford = net != null && pl.gold >= net;
+      const b = document.createElement('button');
+      b.className = 'sitem' + (have ? ' have' : (afford && can ? ' can' : (net == null ? ' no' : ''))) + (shopSel === it.id ? ' sel' : '');
+      b.innerHTML = '<span class="ic">' + it.icon + '</span><span class="nm">' + it.name + '</span><span class="co">' + (have ? '✓' : (locked ? '🔒' + TR.ERAS[it.era].name : (net == null ? '—' : net))) + '</span>';
+      b.addEventListener('click', function () { shopSel = it.id; renderShop(true); });
+      list.appendChild(b);
+    });
     const info = $('shopInfo');
     if (!shopSel) { info.textContent = 'แตะไอเทมเพื่อดูรายละเอียด · แต่ละสายอัปเกรดต่อกันได้ ชั้นบนหักราคาชิ้นล่างที่มี'; return; }
     const it = TR.ITEM_BY_ID[shopSel], have = pl.items.indexOf(it.id) >= 0, net = TR.Sim.netCost(pl, it);
     const lower = TR.Sim.ownedInLine(pl, it.line);
-    info.innerHTML = '<span class="tx"><b>' + it.icon + ' ' + it.name + '</b> (ชั้น ' + it.tier + ')<br>' + TR.itemDesc(it) + (lower && !have && net != null ? ' · ต่อยอดจาก ' + lower.name : '') + '</span>';
+    info.innerHTML = '<span class="tx"><b>' + it.icon + ' ' + it.name + '</b> (' + (it.recipe ? 'ประจำยุค' + TR.ERAS[it.era].name : 'ชั้น ' + it.tier) + ')<br>' + TR.itemDesc(it) + (lower && !have && net != null ? ' · ต่อยอดจาก ' + lower.name : '') + '</span>';
     const btn = document.createElement('button');
     if (have) { btn.textContent = 'ขาย +' + Math.floor(it.cost * 0.7); btn.disabled = !can; btn.addEventListener('click', function () { if (act({ k: 'sell', id: it.id })) renderShop(true); }); }
     else { btn.textContent = net == null ? 'ซื้อไม่ได้' : 'ซื้อ ' + net; btn.disabled = !can || net == null || pl.gold < net; btn.addEventListener('click', function () { if (act({ k: 'buy', id: it.id })) renderShop(true); }); }
     info.appendChild(btn);
+    if (it.recipe) return;   // ไอเทมประจำยุคไม่เข้าเซ็ตซื้ออัตโนมัติ
     const inB = build.indexOf(it.id) >= 0, bt = document.createElement('button'); bt.className = 'alt';
     bt.textContent = inB ? '− เอาออกจากเซ็ต' : '＋ เพิ่มเข้าเซ็ต'; bt.addEventListener('click', function () { if (inB) buildRemove(it.id); else buildAdd(it.id); renderShop(true); });
     info.appendChild(bt);
