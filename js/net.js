@@ -3,7 +3,7 @@
 (function (root) {
   'use strict';
   const TR = root.TR = root.TR || {};
-  TR.NET = { url: '', wakeEvery: 8 * 60 * 1000 };
+  TR.NET = { url: 'https://thai-realm-moba.onrender.com', wakeEvery: 8 * 60 * 1000 };
   let lastWake = 0;
   TR.Net = {
     configured: function () { return !!TR.NET.url; },
