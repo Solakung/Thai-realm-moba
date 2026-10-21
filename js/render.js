@@ -752,6 +752,7 @@
     for (const u of g.units) {
       const ix = u.px + (u.x - u.px) * alpha, iy = u.py + (u.y - u.py) * alpha;
       if (ix < camX - 70 || ix > camX + view.w + 70 || iy < camY - 80 || iy > camY + view.h + 140) continue;
+      if (pl && !g.over && u.team !== pl.team && u.type !== 'tower' && u.vis && u.vis[pl.team] === false) continue;   // อยู่ในหมอก: ไม่เห็น
       if (u.dead) {
         const age = g.t - (u.dieT == null ? -99 : u.dieT);
         if (u.type === 'tower') { list.push({ u: u, x: ix, y: iy }); continue; }
@@ -1041,8 +1042,44 @@
     }
   }
 
+  /* ---------- หมอกสงคราม ---------- */
+  function seenAt(g, team, x, y) {
+    const S = g.visSrc && g.visSrc[team]; if (!S) return true;
+    for (let i = 0; i < S.length; i += 3) { const dx = S[i] - x, dy = S[i + 1] - y; if (dx * dx + dy * dy <= S[i + 2]) return true; }
+    return false;
+  }
+  const FOG = { cv: null, c: null, spr: null, mcv: null, mc: null };
+  function fogSprite() {   // วงสว่าง: ตรงกลางเปิดเต็ม ขอบค่อยๆ จาง
+    if (FOG.spr) return FOG.spr;
+    const cv = document.createElement('canvas'); cv.width = cv.height = 64; const x = cv.getContext('2d');
+    const gr = x.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, 'rgba(0,0,0,1)'); gr.addColorStop(0.62, 'rgba(0,0,0,.96)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+    x.fillStyle = gr; x.fillRect(0, 0, 64, 64); return (FOG.spr = cv);
+  }
+  function fogPaint(fc, S, fw, fh, tx, ty, ax, ay) {   // tx,ty = ตำแหน่งโลก→พิกเซลฟอก (ax,ay = สเกล)
+    fc.setTransform(1, 0, 0, 1, 0, 0); fc.globalCompositeOperation = 'source-over'; fc.clearRect(0, 0, fw, fh);
+    fc.fillStyle = 'rgba(6,9,22,0.72)'; fc.fillRect(0, 0, fw, fh);
+    fc.globalCompositeOperation = 'destination-out';
+    const spr = fogSprite();
+    for (let i = 0; i < S.length; i += 3) {
+      const r = Math.sqrt(S[i + 2]), sx = (S[i] - tx) * ax, sy = (S[i + 1] - ty) * ay, rx = r * ax, ry = r * ay;
+      if (sx + rx < 0 || sx - rx > fw || sy + ry < 0 || sy - ry > fh) continue;
+      fc.drawImage(spr, sx - rx, sy - ry, rx * 2, ry * 2);
+    }
+    fc.globalCompositeOperation = 'source-over';
+  }
+  function drawFog(c, g) {
+    const pl = g.player; if (!TR.CFG.fog || !pl || g.over || !g.visSrc) return;
+    const sc = 0.25, fw = Math.max(8, Math.ceil(view.cw * sc)), fh = Math.max(8, Math.ceil(view.ch * sc));
+    if (!FOG.cv) { FOG.cv = document.createElement('canvas'); FOG.c = FOG.cv.getContext('2d'); }
+    if (FOG.cv.width !== fw || FOG.cv.height !== fh) { FOG.cv.width = fw; FOG.cv.height = fh; }
+    const zz = view.z * sc;
+    fogPaint(FOG.c, g.visSrc[pl.team], fw, fh, ST.camX, ST.camY, zz, zz * ST.K);
+    c.setTransform(1, 0, 0, 1, 0, 0); c.imageSmoothingEnabled = true; c.drawImage(FOG.cv, 0, 0, fw, fh, 0, 0, view.cw, view.ch);
+  }
   function drawProjs(c, g) {
+    const plp = g.player;
     for (const p of g.projs) {
+      if (plp && !g.over && p.team !== plp.team && !seenAt(g, plp.team, p.x, p.y)) continue;
       UP(c, p.y);
       let dx, dy;
       if (p.tgt) { dx = p.tgt.x - p.x; dy = p.tgt.y - p.y; } else { dx = p.vx; dy = p.vy; }
@@ -1173,6 +1210,7 @@
     drawProjs(c, g);
     drawFx(c, g, rt);
     updateParts(c, dt);
+    drawFog(c, g);
 
     // แสงบรรยากาศตามยุค
     c.setTransform(z, 0, 0, z, 0, 0);
@@ -1240,6 +1278,7 @@
     }
     for (const u of g.units) {
       if (u.dead) continue;
+      if (me && !g.over && u.team !== me.team && u.type !== 'tower' && u.vis && u.vis[me.team] === false) continue;
       const x = u.x * sx, y = u.y * sy;
       if (u.type === 'monster' && u.kind === 'boss') { c.fillStyle = '#e53935'; c.beginPath(); c.arc(x, y, 5.4 * k, 0, TAU); c.fill(); c.strokeStyle = '#fff'; c.lineWidth = 1.2 * k; c.stroke(); }
       else if (u.type === 'monster') { const buff = TR.MONSTERS[u.kind].buff; c.fillStyle = buff ? '#ffd54f' : '#ff9800'; c.beginPath(); c.arc(x, y, (buff ? 3.2 : 2.2) * k, 0, TAU); c.fill(); if (buff) { c.strokeStyle = '#000'; c.lineWidth = 0.8 * k; c.stroke(); } }
@@ -1249,6 +1288,7 @@
       if (u.type !== 'hero') continue;
       if (u.m && u.m.stealth && me && u.team !== me.team) continue;
       if (me && u.team !== me.team && u.hid && u.hid[me.team]) continue;
+      if (me && !g.over && u.team !== me.team && u.vis && u.vis[me.team] === false) continue;
       const isMe = u === me, x = u.x * sx, y = u.y * sy, r = (isMe ? 5.6 : 4.8) * k;
       if (u.dead) { c.globalAlpha = 0.65; c.strokeStyle = '#9e9e9e'; c.lineWidth = 1.4 * k; c.beginPath(); c.moveTo(x - r * .7, y - r * .7); c.lineTo(x + r * .7, y + r * .7); c.moveTo(x + r * .7, y - r * .7); c.lineTo(x - r * .7, y + r * .7); c.stroke(); c.globalAlpha = 1; continue; }
       c.fillStyle = TEAM[u.team]; c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
@@ -1258,6 +1298,12 @@
       if (u.hp < u.maxHp * 0.35 && !isMe) { c.strokeStyle = '#ff1744'; c.lineWidth = 1.2 * k; c.beginPath(); c.arc(x, y, r + 2 * k, 0, TAU); c.stroke(); }
     }
     if (g.player) for (const w of g.wards) { if (w.team !== g.player.team) continue; c.fillStyle = '#ffd54f'; c.globalAlpha = 0.9; c.beginPath(); c.arc(w.x * sx, w.y * sy, 2.4 * k, 0, TAU); c.fill(); c.strokeStyle = 'rgba(255,224,130,.35)'; c.lineWidth = 1 * k; c.beginPath(); c.arc(w.x * sx, w.y * sy, TR.CFG.ward.r * sx, 0, TAU); c.stroke(); c.globalAlpha = 1; }
+    if (me && TR.CFG.fog && !g.over && g.visSrc) {   // หมอกบนมินิแมพ
+      if (!FOG.mcv) { FOG.mcv = document.createElement('canvas'); FOG.mc = FOG.mcv.getContext('2d'); }
+      if (FOG.mcv.width !== w || FOG.mcv.height !== h) { FOG.mcv.width = w; FOG.mcv.height = h; }
+      fogPaint(FOG.mc, g.visSrc[me.team], w, h, 0, 0, sx, sy);
+      c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(FOG.mcv, 0, 0);
+    }
     for (const p of activePings(g)) {
       const S0 = TR.SIGNALS[p.type]; if (!S0) continue; const x = p.x * sx, y = p.y * sy, ph = ((g.t - p.t) * 1.2) % 1;
       c.strokeStyle = S0.color; c.lineWidth = 1.6 * k; c.globalAlpha = 1 - ph; c.beginPath(); c.arc(x, y, (5 + ph * 14) * k, 0, TAU); c.stroke(); c.globalAlpha = 1;

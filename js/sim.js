@@ -405,6 +405,25 @@
       if (!gone) for (const e of hs) if (!e.dead && e.team !== w.team && hyp(e.x - w.x, e.y - w.y) <= CFG.ward.sweep) { gone = true; sfx(g, 'ping', w.x, w.y, false); break; }
       if (gone) g.wards.splice(i, 1);
     }
+    if (CFG.fog) {   // หมอกสงคราม: u.vis[t] = ทีม t มองเห็นหน่วยนี้ไหม (คำนวณจากระยะถึงตัวมองของทีม t เท่านั้น ใช้ + − × ล้วน)
+      const V = CFG.vision, src = [[], []], wr2 = CFG.ward.r * CFG.ward.r;
+      for (const u of g.units) {
+        if (u.dead || (u.team !== 0 && u.team !== 1)) continue;
+        const r = u.type === 'hero' ? V.hero : u.type === 'minion' ? V.minion : u.type === 'tower' ? (u.king ? V.king : V.tower) : 0;
+        if (r) src[u.team].push(u.x, u.y, r * r);
+      }
+      for (const w of g.wards) src[w.team].push(w.x, w.y, wr2);
+      g.visSrc = src;   // ให้ฝั่งแสดงผลวาดหมอก/ซ่อนของนอกวงมอง
+      for (const u of g.units) {
+        if (!u.vis) u.vis = [true, true];
+        for (let t = 0; t < 2; t++) {
+          if (u.team === t || u.type === 'tower') { u.vis[t] = true; continue; }
+          const S = src[t]; let sn = false;
+          for (let i = 0; i < S.length; i += 3) { const dx = S[i] - u.x, dy = S[i + 1] - u.y; if (dx * dx + dy * dy <= S[i + 2]) { sn = true; break; } }
+          u.vis[t] = sn;
+        }
+      }
+    }
     for (const u of hs) {
       u.hid[0] = u.hid[1] = false;
       if (u.bush < 0 || u.revealT > g.t) continue;
@@ -429,6 +448,7 @@
   function canTarget(g, src, dst) {
     if (!dst || dst.dead || dst.team === src.team) return false;
     if (dst.type === 'tower' && !towerVuln(g, dst)) return false;
+    if (dst.vis && dst.vis[src.team] === false) return false;   // อยู่ในหมอก
     if (dst.type === 'hero') {
       if (dst.untarget > g.t) return false;
       if (dst.hid[src.team]) return false;
@@ -1519,8 +1539,8 @@
     return best.e || best;
   }
   function autoAttack(g, u) {
-    const r = { range: TR.atkRange(u.def) };
-    const range = r.range * (u.m.blind ? 0.6 : 1);
+    const r = TR.ROLES[u.role], rg = TR.atkRange(u.def);
+    const range = rg * (u.m.blind ? 0.6 : 1);
     let tgt = null;
     const tn = findFx(u, 'taunt');
     if (tn && tn.by && !tn.by.dead) { if (dist(u, tn.by) - tn.by.radius <= range) tgt = tn.by; else return; }
@@ -1545,7 +1565,7 @@
     if (VIS) sfx(g, 'at:' + u.def.id, u.x, u.y, u === g.player);
     u.face = dirToward(u, tgt);
     const st = findFxStealth(u); if (st) removeFx(u, st);
-    if (r.range > 60) {
+    if (rg > 60) {
       g.projs.push({ team: u.team, src: u, x: u.x, y: u.y, tgt: tgt, speed: 230, dmg: r.atk, mul: 1, basic: true, c: u.def.colors.accent, w: 3, hit: [] });
     } else {
       hit(g, u, tgt, r.atk, { basic: true });
