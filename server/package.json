@@ -1,0 +1,10 @@
+{
+  "name": "thai-realm-relay",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ตัวส่งต่อคำสั่งของ Thai Realm (ไม่รันเกม แค่เรียงลำดับและกระจายคำสั่งในห้อง)",
+  "main": "index.js",
+  "scripts": { "start": "node index.js" },
+  "engines": { "node": ">=18" },
+  "dependencies": { "ws": "^8.18.0" }
+}
