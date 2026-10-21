@@ -125,11 +125,27 @@
         <div id="spellInfo"></div>
         <button id="startBtn" class="primary big">เริ่มเกม · 5v5 กับบอท</button>
         <button id="tutBtn" class="ghost" style="width:100%;margin-top:6px">📖 โหมดสอนเล่น (ศัตรูไม่ขยับ)</button>
+        <button id="onBtn" class="ghost" style="width:100%;margin-top:6px">🌐 เล่นออนไลน์กับเพื่อน (ทดลอง)</button>
         <p class="hint">เดิน: WASD / ลูกศร หรือจอยสติ๊กบนจอ · สกิล: Q E R หรือ 1 2 3 (เล็งเป้าที่ใกล้ที่สุดให้อัตโนมัติ) · หยุดเกม: P</p>
       </div>
     </div>
   </div>
 </section>
+
+<div id="lobby" hidden>
+  <div class="lb-head"><b>🌐 ห้องออนไลน์</b><span id="lbStatus"></span><button id="lbClose" class="ghost">✕</button></div>
+  <div id="lbEntry">
+    <button id="lbCreate" class="primary">สร้างห้องใหม่</button>
+    <div class="lb-or">หรือ</div>
+    <div class="lb-join"><input id="lbCode" maxlength="4" placeholder="รหัสห้อง 4 ตัว" autocomplete="off" autocapitalize="characters"><button id="lbJoin" class="ghost">เข้าห้อง</button></div>
+  </div>
+  <div id="lbRoom" hidden>
+    <div class="lb-code">รหัสห้อง <b id="lbCodeTx"></b><button id="lbCopy" class="ghost">คัดลอกลิงก์ชวนเพื่อน</button></div>
+    <div class="lb-teams"><div><h4 class="b">ทีมน้ำเงิน</h4><div id="lbT0"></div></div><div><h4 class="r">ทีมแดง</h4><div id="lbT1"></div></div></div>
+    <div class="lb-btns"><button id="lbTeam" class="ghost">สลับทีม</button><button id="lbReady" class="primary">พร้อม</button><button id="lbStart" class="primary" hidden>เริ่มเกม</button></div>
+    <p class="hint" id="lbHint">เลือกฮีโร่ ชุดใจ เลน สเปล ที่หน้าเมนูก่อน แล้วกด "พร้อม" · ที่ว่างในทีมบอทเติมให้</p>
+  </div>
+</div>
 
 <section id="result" hidden>
   <div class="card wide">

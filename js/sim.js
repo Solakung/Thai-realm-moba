@@ -60,6 +60,15 @@
   function ring(g, x, y, r, c, dur) { g.fx.push({ k: 'ring', x: x, y: y, r: r, c: c, t0: g.t, dur: dur || 0.3 }); }
   function line(g, a, b, c, dur) { g.fx.push({ k: 'line', x1: a.x, y1: a.y, x2: b.x, y2: b.y, c: c, t0: g.t, dur: dur || 0.12 }); }
   const VIS = typeof window !== 'undefined';
+  // ลายนิ้วมือสถานะเกม: ทุกเครื่องในห้องเดียวกันต้องได้ค่าเดียวกันที่ tick เดียวกัน ถ้าต่างกัน = เกมเพี้ยน
+  function hash(g) {
+    let h = 2166136261 >>> 0;
+    const buf = new Float64Array(1), u32 = new Uint32Array(buf.buffer);
+    function mix(v) { buf[0] = v; h = Math.imul(h ^ u32[0], 16777619) >>> 0; h = Math.imul(h ^ u32[1], 16777619) >>> 0; }
+    for (const u of g.units) { mix(u.id); mix(u.x); mix(u.y); mix(u.hp); if (u.type === 'hero') { mix(u.gold); mix(u.xp); mix(u.level); mix(u.kills); mix(u.deaths); mix(u.items.length); } }
+    mix(g.t); mix(g.score[0]); mix(g.score[1]); mix(g.wards.length); mix(g.projs.length);
+    return h.toString(16);
+  }
   const NEG = { stun: 1, slow: 1, root: 1, blind: 1, taunt: 1 };
 
   /* ---------- สร้างเกม ---------- */
@@ -101,12 +110,26 @@
       g.boss = mkUnit(g, { type: 'monster', team: 2, kind: 'boss', camp: -1, side: -1, home: { x: B.x, y: B.y }, x: B.x, y: B.y,
         hp: 0, maxHp: M.hp, radius: M.radius, range: M.range, dmg: M.atk, as: M.as, speed: 70, baseArmor: 0.25,
         leash: false, aggroBy: null, aggroT: -99, respawnAt: B.spawnAt, dead: true, slamAt: 0 }); }
-    // ดราฟต์ฮีโร่: ไม่ซ้ำกันทั้งสองทีม
+    // ผู้เล่นจริง: opts.humans = [{uid, hero, team, name, emblem, spell, lane}] (ทุกเครื่องต้องส่งรายการเดียวกัน ลำดับเดียวกัน)
+    // ไม่ส่งมา = โหมดเดี่ยวแบบเดิม (ผู้เล่น 1 คนทีม 0 ใช้ opts.playerXxx)
+    const humans = [];
+    if (opts.humans && opts.humans.length) {
+      for (const hm of opts.humans) humans.push({ uid: hm.uid, hero: hm.hero, team: hm.team ? 1 : 0, name: hm.name || '', emblem: hm.emblem, spell: hm.spell, lane: hm.lane });
+    } else if (opts.playerHero) {
+      humans.push({ uid: -1, hero: opts.playerHero, team: 0, name: opts.playerName || '', emblem: opts.playerEmblem, spell: opts.playerSpell, lane: opts.playerLane });
+    }
+    // ดราฟต์ฮีโร่: ไม่ซ้ำกันทั้งสองทีม (ผู้เล่นเลือกซ้ำกัน = คนหลังถูกสุ่มให้ใหม่ เหมือนกันทุกเครื่อง)
     const pool = TR.HEROES.map(function (h) { return h.id; });
-    const picks = [[], []];
-    if (opts.playerHero) { pool.splice(pool.indexOf(opts.playerHero), 1); picks[0].push(opts.playerHero); }
-    // แบนฮีโร่: ผู้เล่นแบน (opts.playerBans) แล้วบอทแบนตามลำดับใน TR.BOT_BANS ถ้าไม่พอก็สุ่ม (ไม่แบนฮีโร่ของผู้เล่น)
-    if (opts.playerBans && opts.playerBans.length) {
+    const picks = [[], []], hOf = [[], []];
+    for (const hm of humans) {
+      if (picks[hm.team].length >= 5) continue;
+      let id = hm.hero; if (pool.indexOf(id) < 0) id = null;
+      if (id == null) id = pool[Math.floor(g.rand() * pool.length)];
+      pool.splice(pool.indexOf(id), 1); picks[hm.team].push(id); hOf[hm.team].push(hm);
+    }
+    const single = humans.length === 1 && !(opts.humans && opts.humans.length);
+    // แบนฮีโร่ (โหมดเดี่ยวเท่านั้น): ผู้เล่นแบน (opts.playerBans) แล้วบอทแบนตามลำดับใน TR.BOT_BANS ถ้าไม่พอก็สุ่ม
+    if (single && opts.playerBans && opts.playerBans.length) {
       opts.playerBans.slice(0, CFG.ban.n).forEach(function (id) { const i = pool.indexOf(id); if (i >= 0 && pool.length > 9) { pool.splice(i, 1); g.bans.me.push(id); } });
       const want = TR.BOT_BANS.filter(function (id) { return pool.indexOf(id) >= 0; });
       while (g.bans.bot.length < CFG.ban.n && pool.length > 9) {
@@ -116,24 +139,28 @@
       }
     }
     function pull() { return pool.splice(Math.floor(g.rand() * pool.length), 1)[0]; }
-    while (picks[0].length < 5) picks[0].push(pull());
-    while (picks[1].length < 5) picks[1].push(pull());
-    // เลนของทีมเรา: ผู้เล่นเลือกเลนเอง บอทเพื่อนเติมเลนที่เหลือจากแผนเดิม
-    const pool0 = CFG.botLanes.slice();
-    if (opts.playerLane != null) { let i = pool0.indexOf(opts.playerLane); if (i < 0) i = pool0.indexOf(0); if (i >= 0) pool0.splice(i, 1); }
-    else pool0.shift();
+    for (let t = 0; t < 2; t++) while (picks[t].length < 5) picks[t].push(pull());
+    // เลน: ผู้เล่นเลือกเอง (ซ้ำกันได้) บอทเติมเลนที่เหลือจากแผนเดิมของทีมนั้น
+    g.hu = {};
     for (let team = 0; team < 2; team++) {
+      const pool0 = CFG.botLanes.slice();
+      for (const hm of hOf[team]) { if (hm.lane != null) { const i = pool0.indexOf(hm.lane); if (i >= 0) pool0.splice(i, 1); } else pool0.shift(); }
+      let bi = 0;
       for (let s = 0; s < 5; s++) {
-        const id = picks[team][s];
-        const isPlayer = !!(opts.playerHero && team === 0 && s === 0);
-        const em = isPlayer ? (opts.playerEmblem || 'kro') : botEmblem(g, id);
-        const laneSel = team === 0 ? (isPlayer ? (opts.playerLane == null ? CFG.botLanes[0] : opts.playerLane) : pool0[s - 1]) : null;
+        const id = picks[team][s], hm = s < hOf[team].length ? hOf[team][s] : null, isPlayer = !!hm;
+        const em = isPlayer ? (hm.emblem || 'kro') : botEmblem(g, id);
+        const laneSel = isPlayer ? (hm.lane == null ? CFG.botLanes[0] : hm.lane) : pool0[bi++ % pool0.length];
         const h = mkHero(g, TR.HERO_BY_ID[id], team, em, s, isPlayer, laneSel);
-        h.spell = isPlayer ? (opts.playerSpell || 'heal') : botSpellPick(g, h);
-        if (team === 1) { const D = TR.DIFFS[g.diff]; h.dmgBase = D.dmg; h.diffGold = D.gold; h.diffThink = D.think; }
-        if (isPlayer) { g.player = h; h.pname = opts.playerName || ''; if (opts.tutorial) h.gold = 800; }
+        h.spell = isPlayer ? (hm.spell || 'heal') : botSpellPick(g, h);
+        if (team === 1 && !isPlayer) { const D = TR.DIFFS[g.diff]; h.dmgBase = D.dmg; h.diffGold = D.gold; h.diffThink = D.think; }
+        if (isPlayer) {
+          h.pname = hm.name; h.uid = hm.uid === -1 ? h.id : hm.uid; g.hu[h.uid] = h;
+          if (opts.tutorial) h.gold = 800;
+        }
       }
     }
+    // ตัวผู้เล่นของเครื่องนี้ (เฉพาะส่วนแสดงผล/ควบคุม ห้ามใช้ตัดสินสถานะเกม)
+    g.player = opts.me != null ? (g.hu[opts.me] || null) : (humans.length ? g.hu[Object.keys(g.hu)[0]] : null);
     return g;
   }
 
@@ -228,7 +255,7 @@
     if (c == null || u.gold < c) return false;
     const have = ownedInLine(u, it.line);
     if (have) u.items.splice(u.items.indexOf(have.id), 1);
-    u.gold -= c; u.items.push(id); sumItems(u); recalc(g, u); if (u.isPlayer) sfx(g, 'buy', u.x, u.y, true);
+    u.gold -= c; u.items.push(id); sumItems(u); recalc(g, u); if (u === g.player) sfx(g, 'buy', u.x, u.y, true);
     return true;
   }
   function sell(g, u, id) {
@@ -523,7 +550,7 @@
       if (src.type === 'hero') { const st = findFxStealth(src); if (st && !o.keepStealth) removeFx(src, st); }
     }
     dst.lastAttacker = src; if (dst.type === 'tower') dst.lastHurt = g.t;
-    if (VIS && o.basic && src) sfx(g, src.type === 'tower' ? 'shot' : (src.type === 'minion' ? 'minion' : (dst.type === 'hero' ? 'hitHero' : 'hit')), dst.x, dst.y, (src.isPlayer || dst.isPlayer));
+    if (VIS && o.basic && src) sfx(g, src.type === 'tower' ? 'shot' : (src.type === 'minion' ? 'minion' : (dst.type === 'hero' ? 'hitHero' : 'hit')), dst.x, dst.y, (src === g.player || dst === g.player));
     if (src && !o.extra && dst.hp > 0) onHitEffects(g, src, dst, d, o);
     if (dst.type === 'monster' && src) { dst.aggroBy = src; dst.aggroT = g.t; }
     if (dst.hp <= 0) kill(g, dst, src, o);
@@ -580,21 +607,36 @@
     const st = surrenderState(g, team);
     return (st.lost - st.down >= 2 && st.kd <= -6) || (st.lost >= 4 && st.kd <= -3) || (st.lost - st.down >= 3);
   }
-  // ผู้เล่นขอยอมแพ้ (ผู้เล่น = 1 โหวต บอทเพื่อนโหวตตามสถานการณ์ ต้องผ่านกี่โหวตดู CFG.surrender.need)
-  function callSurrender(g, team) {
+  // โหวตยอมแพ้: เริ่มโหวตโดยผู้เล่นคนหนึ่ง (=1 เสียง) บอทเพื่อนโหวตตามสถานการณ์ ถ้ามีเพื่อนที่เป็นคนจริง ต้องกดยอมแพ้ตามภายใน CFG.surrender.vote วินาที
+  // ต้องผ่านกี่โหวตดู CFG.surrender.need
+  function callSurrender(g, team, u) {
     const C = CFG.surrender;
     if (g.over) return { ok: false, msg: 'จบเกมแล้ว' };
     if (g.t < C.after) return { ok: false, msg: 'ยอมแพ้ได้หลังนาทีที่ ' + Math.floor(C.after / 60) };
+    g.sv = g.sv || [null, null];
+    let v = g.sv[team];
+    if (v && g.t < v.until) {   // มีโหวตเปิดอยู่: เพิ่มเสียงของคนนี้
+      if (u && v.who.indexOf(u.id) >= 0) return { ok: false, msg: 'คุณโหวตไปแล้ว' };
+      if (u) v.who.push(u.id);
+      return finishVote(g, team, v);
+    }
     g.surCd = g.surCd || [0, 0];
     if (g.t < g.surCd[team]) return { ok: false, msg: 'โหวตใหม่ได้อีก ' + Math.ceil(g.surCd[team] - g.t) + ' วินาที' };
-    let yes = 1; const want = botWantsSurrender(g, team);
-    for (const u of g.units) if (u.type === 'hero' && u.team === team && !u.isPlayer) { if (want || (u.dead && g.rand() < 0.3)) yes++; }
+    let bots = 0; const want = botWantsSurrender(g, team);
+    for (const x of g.units) if (x.type === 'hero' && x.team === team && !x.isPlayer) { if (want || (x.dead && g.rand() < 0.3)) bots++; }
+    v = g.sv[team] = { who: u ? [u.id] : [], bots: bots, until: g.t + C.vote };
     g.surCd[team] = g.t + C.cooldown;
+    const humansLeft = g.units.some(function (x) { return x.type === 'hero' && x.team === team && x.isPlayer && v.who.indexOf(x.id) < 0 && !x.dead; });
+    if (humansLeft && v.who.length + v.bots < C.need) { g.events.push({ k: 'chat', team: team, who: u ? (u.pname || u.def.name) : 'ทีม', text: 'เสนอยอมแพ้ — กดยอมแพ้ตามเพื่อโหวต (' + (v.who.length + v.bots) + '/' + C.need + ')' }); return { ok: true, passed: false, yes: v.who.length + v.bots, msg: 'เปิดโหวตแล้ว รอเพื่อนร่วมทีม (' + (v.who.length + v.bots) + '/' + C.need + ')' }; }
+    return finishVote(g, team, v);
+  }
+  function finishVote(g, team, v) {
+    const C = CFG.surrender, yes = v.who.length + v.bots;
     if (yes >= C.need) {
-      g.over = true; g.winner = 1 - team; g.surrendered = team;
+      g.over = true; g.winner = 1 - team; g.surrendered = team; g.sv[team] = null;
       g.events.push({ k: 'over', winner: g.winner }); return { ok: true, passed: true, yes: yes, msg: 'ทีมยอมแพ้ (' + yes + '/5 โหวต)' };
     }
-    return { ok: true, passed: false, yes: yes, msg: 'โหวตไม่ผ่าน (' + yes + '/5 ต้องการ ' + C.need + ')' };
+    return { ok: true, passed: false, yes: yes, msg: 'โหวต ' + yes + '/' + C.need };
   }
 
   function addGold(u, n) { u.gold += n; u.goldTotal += n; }
@@ -603,7 +645,7 @@
     u.xp += n;
     while (u.level < CFG.maxLevel && u.xp >= 90 + 40 * u.level) {
       u.xp -= 90 + 40 * u.level;
-      u.level++; if (u.isPlayer) sfx(g, 'levelup', u.x, u.y, true);
+      u.level++; if (u === g.player) sfx(g, 'levelup', u.x, u.y, true);
     }
   }
 
@@ -616,7 +658,7 @@
     dst.dead = true; dst.hp = 0; dst.dieT = g.t;
     if (VIS) g.fx.push({ k: 'burst', x: dst.x, y: dst.y, c: dst.type === 'tower' ? '#bcaaa4' : (dst.team === 0 ? '#64b5f6' : '#ef5350'), n: dst.type === 'minion' ? 6 : (dst.type === 'hero' ? 14 : 24), t0: g.t, dur: 0.8 });
     if (dst.type === 'hero') {
-      sfx(g, 'die', dst.x, dst.y, dst.isPlayer);
+      sfx(g, 'die', dst.x, dst.y, dst === g.player);
       if (dst.isPlayer) makeRecap(g, dst, src);
       dst.deaths++; dst.recent = {}; dst.streak = 0; dst.mkN = 0;
       dst.respawnAt = g.t + CFG.respawnBase + CFG.respawnPerLevel * dst.level;
@@ -679,7 +721,7 @@
   function cancelRecall(g, u) { if (u.recall) { u.recall = null; if (VIS) g.fx.push({ k: 'ring', x: u.x, y: u.y, r: 16, c: '#9e9e9e', t0: g.t, dur: 0.25 }); } }
   function startRecall(g, u) {
     if (g.over || u.dead || u.recall || u.casting || u.dash || u.m.stun || inBaseOf(u)) return false;
-    u.recall = { start: g.t, end: g.t + TR.RECALL.time }; sfx(g, 'recall', u.x, u.y, u.isPlayer);
+    u.recall = { start: g.t, end: g.t + TR.RECALL.time }; sfx(g, 'recall', u.x, u.y, u === g.player);
     u.input.dx = 0; u.input.dy = 0;
     return true;
   }
@@ -702,7 +744,7 @@
     if (mine >= 6) { for (let i = 0; i < g.wards.length; i++) if (g.wards[i].team === u.team) { g.wards.splice(i, 1); break; } }
     u.wardN--; if (u.wardCd <= 0) u.wardCd = CFG.ward.regen;
     g.wards.push({ team: u.team, x: u.x, y: u.y, until: g.t + CFG.ward.dur, by: u.id });
-    ring(g, u.x, u.y, 40, '#ffe082', 0.5); sfx(g, 'ping', u.x, u.y, u.isPlayer);
+    ring(g, u.x, u.y, 40, '#ffe082', 0.5); sfx(g, 'ping', u.x, u.y, u === g.player);
     return true;
   }
   // บอทปักตะเกียงที่พุ่มใกล้ตัว
@@ -755,9 +797,17 @@
         if (c.autoSkill != null) u.autoSkill = !!c.autoSkill;
         return true;
       case 'sig': if (!TR.SIGNALS[c.type]) return false; signal(g, u.team, c.type, num(c.x, 0, CFG.W, 0), num(c.y, 0, CFG.H, 0), u); return true;
-      case 'sur': return callSurrender(g, u.team).ok;
+      case 'sur': { const r = callSurrender(g, u.team, u); u.surMsg = r.msg; return r.ok; }
+      case 'drop': return dropToBot(g, u);   // เซิร์ฟเวอร์เท่านั้นที่ส่ง: ผู้เล่นหลุด บอทเข้าคุมตัวต่อ
     }
     return false;
+  }
+  function dropToBot(g, u) {
+    if (!u.isPlayer) return false;
+    u.isPlayer = false; u.autoSkill = true; u.input.dx = 0; u.input.dy = 0; u.atkHold = false; u.lockT = null; u.atkMode = 'auto';
+    delete g.hu[u.uid]; if (u.pname) u.pname += ' (บอท)';
+    g.events.push({ k: 'chat', team: u.team, who: u.pname || u.def.name, text: 'หลุดจากเกม บอทเข้าคุมตัวแทน' });
+    return true;
   }
   // ส่งคำสั่งเข้าคิว จะถูกใช้เมื่อเกมเดินถึงจังหวะ tick (ค่าเริ่มต้น = จังหวะถัดไป)
   function submit(g, uid, c, tick) { g.cmds.push({ tick: tick == null ? g.tick + 1 : tick, uid: uid, seq: g.cmdSeq++, c: c }); }
@@ -767,7 +817,7 @@
     for (const x of g.cmds) (x.tick <= g.tick ? due : keep).push(x);
     g.cmds = keep;
     due.sort(function (a, b) { return a.tick - b.tick || a.uid - b.uid || a.seq - b.seq; });
-    for (const x of due) exec(g, g.byId[x.uid], x.c);
+    for (const x of due) exec(g, g.hu[x.uid], x.c);
   }
 
   /* ---------- ไอเทมใช้งาน ---------- */
@@ -788,7 +838,7 @@
         for (let i = u.fx.length - 1; i >= 0; i--) if (SPELL_NEG.indexOf(u.fx[i].type) >= 0) u.fx.splice(i, 1);
         addFx(u, { type: 'buff', tag: 'it_ward3', mresAdd: 0.5, until: g.t + 2.5 }); ring(g, u.x, u.y, 30, '#b388ff', 0.5); break;
     }
-    u.itemCd[id] = g.t + F.cd; sfx(g, 'item', u.x, u.y, u.isPlayer);
+    u.itemCd[id] = g.t + F.cd; sfx(g, 'item', u.x, u.y, u === g.player);
     return true;
   }
   // บอทใช้ไอเทมตามสถานการณ์ง่าย ๆ
@@ -943,7 +993,7 @@
     u.lastCast = g.t;
     const st = findFxStealth(u);
     ring(g, u.x, u.y, 14, u.def.colors.accent, 0.2);
-    sfx(g, slot === 2 ? 'ult' : 'cast', u.x, u.y, u.isPlayer);
+    sfx(g, slot === 2 ? 'ult' : 'cast', u.x, u.y, u === g.player);
     for (const fx of sk.fx) doEffect(g, u, fx, ctx, sk);
     if (st && !sk.fx.some(function (f) { return f.stealth; })) removeFx(u, st);
     return true;
@@ -1719,7 +1769,7 @@
   TR.Sim = {
     hyp: hyp, dsin: dsin, dcos: dcos, datan2: datan2,
     navPoint: navPoint,
-    createGame: createGame, exec: exec, submit: submit, placeWard: placeWard, useItem: useItem, itemActives: itemActives, itemCdLeft: itemCdLeft, hit: hit, kill: kill, signal: signal, sigFor: sigFor, callSurrender: callSurrender, botWantsSurrender: botWantsSurrender, bushAt: bushAt, step: step, upgradeSkill: upgradeSkill, canUpgrade: canUpgrade, skillPts: skillPts, skillAim: skillAim, skillMul: skillMul, castSpell: castSpell, startRecall: startRecall, cancelRecall: cancelRecall, castSkill: castSkill, canCast: canCast,
+    createGame: createGame, hash: hash, dropToBot: dropToBot, exec: exec, submit: submit, placeWard: placeWard, useItem: useItem, itemActives: itemActives, itemCdLeft: itemCdLeft, hit: hit, kill: kill, signal: signal, sigFor: sigFor, callSurrender: callSurrender, botWantsSurrender: botWantsSurrender, bushAt: bushAt, step: step, upgradeSkill: upgradeSkill, canUpgrade: canUpgrade, skillPts: skillPts, skillAim: skillAim, skillMul: skillMul, castSpell: castSpell, startRecall: startRecall, cancelRecall: cancelRecall, castSkill: castSkill, canCast: canCast,
     pickEnemy: pickEnemy, enemiesIn: enemiesIn, alliedHeroes: alliedHeroes, canTarget: canTarget,
     towerVuln: towerVuln, buy: buy, sell: sell, canShop: canShop, netCost: netCost, ownedInLine: ownedInLine, wantShop: wantShop, dist: dist, norm: norm, findFx: findFx, lowestAlly: lowestAlly, recalc: recalc
   };

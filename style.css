@@ -312,3 +312,12 @@ button.ghost, .card button:not(.primary) { background: var(--panel2); border: 1p
 
 #ttGate { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; z-index: 2; color: #cfae62; letter-spacing: .5em; text-indent: .5em; font-size: 15px; background: #03050a; animation: ttbreath 2.4s ease-in-out infinite; }
 #title.gated #ttGate { display: flex; } #title.gated .tt-box * { animation-play-state: paused !important; }
+
+#lobby { position: fixed; right: 12px; bottom: 12px; width: min(380px, calc(100vw - 24px)); max-height: 80vh; overflow-y: auto; z-index: 60; background: rgba(15,23,32,.96); border: 1px solid var(--gold); border-radius: 12px; padding: 12px; box-shadow: 0 8px 30px rgba(0,0,0,.6); }
+#lobby .lb-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; } #lobby .lb-head b { color: var(--gold); } #lbStatus { flex: 1; font-size: 11px; color: var(--dim); } #lbClose { padding: 2px 9px; }
+#lbEntry { display: flex; flex-direction: column; gap: 8px; align-items: stretch; } .lb-or { text-align: center; color: var(--dim); font-size: 12px; }
+.lb-join { display: flex; gap: 6px; } .lb-join input { flex: 1; min-width: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px; color: #fff; font-size: 16px; letter-spacing: .3em; text-transform: uppercase; text-align: center; }
+.lb-code { display: flex; align-items: center; gap: 8px; font-size: 13px; } .lb-code b { font-size: 24px; letter-spacing: .25em; color: var(--gold); flex: 1; } .lb-code button { font-size: 11px; padding: 5px 8px; }
+.lb-teams { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 8px 0; } .lb-teams h4 { margin: 0 0 4px; font-size: 12px; } .lb-teams h4.b { color: #8ab4ff; } .lb-teams h4.r { color: #ff9a9a; }
+.lb-p { font-size: 12px; padding: 4px 6px; border-radius: 6px; background: var(--panel); margin-bottom: 3px; display: flex; justify-content: space-between; gap: 4px; } .lb-p.me { outline: 1px solid var(--gold); } .lb-p .ok { color: #6ee7a0; } .lb-p .no { color: var(--dim); } .lb-p .dup { color: #ff8a80; }
+.lb-btns { display: flex; gap: 6px; } .lb-btns button { flex: 1; } #lobby .hint { font-size: 11px; margin: 8px 0 0; }

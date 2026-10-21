@@ -77,6 +77,7 @@
     sel.hero = id;
     const h = TR.HERO_BY_ID[id];
     if (!sel.emblem || !sel.emblemTouched) sel.emblem = bestEmblem(id);
+    lobbySync();
     Array.prototype.forEach.call($('heroGrid').children, function (c) { c.classList.toggle('sel', c.dataset.id === id); });
     const info = $('heroInfo');
     info.innerHTML = '';
@@ -139,7 +140,7 @@
     LANES.forEach(function (l) {
       const b = document.createElement('button'); b.className = sel.lane === l[0] ? 'sel' : '';
       b.innerHTML = '<span class="ic">' + l[1] + '</span>' + l[2];
-      b.addEventListener('click', function () { sel.lane = l[0]; try { localStorage.setItem('tr_lane', String(l[0])); } catch (e) { /* ไม่เป็นไร */ } buildLanes(); });
+      b.addEventListener('click', function () { sel.lane = l[0]; try { localStorage.setItem('tr_lane', String(l[0])); } catch (e) { /* ไม่เป็นไร */ } buildLanes(); lobbySync(); });
       grid.appendChild(b);
     });
   }
@@ -149,7 +150,7 @@
       const b = document.createElement('button');
       b.className = 'spbtn' + (sel.spell === sp.id ? ' sel' : '');
       b.innerHTML = '<span class="ic">' + sp.icon + '</span>' + sp.name;
-      b.addEventListener('click', function () { sel.spell = sp.id; try { localStorage.setItem('tr_spell', sp.id); } catch (e) { /* ไม่เป็นไร */ } buildSpells(); });
+      b.addEventListener('click', function () { sel.spell = sp.id; try { localStorage.setItem('tr_spell', sp.id); } catch (e) { /* ไม่เป็นไร */ } buildSpells(); lobbySync(); });
       grid.appendChild(b);
     });
     const sp = TR.SPELL_BY_ID[sel.spell];
@@ -556,22 +557,28 @@
     titleOn = false; $('title').hidden = true;
     if (TR.Audio.init()) TR.Audio.play('ui');
     TR.Net.wake();
+    let rc = ''; try { rc = (new URLSearchParams(location.search).get('room') || '').toUpperCase().slice(0, 4); } catch (e) { /* ไม่เป็นไร */ }
+    if (rc.length === 4) { lobbyOpen(); $('lbCode').value = rc; $('lbJoin').click(); }   // เปิดจากลิงก์ชวนเพื่อน
   }
   $('titleGo').addEventListener('click', leaveTitle);
   $('nameIn').addEventListener('keydown', function (e) { if (e.key === 'Enter') leaveTitle(); });
   $('nameIn').addEventListener('input', function () { this.classList.remove('bad'); });
 
   // ช่องทางเดียวที่ผู้เล่นสั่งงานเกม: ออฟไลน์ทำทันที (ออนไลน์จะส่งผ่านเครือข่ายแทน)
-  let net = null;
+  let net = null, online = false, onWait = true, starve = 0, onBuf = 3, lastStarve = 0;
   function act(c) { return net ? net.send(c) : TR.Sim.exec(g, g.player, c); }
   let tutorial = false, banPick = [];
   const hn = function (id) { return TR.HERO_BY_ID[id].name; };
   const opt = { diff: 'normal', ban: false };
   try { const d = localStorage.getItem('tr_diff'); if (TR.DIFFS[d]) opt.diff = d; opt.ban = localStorage.getItem('tr_banmode') === '1'; } catch (e) { /* ไม่เป็นไร */ }
   function startGame() {
+    online = false; net = null;
+    beginGame({ playerHero: sel.hero, playerEmblem: sel.emblem, playerSpell: sel.spell, playerLane: sel.lane, playerName: myName, tutorial: tutorial, diff: tutorial ? 'normal' : opt.diff, playerBans: tutorial ? [] : banPick });
+  }
+  function beginGame(gopts) {
     if (endTimer) { clearTimeout(endTimer); endTimer = null; }
-    g = TR.Sim.createGame({ playerHero: sel.hero, playerEmblem: sel.emblem, playerSpell: sel.spell, playerLane: sel.lane, playerName: myName, tutorial: tutorial, diff: tutorial ? 'normal' : opt.diff, playerBans: tutorial ? [] : banPick });
-    window.TRGame = g;
+    g = TR.Sim.createGame(gopts);
+    window.TRGame = g; lastIn = [0, 0]; onWait = true; starve = 0;
     acc = 0; paused = false; playing = true; queue.length = 0; shopOpen = false; $('shop').hidden = true; $('chatPanel').hidden = true;
     $('menu').hidden = true; $('result').hidden = true; $('pauseBox').hidden = true;
     $('hud').hidden = false; $('pauseBtn').style.display = 'block';
@@ -769,7 +776,7 @@
   $('intro').addEventListener('pointerdown', function () { if (introEnd && performance.now() < introEnd - 600) introEnd = performance.now() + 50; });
 
   function toMenu() {
-    playing = false; g = null; $('board').hidden = true; $('recap').hidden = true; TR.Audio.musicStop(); $('tut').hidden = true;
+    playing = false; g = null; lobbyLeave(); $('board').hidden = true; $('recap').hidden = true; TR.Audio.musicStop(); $('tut').hidden = true;
     document.body.classList.remove('playing');
     shopOpen = false; $('shop').hidden = true; $('hud').hidden = true; $('result').hidden = true; $('menu').hidden = false; $('pauseBtn').style.display = 'none';
   }
@@ -1000,7 +1007,7 @@
   function togglePause() {
     if (!playing || !g || g.over) return;
     paused = !paused;
-    if (paused) TR.Audio.suspend(); else TR.Audio.resume();
+    if (paused && !online) TR.Audio.suspend(); else TR.Audio.resume();
     $('pauseBox').hidden = !paused;
     if (paused && g) { const left = CFG.surrender.after - g.t; $('surBtn').disabled = left > 0; $('surBtn').textContent = left > 0 ? '🏳️ ยอมแพ้ (ได้หลังนาทีที่ ' + Math.floor(CFG.surrender.after / 60) + ')' : '🏳️ โหวตยอมแพ้'; $('surMsg').textContent = ''; }
     lastTs = performance.now();
@@ -1101,9 +1108,10 @@
       camCache = TR.Render.draw(ctx, g, 1);
       return;
     }
-    if (!paused) {
+    if (!paused || online) {
       acc += Math.min(0.25, (ts - lastTs) / 1000);
-      while (acc >= CFG.dt) { readInput(); TR.Sim.step(g); acc -= CFG.dt; }
+      if (online) stepOnline();
+      else while (acc >= CFG.dt) { readInput(); TR.Sim.step(g); acc -= CFG.dt; }
       handleEvents(); drainSfx();
     }
     lastTs = ts;
@@ -1114,16 +1122,111 @@
     if (ts - miniT > 200) { miniT = ts; TR.Render.drawMinimap(mctx, g, mini.width, mini.height, camCache); }
   }
 
+  /* ---------- ออนไลน์: ห้อง/ล็อบบี้ และตัวเดินเกมตามจังหวะกลาง ----------
+     ทุกเครื่องรันเกมเอง รับเฉพาะ "คำสั่ง + หมายเลขจังหวะ" จากเซิร์ฟเวอร์ แล้วเดินเกมตามจังหวะนั้นเป๊ะ ๆ */
+  let room = null;   // { code, uid, host, list, ready, sent }
+  function lbStatus(t) { $('lbStatus').textContent = t || ''; }
+  function lbPick(ready) {
+    return { t: 'pick', hero: sel.hero, emblem: sel.emblem || bestEmblem(sel.hero), spell: sel.spell, lane: sel.lane, ready: !!ready };
+  }
+  function lobbySync() {
+    if (!room || online) return;
+    if (room.ready) { room.ready = false; TR.Online.send(lbPick(false)); renderRoom(); }
+  }
+  function lobbyOpen() {
+    if (!TR.Net.configured()) { toast('ยังไม่ได้ตั้งค่าเซิร์ฟเวอร์ออนไลน์'); return; }
+    TR.Net.wake(); $('lobby').hidden = false;
+  }
+  function lobbyLeave() {
+    TR.Online.close(); room = null; online = false; net = null; $('lobby').hidden = true; $('lbEntry').hidden = false; $('lbRoom').hidden = true; lbStatus('');
+  }
+  function lbConnect(first) {
+    lbStatus('กำลังเชื่อมต่อ… ครั้งแรกอาจใช้เวลาถึง 1 นาที เพราะเซิร์ฟเวอร์ฟรีต้องตื่นก่อน');
+    $('lbCreate').disabled = $('lbJoin').disabled = true;
+    TR.Online.open({
+      open: function () { first.name = myName; TR.Online.send(first); lbStatus('เชื่อมต่อแล้ว'); },
+      joined: function (m) { room = { code: m.room, uid: m.uid, host: 0, list: [], ready: false }; $('lbEntry').hidden = true; $('lbRoom').hidden = false; $('lbCodeTx').textContent = m.room; lbStatus(''); TR.Online.send(lbPick(false)); },
+      roster: function (m) { if (!room) return; room.host = m.host; room.list = m.list; renderRoom(); },
+      err: function (m) { lbStatus('⚠ ' + m.msg); $('lbCreate').disabled = $('lbJoin').disabled = false; },
+      start: function (m) { startOnline(m); },
+      u: onTurn,
+      desync: function (m) { console.warn('desync', m); toast('⚠ เกมของแต่ละเครื่องเริ่มไม่ตรงกัน (tick ' + m.tick + ')'); },
+      close: function () {
+        $('lbCreate').disabled = $('lbJoin').disabled = false;
+        if (online && g && !g.over) { banner('หลุดจากเซิร์ฟเวอร์', 'เกมหยุดชั่วคราว — กดหยุดเกม (P) แล้วออกไปเมนูได้', 8000, 'bad'); }
+        else if (!online) { room = null; $('lbEntry').hidden = false; $('lbRoom').hidden = true; lbStatus('⚠ เชื่อมต่อไม่ได้ ลองใหม่อีกครั้ง'); }
+      }
+    });
+  }
+  function renderRoom() {
+    if (!room) return;
+    const me = room.list.find(function (x) { return x.uid === room.uid; });
+    [0, 1].forEach(function (t) {
+      const box = $('lbT' + t); box.innerHTML = '';
+      room.list.filter(function (x) { return x.team === t; }).forEach(function (x) {
+        const dup = x.hero && room.list.some(function (y) { return y.uid < x.uid && y.hero === x.hero; });
+        const d = document.createElement('div'); d.className = 'lb-p' + (x.uid === room.uid ? ' me' : '');
+        d.innerHTML = '<span>' + esc(x.name) + (x.uid === room.host ? ' 👑' : '') + '</span><span class="' + (dup ? 'dup' : (x.ready ? 'ok' : 'no')) + '">' + (x.hero ? hn(x.hero) : '-') + (x.ready ? ' ✔' : '') + '</span>';
+        box.appendChild(d);
+      });
+    });
+    const dupMine = me && room.list.some(function (y) { return y.uid !== room.uid && y.hero === sel.hero; });
+    $('lbReady').textContent = me && me.ready ? 'ยกเลิกพร้อม' : 'พร้อม';
+    $('lbReady').disabled = !!dupMine && !(me && me.ready);
+    $('lbHint').textContent = dupMine ? 'ฮีโร่นี้มีเพื่อนเลือกแล้ว เปลี่ยนฮีโร่ที่หน้าเมนูก่อน' : 'เลือกฮีโร่ ชุดใจ เลน สเปล ที่หน้าเมนูก่อน แล้วกด "พร้อม" · ที่ว่างในทีมบอทเติมให้';
+    const host = room.uid === room.host;
+    $('lbStart').hidden = !host;
+    $('lbStart').disabled = !(host && room.list.length && room.list.every(function (x) { return x.ready; }));
+  }
+  function startOnline(m) {
+    if (!room) return;
+    $('lobby').hidden = true; online = true; onBuf = 3; lastStarve = 0;
+    net = { send: function (c) { return TR.Online.send({ t: 'cmd', c: c }); } };
+    tutorial = false;
+    beginGame({ seed: m.seed, humans: m.list, me: room.uid, diff: 'normal' });
+  }
+  function onTurn(m) {
+    if (!g || !online) return;
+    if (m.c) for (let i = 0; i < m.c.length; i++) { const x = m.c[i]; if (x && typeof x[0] === 'number' && x[1] && typeof x[1] === 'object') TR.Sim.submit(g, x[0], x[1], m.n); }
+  }
+  function stepOnline() {
+    const known = TR.Online.known();
+    if (onWait) { if (known - g.tick >= onBuf) onWait = false; else { acc = 0; return; } }
+    let n = 0;
+    while (g.tick < known && !g.over && n < 12 && (acc >= CFG.dt || known - g.tick > onBuf + 3)) {
+      readInput(); TR.Sim.step(g); if (acc >= CFG.dt) acc -= CFG.dt; n++;
+      if (g.tick % 200 === 0) TR.Online.send({ t: 'hash', tick: g.tick, h: TR.Sim.hash(g) });
+    }
+    if (acc >= CFG.dt && g.tick >= known) {   // ข้อมูลไม่ทัน: ห้ามสะสมเวลา และเพิ่มบัฟเฟอร์ถ้าสะดุดบ่อย
+      acc = CFG.dt; starve++;
+      if (performance.now() - lastStarve > 4000 && starve > 3 && onBuf < 8) { onBuf++; starve = 0; lastStarve = performance.now(); }
+    }
+    if (acc > CFG.dt * 2) acc = CFG.dt * 2;
+  }
+  $('onBtn').addEventListener('click', lobbyOpen);
+  $('lbClose').addEventListener('click', lobbyLeave);
+  $('lbCreate').addEventListener('click', function () { lbConnect({ t: 'create' }); });
+  $('lbJoin').addEventListener('click', function () { const c = $('lbCode').value.trim().toUpperCase(); if (c.length < 4) { lbStatus('ใส่รหัสห้อง 4 ตัว'); return; } lbConnect({ t: 'join', room: c }); });
+  $('lbCode').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('lbJoin').click(); });
+  $('lbReady').addEventListener('click', function () { if (!room) return; const me = room.list.find(function (x) { return x.uid === room.uid; }); room.ready = !(me && me.ready); TR.Online.send(lbPick(room.ready)); });
+  $('lbTeam').addEventListener('click', function () { if (!room) return; const me = room.list.find(function (x) { return x.uid === room.uid; }); const p = lbPick(false); p.team = me && me.team ? 0 : 1; room.ready = false; TR.Online.send(p); });
+  $('lbStart').addEventListener('click', function () { TR.Online.send({ t: 'start' }); });
+  $('lbCopy').addEventListener('click', function () {
+    const url = location.origin + location.pathname + '?room=' + (room ? room.code : '');
+    try { navigator.clipboard.writeText(url); toast('คัดลอกลิงก์แล้ว ส่งให้เพื่อนได้เลย'); } catch (e) { toast(url); }
+  });
+
   /* ---------- ผูกปุ่ม ---------- */
   $('startBtn').addEventListener('click', function () { tutorial = false; if (opt.ban) openBan(); else { banPick = []; startGame(); } });
   $('tutBtn').addEventListener('click', function () { tutorial = true; startGame(); });
-  $('againBtn').addEventListener('click', startGame);
+  $('againBtn').addEventListener('click', function () { if (online) toMenu(); else startGame(); });
   $('menuBtn').addEventListener('click', toMenu);
   $('surBtn').addEventListener('click', function () {
     if (!g) return;
-    const r = TR.Sim.callSurrender(g, g.player.team);   // TODO ออนไลน์: ต้องเป็นโหวตของทีมจริง ไม่ใช่บอท
-    $('surMsg').textContent = r.msg;
-    if (r.passed) { paused = false; $('pauseBox').hidden = true; lastTs = performance.now(); handleEvents(); }
+    g.player.surMsg = '';
+    act({ k: 'sur' });
+    $('surMsg').textContent = g.player.surMsg || (net ? 'ส่งโหวตแล้ว' : '');
+    if (g.over) { paused = false; $('pauseBox').hidden = true; lastTs = performance.now(); handleEvents(); }
   });
   $('pauseBtn').addEventListener('click', togglePause);
   $('resumeBtn').addEventListener('click', togglePause);
