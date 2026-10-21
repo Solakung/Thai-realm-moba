@@ -143,7 +143,7 @@
     function pull() { return pool.splice(Math.floor(g.rand() * pool.length), 1)[0]; }
     for (let t = 0; t < 2; t++) while (picks[t].length < 5) picks[t].push(pull());
     // เลน: ผู้เล่นเลือกเอง (ซ้ำกันได้) บอทเติมเลนที่เหลือจากแผนเดิมของทีมนั้น
-    g.hu = {};
+    g.hu = {}; g.uu = {};   // hu = ผู้เล่นที่ยังคุมตัวอยู่ · uu = ตัวของทุกคน (รวมคนที่หลุดไปแล้ว ไว้คืนตัวให้ตอนกลับเข้าเกม)
     for (let team = 0; team < 2; team++) {
       const pool0 = CFG.botLanes.slice();
       for (const hm of hOf[team]) { if (hm.lane != null) { const i = pool0.indexOf(hm.lane); if (i >= 0) pool0.splice(i, 1); } else pool0.shift(); }
@@ -156,7 +156,7 @@
         h.spell = isPlayer ? (hm.spell || 'heal') : botSpellPick(g, h);
         if (team === 1 && !isPlayer) { const D = TR.DIFFS[g.diff]; h.dmgBase = D.dmg; h.diffGold = D.gold; h.diffThink = D.think; }
         if (isPlayer) {
-          h.pname = hm.name; h.uid = hm.uid === -1 ? h.id : hm.uid; g.hu[h.uid] = h;
+          h.pname = hm.name; h.uid = hm.uid === -1 ? h.id : hm.uid; g.hu[h.uid] = h; g.uu[h.uid] = h;
           if (opts.tutorial) h.gold = 800;
         }
       }
@@ -801,6 +801,7 @@
         return true;
       case 'sig': if (!TR.SIGNALS[c.type]) return false; signal(g, u.team, c.type, num(c.x, 0, CFG.W, 0), num(c.y, 0, CFG.H, 0), u); return true;
       case 'sur': { const r = callSurrender(g, u.team, u); u.surMsg = r.msg; return r.ok; }
+      case 'take': return retake(g, u);      // เซิร์ฟเวอร์เท่านั้นที่ส่ง: เจ้าของกลับเข้าเกม รับตัวคืนจากบอท
       case 'drop': return dropToBot(g, u);   // เซิร์ฟเวอร์เท่านั้นที่ส่ง: ผู้เล่นหลุด บอทเข้าคุมตัวต่อ
     }
     return false;
@@ -812,6 +813,13 @@
     g.events.push({ k: 'chat', team: u.team, who: u.pname || u.def.name, text: 'หลุดจากเกม บอทเข้าคุมตัวแทน' });
     return true;
   }
+  function retake(g, u) {
+    if (u.isPlayer || !u.uid) return false;
+    u.isPlayer = true; u.autoSkill = false; u.input.dx = 0; u.input.dy = 0; u.atkHold = false; u.lockT = null;
+    g.hu[u.uid] = u; if (u.pname) u.pname = u.pname.replace(/ \(บอท\)$/, '');
+    g.events.push({ k: 'chat', team: u.team, who: u.pname || u.def.name, text: 'กลับเข้าเกมแล้ว' });
+    return true;
+  }
   // ส่งคำสั่งเข้าคิว จะถูกใช้เมื่อเกมเดินถึงจังหวะ tick (ค่าเริ่มต้น = จังหวะถัดไป)
   function submit(g, uid, c, tick) { g.cmds.push({ tick: tick == null ? g.tick + 1 : tick, uid: uid, seq: g.cmdSeq++, c: c }); }
   function runCmds(g) {
@@ -820,7 +828,7 @@
     for (const x of g.cmds) (x.tick <= g.tick ? due : keep).push(x);
     g.cmds = keep;
     due.sort(function (a, b) { return a.tick - b.tick || a.uid - b.uid || a.seq - b.seq; });
-    for (const x of due) exec(g, g.hu[x.uid], x.c);
+    for (const x of due) exec(g, x.c && x.c.k === 'take' ? g.uu[x.uid] : g.hu[x.uid], x.c);
   }
 
   /* ---------- ไอเทมใช้งาน ---------- */
@@ -1786,7 +1794,7 @@
   TR.Sim = {
     hyp: hyp, dsin: dsin, dcos: dcos, datan2: datan2,
     navPoint: navPoint,
-    createGame: createGame, hash: hash, dropToBot: dropToBot, exec: exec, submit: submit, placeWard: placeWard, useItem: useItem, itemActives: itemActives, itemCdLeft: itemCdLeft, hit: hit, kill: kill, signal: signal, sigFor: sigFor, callSurrender: callSurrender, botWantsSurrender: botWantsSurrender, bushAt: bushAt, step: step, upgradeSkill: upgradeSkill, canUpgrade: canUpgrade, skillPts: skillPts, skillAim: skillAim, skillMul: skillMul, castSpell: castSpell, startRecall: startRecall, cancelRecall: cancelRecall, castSkill: castSkill, canCast: canCast,
+    createGame: createGame, hash: hash, dropToBot: dropToBot, retake: retake, exec: exec, submit: submit, placeWard: placeWard, useItem: useItem, itemActives: itemActives, itemCdLeft: itemCdLeft, hit: hit, kill: kill, signal: signal, sigFor: sigFor, callSurrender: callSurrender, botWantsSurrender: botWantsSurrender, bushAt: bushAt, step: step, upgradeSkill: upgradeSkill, canUpgrade: canUpgrade, skillPts: skillPts, skillAim: skillAim, skillMul: skillMul, castSpell: castSpell, startRecall: startRecall, cancelRecall: cancelRecall, castSkill: castSkill, canCast: canCast,
     pickEnemy: pickEnemy, enemiesIn: enemiesIn, alliedHeroes: alliedHeroes, canTarget: canTarget,
     towerVuln: towerVuln, buy: buy, sell: sell, canShop: canShop, netCost: netCost, ownedInLine: ownedInLine, wantShop: wantShop, dist: dist, norm: norm, findFx: findFx, lowestAlly: lowestAlly, recalc: recalc
   };

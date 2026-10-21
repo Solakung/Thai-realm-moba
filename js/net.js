@@ -23,8 +23,8 @@
   TR.Online = {
     known: function () { return known; },
     isOpen: function () { return !!ws && ws.readyState === 1; },
-    open: function (handlers) {
-      TR.Online.close(); hd = handlers; known = 0;
+    open: function (handlers, known0) {
+      TR.Online.close(); hd = handlers; known = known0 || 0;
       let sock, dead = setTimeout(function () { if (ws === sock && sock.readyState !== 1) { try { sock.close(); } catch (e) { /* ไม่เป็นไร */ } } }, 90000);
       try { sock = ws = new WebSocket(wsUrl()); } catch (e) { clearTimeout(dead); if (hd.close) hd.close('connect'); return; }
       sock.onopen = function () { clearTimeout(dead); if (hd.open) hd.open(); };

@@ -10,6 +10,8 @@ const PORT = process.env.PORT || 8080;
 const TURN_MS = 50, MAX_PLAYERS = 10;
 const OK_CMD = { in: 1, cast: 1, spell: 1, recall: 1, buy: 1, sell: 1, up: 1, item: 1, ward: 1, atk: 1, lock: 1, set: 1, sig: 1, sur: 1 };   // ไม่มี drop: ห้ามผู้เล่นปลอมคำสั่งนี้
 const rooms = new Map();
+const tokGen = function () { let t = ''; for (let i = 0; i < 16; i++) t += 'abcdefghijklmnopqrstuvwxyz0123456789'[Math.floor(Math.random() * 36)]; return t; };
+const GRACE_MS = 5 * 60 * 1000;   // ห้องที่คนหลุดหมดยังเก็บไว้ให้กลับเข้าได้นาน 5 นาที
 
 const server = http.createServer(function (req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -27,18 +29,20 @@ function teamCount(room, t) { let n = 0; room.members.forEach(function (m) { if 
 function pushRoster(room) { bcast(room, { t: 'roster', host: room.host, list: roster(room) }); }
 
 function startRoom(room) {
-  room.started = true; room.t0 = Date.now(); room.turn = 0; room.pend = []; room.hashes = new Map();
+  room.started = true; room.t0 = Date.now(); room.turn = 0; room.pend = []; room.hashes = new Map(); room.log = [];
   const list = roster(room).map(function (m) { return { uid: m.uid, name: m.name, hero: m.hero, emblem: m.emblem, spell: m.spell, lane: m.lane, team: m.team }; });
-  bcast(room, { t: 'start', seed: (Math.random() * 2147483647) >>> 0, list: list });
+  room.seed = (Math.random() * 2147483647) >>> 0; room.list = list; room.seats = {}; room.gone = {};
+  room.members.forEach(function (m, uid) { room.seats[uid] = { tok: m.tok, name: m.name, hero: m.hero, emblem: m.emblem, spell: m.spell, lane: m.lane, team: m.team }; });
+  bcast(room, { t: 'start', seed: room.seed, list: list });
   room.timer = setInterval(function () {
     const n = Math.floor((Date.now() - room.t0) / TURN_MS);
     if (n <= room.turn) return;
     room.turn = n;
-    const o = { t: 'u', n: n }; if (room.pend.length) { o.c = room.pend; room.pend = []; }
+    const o = { t: 'u', n: n }; if (room.pend.length) { o.c = room.pend; room.pend = []; room.log.push([n, o.c]); }   // log = ไว้ให้คนที่หลุดกลับมาเล่นตามทัน
     bcast(room, o);
   }, TURN_MS);
 }
-function closeRoom(room) { if (room.timer) clearInterval(room.timer); rooms.delete(room.code); }
+function closeRoom(room) { if (room.timer) clearInterval(room.timer); if (room.graceT) clearTimeout(room.graceT); rooms.delete(room.code); }
 
 wss.on('connection', function (ws) {
   let room = null, id = 0, winStart = 0, cnt = 0;
@@ -47,6 +51,22 @@ wss.on('connection', function (ws) {
     const now = Date.now(); if (now - winStart > 1000) { winStart = now; cnt = 0; } if (++cnt > 80) return;   // กันยิงถี่เกิน
     let m; try { m = JSON.parse(raw); } catch (e) { return; }
     if (!m || typeof m.t !== 'string') return;
+    if (m.t === 'rejoin') {   // กลับเข้าห้องที่เล่นอยู่ (หลุด/รีเฟรช) ด้วยโทเคนที่ได้ตอนเข้าห้อง
+      if (room) return;
+      const r = rooms.get(str(m.room, 6).toUpperCase()), uid = m.uid | 0, seat = r && r.seats && r.seats[uid];
+      if (!r || !r.started || !seat || seat.tok !== str(m.tok, 20)) return send(ws, { t: 'err', msg: 'กลับเข้าห้องไม่ได้ (ห้องปิดแล้วหรือรหัสไม่ตรง)', fatal: true });
+      const old = r.members.get(uid); if (old && old.ws && old.ws !== ws) { old.ws.isOld = true; try { old.ws.close(); } catch (e) { /* ไม่เป็นไร */ } }
+      const since = m.since | 0;
+      room = r; id = uid; if (r.graceT) { clearTimeout(r.graceT); r.graceT = null; }
+      send(ws, { t: 'rejoined', room: r.code, uid: id, host: r.host });
+      if (since <= 0) send(ws, { t: 'start', seed: r.seed, list: r.list, rejoin: true });
+      const part = r.log.filter(function (e) { return e[0] > since; });
+      for (let i = 0; i < part.length; i += 200) send(ws, { t: 'catchup', log: part.slice(i, i + 200) });
+      send(ws, { t: 'u', n: r.turn });
+      r.members.set(id, { ws: ws, tok: seat.tok, name: seat.name, hero: seat.hero, emblem: seat.emblem, spell: seat.spell, lane: seat.lane, team: seat.team, ready: true });
+      if (r.gone && r.gone[id]) { delete r.gone[id]; r.pend.push([id, { k: 'take' }]); }   // คืนตัวจากบอทให้เจ้าของ
+      return;
+    }
     if (m.t === 'create' || m.t === 'join') {
       if (room) return;
       let c = str(m.room, 6).toUpperCase();
@@ -57,8 +77,9 @@ wss.on('connection', function (ws) {
       if (r.members.size >= MAX_PLAYERS) return send(ws, { t: 'err', msg: 'ห้องเต็ม' });
       room = r; id = r.nextId++; if (!r.host) r.host = id;
       const tm = teamCount(r, 0) <= teamCount(r, 1) ? 0 : 1;
-      r.members.set(id, { ws: ws, name: str(m.name, 14) || 'ผู้เล่น', hero: null, emblem: 'kro', spell: 'heal', lane: 1, team: tm, ready: false });
-      send(ws, { t: 'joined', room: c, uid: id });
+      const tok = tokGen();
+      r.members.set(id, { ws: ws, tok: tok, name: str(m.name, 14) || 'ผู้เล่น', hero: null, emblem: 'kro', spell: 'heal', lane: 1, team: tm, ready: false });
+      send(ws, { t: 'joined', room: c, uid: id, tok: tok });
       pushRoster(r);
     } else if (!room) { return; }
     else if (m.t === 'pick' && !room.started) {
@@ -87,10 +108,20 @@ wss.on('connection', function (ws) {
   });
   ws.on('close', function () {
     if (!room) return;
+    if (ws.isOld) return;   // ถูกแทนที่ด้วยการเชื่อมต่อใหม่ของคนเดิม
+    const seatM = room.members.get(id);
     room.members.delete(id);
+    if (room.started) {
+      room.seats = room.seats || {}; room.gone = room.gone || {};
+      if (seatM) room.seats[id] = { tok: seatM.tok, name: seatM.name, hero: seatM.hero, emblem: seatM.emblem, spell: seatM.spell, lane: seatM.lane, team: seatM.team };
+      room.gone[id] = true; room.pend.push([id, { k: 'drop' }]);
+      if (!room.members.size) { room.graceT = setTimeout(function () { closeRoom(room); }, GRACE_MS); return; }
+      if (room.host === id) room.host = room.members.keys().next().value;
+      return;
+    }
     if (!room.members.size) { closeRoom(room); return; }
     if (room.host === id) room.host = room.members.keys().next().value;
-    if (room.started) room.pend.push([id, { k: 'drop' }]); else pushRoster(room);
+    pushRoster(room);
   });
 });
 setInterval(function () { wss.clients.forEach(function (ws) { if (!ws.isAlive) return ws.terminate(); ws.isAlive = false; ws.ping(); }); }, 25000);   // ping ทุก 25 วินาที กันหลุด/กันเครื่องฟรีหลับ

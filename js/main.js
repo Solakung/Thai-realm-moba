@@ -559,6 +559,7 @@
     TR.Net.wake();
     let rc = ''; try { rc = (new URLSearchParams(location.search).get('room') || '').toUpperCase().slice(0, 4); } catch (e) { /* ไม่เป็นไร */ }
     if (rc.length === 4) { lobbyOpen(); $('lbCode').value = rc; $('lbJoin').click(); }   // เปิดจากลิงก์ชวนเพื่อน
+    else rejoinSaved();   // ถ้าเพิ่งหลุด/รีเฟรชกลางเกมออนไลน์ ให้กลับเข้าห้องเดิมเอง
   }
   $('titleGo').addEventListener('click', leaveTitle);
   $('nameIn').addEventListener('keydown', function (e) { if (e.key === 'Enter') leaveTitle(); });
@@ -1138,25 +1139,57 @@
     TR.Net.wake(); $('lobby').hidden = false;
   }
   function lobbyLeave() {
-    TR.Online.close(); room = null; online = false; net = null; $('lobby').hidden = true; $('lbEntry').hidden = false; $('lbRoom').hidden = true; lbStatus('');
+    TR.Online.close(); rjClear(); room = null; online = false; net = null; lastKnown = 0; rcTry = 0; clearTimeout(rcTimer); $('lobby').hidden = true; $('lbEntry').hidden = false; $('lbRoom').hidden = true; lbStatus('');
   }
-  function lbConnect(first) {
-    lbStatus('กำลังเชื่อมต่อ… ครั้งแรกอาจใช้เวลาถึง 1 นาที เพราะเซิร์ฟเวอร์ฟรีต้องตื่นก่อน');
-    $('lbCreate').disabled = $('lbJoin').disabled = true;
-    TR.Online.open({
-      open: function () { first.name = myName; TR.Online.send(first); lbStatus('เชื่อมต่อแล้ว'); },
-      joined: function (m) { room = { code: m.room, uid: m.uid, host: 0, list: [], ready: false }; $('lbEntry').hidden = true; $('lbRoom').hidden = false; $('lbCodeTx').textContent = m.room; lbStatus(''); TR.Online.send(lbPick(false)); },
+  /* ---------- กลับเข้าเกมเมื่อหลุด: เก็บโทเคนห้องไว้ในเครื่อง ---------- */
+  const RJ_KEY = 'tr_rejoin';
+  function rjSave(o) { try { localStorage.setItem(RJ_KEY, JSON.stringify(Object.assign(o, { t: Date.now() }))); } catch (e) { /* ไม่เป็นไร */ } }
+  function rjLoad() { try { const o = JSON.parse(localStorage.getItem(RJ_KEY) || 'null'); return o && o.room && o.tok && Date.now() - o.t < 25 * 60 * 1000 ? o : null; } catch (e) { return null; } }
+  function rjClear() { try { localStorage.removeItem(RJ_KEY); } catch (e) { /* ไม่เป็นไร */ } }
+  let rcTry = 0, rcTimer = null;
+  function turnsIn(m) { if (g && online && m.log) for (let i = 0; i < m.log.length; i++) for (const x of m.log[i][1]) if (x && typeof x[0] === 'number' && x[1] && typeof x[1] === 'object') TR.Sim.submit(g, x[0], x[1], m.log[i][0]); }
+  function onHandlers(first) {
+    return {
+      open: function () { if (first) { if (first.t !== 'rejoin') first.name = myName; TR.Online.send(first); } lbStatus('เชื่อมต่อแล้ว'); },
+      joined: function (m) { room = { code: m.room, uid: m.uid, host: 0, list: [], ready: false, tok: m.tok }; rjSave({ room: m.room, uid: m.uid, tok: m.tok }); $('lbEntry').hidden = true; $('lbRoom').hidden = false; $('lbCodeTx').textContent = m.room; lbStatus(''); TR.Online.send(lbPick(false)); },
+      rejoined: function (m) {
+        const sv = rjLoad(); rcTry = 0; clearTimeout(rcTimer);
+        if (!room) room = { code: m.room, uid: m.uid, host: m.host, list: [], ready: true, tok: sv ? sv.tok : '' };
+        $('banner').classList.remove('on');
+      },
       roster: function (m) { if (!room) return; room.host = m.host; room.list = m.list; renderRoom(); },
-      err: function (m) { lbStatus('⚠ ' + m.msg); $('lbCreate').disabled = $('lbJoin').disabled = false; },
-      start: function (m) { startOnline(m); },
+      err: function (m) { lbStatus('⚠ ' + m.msg); $('lbCreate').disabled = $('lbJoin').disabled = false; if (m.fatal) { rjClear(); toast(m.msg); if (!g) { room = null; $('lobby').hidden = true; } } },
+      start: function (m) { if (m.rejoin) { online = true; } startOnline(m); },
+      catchup: turnsIn,
       u: onTurn,
       desync: function (m) { console.warn('desync', m); toast('⚠ เกมของแต่ละเครื่องเริ่มไม่ตรงกัน (tick ' + m.tick + ')'); },
       close: function () {
         $('lbCreate').disabled = $('lbJoin').disabled = false;
-        if (online && g && !g.over) { banner('หลุดจากเซิร์ฟเวอร์', 'เกมหยุดชั่วคราว — กดหยุดเกม (P) แล้วออกไปเมนูได้', 8000, 'bad'); }
+        if (online && g && !g.over) autoRejoin();
         else if (!online) { room = null; $('lbEntry').hidden = false; $('lbRoom').hidden = true; lbStatus('⚠ เชื่อมต่อไม่ได้ ลองใหม่อีกครั้ง'); }
       }
-    });
+    };
+  }
+  // หลุดกลางเกม: ลองต่อใหม่เองหลายรอบ (เกมที่ค้างอยู่ใช้ต่อได้ ขอเฉพาะคำสั่งที่ตกหล่น)
+  function autoRejoin() {
+    const sv = rjLoad(); if (!room || !sv) { banner('หลุดจากเซิร์ฟเวอร์', 'กดหยุดเกม (P) แล้วออกเมนูได้', 8000, 'bad'); return; }
+    if (rcTry >= 12) { banner('ต่อเซิร์ฟเวอร์ไม่ได้', 'เกมนี้เล่นต่อไม่ได้แล้ว กดหยุดเกม (P) แล้วออกเมนู', 15000, 'bad'); return; }
+    const since = lastKnown || TR.Online.known(); rcTry++;
+    banner('กำลังเชื่อมต่อใหม่…', 'ครั้งที่ ' + rcTry + ' · เกมของคุณยังอยู่ บอทคุมตัวแทนชั่วคราว', 30000, 'bad');
+    rcTimer = setTimeout(function () { TR.Online.open(onHandlers({ t: 'rejoin', room: sv.room, uid: sv.uid, tok: sv.tok, since: since }), since); }, Math.min(8000, 800 * rcTry));
+  }
+  let lastKnown = 0, catchT = 0;
+  function lbConnect(first) {
+    lbStatus('กำลังเชื่อมต่อ… ครั้งแรกอาจใช้เวลาถึง 1 นาที เพราะเซิร์ฟเวอร์ฟรีต้องตื่นก่อน');
+    $('lbCreate').disabled = $('lbJoin').disabled = true;
+    TR.Online.open(onHandlers(first));
+  }
+  // เปิดเกมใหม่/รีเฟรชแล้วกลับเข้าห้องเดิมที่ยังเล่นอยู่
+  function rejoinSaved() {
+    const sv = rjLoad(); if (!sv) return false;
+    $('lobby').hidden = false; $('lbEntry').hidden = true; lbStatus('กำลังกลับเข้าเกมห้อง ' + sv.room + '…');
+    TR.Online.open(onHandlers({ t: 'rejoin', room: sv.room, uid: sv.uid, tok: sv.tok, since: 0 }));
+    return true;
   }
   function renderRoom() {
     if (!room) return;
@@ -1180,6 +1213,7 @@
   }
   function startOnline(m) {
     if (!room) return;
+    if (m.rejoin) { room.uid = room.uid; }
     $('lobby').hidden = true; online = true; onBuf = 3; lastStarve = 0;
     net = { send: function (c) { return TR.Online.send({ t: 'cmd', c: c }); } };
     tutorial = false;
@@ -1190,7 +1224,13 @@
     if (m.c) for (let i = 0; i < m.c.length; i++) { const x = m.c[i]; if (x && typeof x[0] === 'number' && x[1] && typeof x[1] === 'object') TR.Sim.submit(g, x[0], x[1], m.n); }
   }
   function stepOnline() {
-    const known = TR.Online.known();
+    const known = TR.Online.known(); lastKnown = Math.max(lastKnown, known);
+    if (g.over) rjClear();
+    if (known - g.tick > 80) {   // ตามเกมให้ทัน (กลับเข้าเกมหลังหลุด): เดินเต็มเร็วโดยไม่ส่งคำสั่ง/hash
+      const t0 = performance.now(); while (g.tick < known && !g.over && performance.now() - t0 < 12) TR.Sim.step(g);
+      acc = 0; if (performance.now() - catchT > 300) { catchT = performance.now(); banner('กำลังตามเกม…', Math.round(g.tick / known * 100) + '% (กลับเข้าเกมแล้ว)', 1200); }
+      return;
+    }
     if (onWait) { if (known - g.tick >= onBuf) onWait = false; else { acc = 0; return; } }
     let n = 0;
     while (g.tick < known && !g.over && n < 12 && (acc >= CFG.dt || known - g.tick > onBuf + 3)) {
