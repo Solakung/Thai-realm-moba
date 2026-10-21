@@ -248,7 +248,8 @@
     const col = P.colors, role = P.role, bw = 10.4 * BODY_W[role];
     const mv = P.mv, ph = P.ph, rt = P.rt;
     const bob = -Math.abs(Math.sin(ph)) * 1.5 * mv + Math.sin(rt * 2.4 + P.id) * 0.38 * (1 - mv);
-    const hipY = -9 + bob;
+    const bike = P.key === 'win';   // วินมอเตอร์ไซค์: นั่งบนมอเตอร์ไซค์ (2D/ไอคอน) ขายกพักบนรถ ไม่มีท่าวิ่ง
+    const hipY = (bike ? -12.5 : -9) + (bike ? 0 : bob);
     const ap = P.atkP, atking = ap >= 0 && ap < 1;
     const swing = Math.sin(ph) * 0.8 * mv;
     const pants = K(dark(col.body, 0.45)), boot = K('#3b2a20');
@@ -257,9 +258,21 @@
     c.scale(P.vf, 1);
     // เงา
     ell(c, 0, 0.6, 8.2 * BODY_W[role] + 1, 2.6, 'rgba(0,0,0,0.28)');
+    if (bike) {
+      const wr = 4.6, wy = -wr, spin = (P.ph || 0) * 1.6 + rt * 0;
+      for (const wx of [-9.5, 9.5]) {   // ล้อ + ซี่
+        circ(c, wx, wy, wr, K('#212121'), true); circ(c, wx, wy, wr * 0.55, K('#78909c'));
+        c.strokeStyle = '#cfd8dc'; c.lineWidth = 0.5; c.beginPath(); c.moveTo(wx + Math.cos(spin) * wr * 0.5, wy + Math.sin(spin) * wr * 0.5); c.lineTo(wx - Math.cos(spin) * wr * 0.5, wy - Math.sin(spin) * wr * 0.5); c.stroke();
+      }
+      cap(c, -9.5, wy, -1, -7.5, 1.6, K('#ff7043')); cap(c, -1, -7.5, 8, -9, 1.9, K('#ff7043'));   // เฟรม
+      fillRR(c, -6, -10.6, 8.5, 3.2, 1.4, K('#37474f'), true);                                       // เบาะ + ถัง
+      fillRR(c, 1.5, -11.6, 6.4, 3.8, 1.6, K('#ff7043'), true);
+      cap(c, 8.4, -9.6, 9.8, -14.2, 1.1, K('#90a4ae')); cap(c, 9.8, -14.2, 7.4, -15.2, 1, K('#90a4ae'));   // แฮนด์
+      circ(c, 11, wy - 5.2, 1.3, '#fff59d');                                                         // ไฟหน้า
+    }
     // ขา (ขาหลังก่อน)
     for (let s = 0; s < 2; s++) {
-      const a = s === 0 ? -swing : swing;
+      const a = bike ? (s === 0 ? 0.9 : 0.7) : (s === 0 ? -swing : swing);
       const lx = (s === 0 ? -1.9 : 1.9);
       const lift = Math.max(0, (s === 0 ? -Math.cos(ph) : Math.cos(ph))) * 1.6 * mv;
       const fx = lx + Math.sin(a) * 8.3, fy = Math.min(0, hipY + Math.cos(a) * 8.3 - lift);

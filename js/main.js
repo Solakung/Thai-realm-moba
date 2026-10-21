@@ -264,7 +264,7 @@
   $('ctlClose').addEventListener('click', function () { $('ctlSet').hidden = true; });
   document.addEventListener('pointerdown', function (e) { if (e.target.closest && e.target.closest('button') && TR.Audio.ready()) TR.Audio.play('ping'); }, true);
 
-  /* ---------- จัดวางปุ่มแบบ AoV: ปุ่มโจมตีใหญ่มุมขวาล่าง สกิลเรียงโค้งรอบปุ่ม ---------- */
+  /* ---------- จัดวางปุ่ม: ปุ่มโจมตีใหญ่มุมขวาล่าง สกิลเรียงโค้งรอบปุ่ม ---------- */
   function layoutCtl() {
     const f = Math.max(0.88, Math.min(1.05, Math.min(window.innerHeight / 480, window.innerWidth / 760))) * ctl.size;
     const ATK = 86 * f, SK = 64 * f, ULT = 76 * f, SM = 44 * f, SP = 52 * f, M = 14 + 4;
