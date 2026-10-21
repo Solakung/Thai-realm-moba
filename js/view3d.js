@@ -71,6 +71,11 @@
     return 0.56 + 0.62 * l + 0.1 * n[1];
   }
   // รวบรวมหน้าของโมเดล (ตัดหน้าหลัง ฉาย คำนวณแสง) ลง faces
+  // เมทริกซ์ของชิ้นส่วน: ล้อ (part.wh = จุดเพลา) หมุนรอบแกน x ตามมุม ang
+  function partMat(p, F, ang) {
+    if (!p.wh) return F[p.n];
+    return S.mMul(F[p.n], S.mLocal(p.wh, S.rotM(ang, 0, 0)));
+  }
   function gather(faces, mesh, m, rgb, em, cam, flash) {
     const tv = mesh.v.map(function (p) { return [m[0] * p[0] + m[1] * p[1] + m[2] * p[2] + m[3], m[4] * p[0] + m[5] * p[1] + m[6] * p[2] + m[7], m[8] * p[0] + m[9] * p[1] + m[10] * p[2] + m[11]]; });
     const pv = new Array(tv.length);
@@ -154,6 +159,8 @@
     if (mv > 0.03 && M.rest) {
       const k = Math.min(1, mv) * 0.7, sw = Math.sin(st.ph);
       out[KI['shA.rx']] += sw * k; out[KI['hpB.rx']] += sw * k; out[KI['shB.rx']] -= sw * k; out[KI['hpA.rx']] -= sw * k;
+    } else if (mv > 0.03 && M.bike) {   // ขี่รถ: ขานั่งงออยู่กับที่ โน้มตัวไปข้างหน้าตามความเร็ว
+      out[KI['torso.rx']] += Math.min(1, mv) * 0.14; out[KI['head.rx']] -= Math.min(1, mv) * 0.1; out[KI['root.y']] += Math.sin(st.ph * 2) * 0.12 * Math.min(1, mv);
     } else if (mv > 0.03) {
       RUNP.set(S.runPoseAt(st.ph));
       const k = Math.min(1, mv);
@@ -198,7 +205,8 @@
     c.save(); c.globalAlpha = A * 0.32 * (1 - clamp(lift / 40, 0, 0.6));
     c.fillStyle = '#000'; c.beginPath(); c.ellipse(o.x, o.y, f / D * 7.2 * M.scale0, f / D * 7.2 * M.scale0 * cam.SP, 0, 0, TAU); c.fill(); c.restore();
     const faces = [];
-    M.parts.forEach(function (p) { gather(faces, p.m, F[p.n], p.c, p.em, cam, !!o.flash); });
+    const wang = -(st.ph || 0) * 1.5;
+    M.parts.forEach(function (p) { gather(faces, p.m, partMat(p, F, wang), p.c, p.em, cam, !!o.flash); });
     paintFaces(c, faces, Math.max(0.22, f / D * 0.26), A, o.amb);
     if (M.hasGlow) paintGlows(c, M, F, cam, rt, A);
     return lift;
@@ -270,7 +278,8 @@
 
     /* --- หน้าทั้งหมด --- */
     const faces = [], stones = [];
-    M.parts.forEach(function (p) { gather(faces, p.m, F[p.n], p.c, p.em, cam, false); });
+    const wang = M.bike ? (s.name === 'rev' ? now * 14 : 0) : 0;
+    M.parts.forEach(function (p) { gather(faces, p.m, partMat(p, F, wang), p.c, p.em, cam, false); });
     for (let i = 0; i < 6; i++) {
       const a = i / 6 * TAU + 0.4, r = 25 + (i % 2) * 3, bob = Math.sin(now * 1.4 + i * 1.7) * 1.2;
       const pos = [Math.cos(a) * r, 3.4 + (i % 2) * 1.6 + bob, Math.sin(a) * r];
