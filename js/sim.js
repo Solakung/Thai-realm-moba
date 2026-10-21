@@ -26,6 +26,8 @@
     if (e.tag) for (let i = u.fx.length - 1; i >= 0; i--) if (u.fx[i].tag === e.tag) u.fx.splice(i, 1);
     u.fx.push(e);
   }
+  // เสียงเอฟเฟกต์ (ส่งให้ฝั่งแสดงผลเล่น เฉพาะตอนมีหน้าจอ)
+  function sfx(g, name, x, y, own) { if (VIS && g.sfx.length < 60) g.sfx.push({ n: name, x: x, y: y, own: !!own }); }
   function later(g, delay, fn) { g.timers.push({ at: g.t + delay, fn: fn }); }
   function ring(g, x, y, r, c, dur) { g.fx.push({ k: 'ring', x: x, y: y, r: r, c: c, t0: g.t, dur: dur || 0.3 }); }
   function line(g, a, b, c, dur) { g.fx.push({ k: 'line', x1: a.x, y1: a.y, x2: b.x, y2: b.y, c: c, t0: g.t, dur: dur || 0.12 }); }
@@ -39,7 +41,7 @@
       t: 0, tick: 0, units: [], projs: [], zones: [], timers: [], fx: [], events: [],
       rand: mulberry32(opts.seed == null ? (Date.now() & 0x7fffffff) : opts.seed),
       over: false, winner: -1, era: 0, warned: -1, nextWave: CFG.firstWave, waveNo: 0,
-      score: [0, 0], idc: 1, player: null, opts: opts, aiThink: TR.AI ? TR.AI.think : null
+      tutorial: !!opts.tutorial, score: [0, 0], sfx: [], idc: 1, player: null, opts: opts, aiThink: TR.AI ? TR.AI.think : null
     };
     // ป้อม
     g.towers = [[[], [], []], [[], [], []]];   // [ทีม][เลน][ชั้น]
@@ -89,7 +91,7 @@
         const laneSel = team === 0 ? (isPlayer ? (opts.playerLane == null ? CFG.botLanes[0] : opts.playerLane) : pool0[s - 1]) : null;
         const h = mkHero(g, TR.HERO_BY_ID[id], team, em, s, isPlayer, laneSel);
         h.spell = isPlayer ? (opts.playerSpell || 'heal') : botSpellPick(g, h);
-        if (isPlayer) g.player = h;
+        if (isPlayer) { g.player = h; if (opts.tutorial) h.gold = 800; }
       }
     }
     return g;
@@ -186,7 +188,7 @@
     if (c == null || u.gold < c) return false;
     const have = ownedInLine(u, it.line);
     if (have) u.items.splice(u.items.indexOf(have.id), 1);
-    u.gold -= c; u.items.push(id); sumItems(u); recalc(g, u);
+    u.gold -= c; u.items.push(id); sumItems(u); recalc(g, u); if (u.isPlayer) sfx(g, 'buy', u.x, u.y, true);
     return true;
   }
   function sell(g, u, id) {
@@ -474,6 +476,7 @@
       if (src.type === 'hero') { const st = findFxStealth(src); if (st && !o.keepStealth) removeFx(src, st); }
     }
     dst.lastAttacker = src; if (dst.type === 'tower') dst.lastHurt = g.t;
+    if (VIS && o.basic && src) sfx(g, src.type === 'tower' ? 'shot' : (src.type === 'minion' ? 'minion' : (dst.type === 'hero' ? 'hitHero' : 'hit')), dst.x, dst.y, (src.isPlayer || dst.isPlayer));
     if (src && !o.extra && dst.hp > 0) onHitEffects(g, src, dst, d, o);
     if (dst.type === 'monster' && src) { dst.aggroBy = src; dst.aggroT = g.t; }
     if (dst.hp <= 0) kill(g, dst, src, o);
@@ -553,7 +556,7 @@
     u.xp += n;
     while (u.level < CFG.maxLevel && u.xp >= 90 + 40 * u.level) {
       u.xp -= 90 + 40 * u.level;
-      u.level++;
+      u.level++; if (u.isPlayer) sfx(g, 'levelup', u.x, u.y, true);
     }
   }
 
@@ -566,6 +569,7 @@
     dst.dead = true; dst.hp = 0; dst.dieT = g.t;
     if (VIS) g.fx.push({ k: 'burst', x: dst.x, y: dst.y, c: dst.type === 'tower' ? '#bcaaa4' : (dst.team === 0 ? '#64b5f6' : '#ef5350'), n: dst.type === 'minion' ? 6 : (dst.type === 'hero' ? 14 : 24), t0: g.t, dur: 0.8 });
     if (dst.type === 'hero') {
+      sfx(g, 'die', dst.x, dst.y, dst.isPlayer);
       dst.deaths++; dst.recent = {}; dst.streak = 0; dst.mkN = 0;
       dst.respawnAt = g.t + CFG.respawnBase + CFG.respawnPerLevel * dst.level;
       dst.fx = []; dst.dash = null; dst.casting = null;
@@ -627,7 +631,7 @@
   function cancelRecall(g, u) { if (u.recall) { u.recall = null; if (VIS) g.fx.push({ k: 'ring', x: u.x, y: u.y, r: 16, c: '#9e9e9e', t0: g.t, dur: 0.25 }); } }
   function startRecall(g, u) {
     if (g.over || u.dead || u.recall || u.casting || u.dash || u.m.stun || inBaseOf(u)) return false;
-    u.recall = { start: g.t, end: g.t + TR.RECALL.time };
+    u.recall = { start: g.t, end: g.t + TR.RECALL.time }; sfx(g, 'recall', u.x, u.y, u.isPlayer);
     u.input.dx = 0; u.input.dy = 0;
     return true;
   }
@@ -661,7 +665,7 @@
         for (let i = u.fx.length - 1; i >= 0; i--) if (SPELL_NEG.indexOf(u.fx[i].type) >= 0) u.fx.splice(i, 1);
         addFx(u, { type: 'buff', tag: 'it_ward3', mresAdd: 0.5, until: g.t + 2.5 }); ring(g, u.x, u.y, 30, '#b388ff', 0.5); break;
     }
-    u.itemCd[id] = g.t + F.cd;
+    u.itemCd[id] = g.t + F.cd; sfx(g, 'item', u.x, u.y, u.isPlayer);
     return true;
   }
   // บอทใช้ไอเทมตามสถานการณ์ง่าย ๆ
@@ -816,6 +820,7 @@
     u.lastCast = g.t;
     const st = findFxStealth(u);
     ring(g, u.x, u.y, 14, u.def.colors.accent, 0.2);
+    sfx(g, slot === 2 ? 'ult' : 'cast', u.x, u.y, u.isPlayer);
     for (const fx of sk.fx) doEffect(g, u, fx, ctx, sk);
     if (st && !sk.fx.some(function (f) { return f.stealth; })) removeFx(u, st);
     return true;
@@ -1196,7 +1201,8 @@
     if (u.dead) return;
 
     // ความคิดบอท
-    if (!u.isPlayer && g.aiThink) g.aiThink(g, u);
+    if (!u.isPlayer && g.aiThink && !(g.tutorial && u.team === 1)) g.aiThink(g, u);
+    else if (g.tutorial && u.team === 1) { u.input.dx = 0; u.input.dy = 0; }
 
     // เคลื่อนที่
     let moved = false;
