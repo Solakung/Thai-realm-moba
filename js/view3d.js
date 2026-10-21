@@ -16,14 +16,14 @@
     let s = Sg.s3;
     if (!s || s.id !== def.id || s.t0 !== Sg.t0) {
       s = Sg.s3 = { id: def.id, t0: Sg.t0, act: null, actT: 0, name: 'enter', next: 0, last: 'enter', parts: [], rings: [], trail: [], fxDone: {}, pose: new Float32Array(S.KEYS.length), now: 0 };
-      s.act = S.actsFor(modelFor(def).style).enter;
+      s.act = S.actsFor(modelFor(def).style, def.id).enter;
       if (Sg.yaw === undefined) { Sg.yaw = 0; Sg.vy = 0; Sg.idle = 0; Sg.zoom = 1; Sg.drag = false; }
       Sg.entrySpin = (Sg.side || 1) * TAU * 0.9;
     }
     return s;
   }
   function pickAct(s, def) {
-    const M = modelFor(def), acts = S.actsFor(M.style), names = Object.keys(acts).filter(function (n) { return n !== 'enter' && n !== s.last; });
+    const M = modelFor(def), acts = S.actsFor(M.style, def.id), names = Object.keys(acts).filter(function (n) { return n !== 'enter' && n !== s.last; });
     const n = names[Math.floor(Math.random() * names.length)];
     s.name = n; s.act = acts[n]; s.actT = 0; s.fxDone = {}; s.last = n;
   }
@@ -145,11 +145,12 @@
   // สร้างท่าจากสถานะเกม: mv 0..1.3 (เดิน), ph เฟสก้าว (เรเดียน), atkP/castP 0..1 ขณะกำลังทำ (นอกช่วง = ≥1), dead 0..1
   function gamePose(M, st, out) {
     const acts = S.actsFor(M.style);
-    out.set(M.rest || IDLEP);
+    out.set(M.rest || S.arrFor(M.id));
     const rt = st.rt || 0;
     const breathe = Math.sin(rt * 2.2 + (st.id || 0)) * 0.5 + 0.5;
     out[KI['torso.rx']] += breathe * 0.025; out[KI['head.rx']] += Math.sin(rt * 1.3 + (st.id || 0)) * 0.025;
     const mv = clamp(st.mv, 0, 1.3);
+    const HL = S.HERO[M.id]; if (HL && HL.life && mv <= 0.03 && !M.rest) HL.life(out, rt + (st.id || 0));   // ท่านิ่งมีชีวิตเฉพาะตัว
     if (mv > 0.03 && M.rest) {
       const k = Math.min(1, mv) * 0.7, sw = Math.sin(st.ph);
       out[KI['shA.rx']] += sw * k; out[KI['hpB.rx']] += sw * k; out[KI['shB.rx']] -= sw * k; out[KI['hpA.rx']] -= sw * k;
@@ -209,7 +210,7 @@
   }
 
   function draw(c, o) {
-    const Sg = o.S, def = o.def, M = modelFor(def), s = st3(Sg, def), acts = S.actsFor(M.style);
+    const Sg = o.S, def = o.def, M = modelFor(def), s = st3(Sg, def), acts = S.actsFor(M.style, def.id);
     const now = o.now, dt = clamp(o.dt || 0.016, 0.001, 0.05), acc = o.acc || def.colors.accent;
     const force = o.force;
     /* --- อัปเดตกล้อง --- */
@@ -236,10 +237,10 @@
     const P = s.pose;
     if (s.act) {
       S.evalAct(s.act, Math.min(s.actT, s.act.dur), P);
-      if (s.act.fn) { const w = clamp(Math.min(s.actT, s.act.dur - s.actT) / 0.25, 0, 1), I = S.arr(); for (let j = 0; j < P.length; j++) P[j] = I[j] + (P[j] - I[j]) * w; }
-    } else P.set(S.arr());
+      if (s.act.fn) { const w = clamp(Math.min(s.actT, s.act.dur - s.actT) / 0.25, 0, 1), I = S.arrFor(def.id); for (let j = 0; j < P.length; j++) P[j] = I[j] + (P[j] - I[j]) * w; }
+    } else P.set(S.arrFor(def.id));
     const breathe = Math.sin(now * 2.2) * 0.5 + 0.5;
-    if (!s.act || s.actT > s.act.dur - 0.25) { P[KI['torso.rx']] += breathe * 0.025; P[KI['shA.rx']] -= breathe * 0.03; P[KI['shB.rx']] -= breathe * 0.03; P[KI['head.rx']] += Math.sin(now * 1.3) * 0.025; }
+    if (!s.act || s.actT > s.act.dur - 0.25) { const HL = S.HERO[def.id]; if (HL && HL.life) HL.life(P, now); P[KI['torso.rx']] += breathe * 0.025; P[KI['shA.rx']] -= breathe * 0.03; P[KI['shB.rx']] -= breathe * 0.03; P[KI['head.rx']] += Math.sin(now * 1.3) * 0.025; }
 
     const N = nodeMats(M, heroRot(M, P));
     const lift = -lowestY(M, N, true) + P[KI['root.y']];

@@ -126,9 +126,10 @@
     'shB.rx': -0.15, 'shB.rz': -0.32, 'elB.rx': -0.55,
     'hpA.rx': -0.12, 'hpA.rz': 0.14, 'knA.rx': 0.22, 'hpB.rx': 0.14, 'hpB.rz': -0.14, 'knB.rx': 0.3
   };
+  let BASE = IDLE;   // ท่านิ่งฐานที่ใช้ตอนสร้างท่า (เปลี่ยนตามฮีโร่ตอนสร้างชุดท่าของตัวนั้น)
   function arr(o) {
     const a = new Float32Array(KEYS.length);
-    Object.keys(IDLE).forEach(function (k) { a[KI[k]] = IDLE[k]; });
+    Object.keys(BASE).forEach(function (k) { a[KI[k]] = BASE[k]; });
     if (o) Object.keys(o).forEach(function (k) { if (KI[k] === undefined) throw new Error('pose key ' + k); a[KI[k]] = o[k]; });
     return a;
   }
@@ -257,9 +258,28 @@
     else { A.combo = combo; A.guard = guard; A.flex = flex; A.spin = spin(0); A.run = run; }
     return A;
   }
-  const ACTS = {};
-  function actsFor(style) { return ACTS[style] || (ACTS[style] = buildActs(style)); }
+  const ACTS = {}, IDLES = {};
+  // ท่านิ่งเฉพาะตัว (TR.S3D.HERO[id].idle ใน heropose.js) ทับท่านิ่งกลาง
+  function idleBase(id) { const H = TR.S3D.HERO && TR.S3D.HERO[id]; return H && H.idle ? Object.assign({}, IDLE, H.idle) : IDLE; }
+  function arrFor(id) { if (!IDLES[id]) { const b = BASE; BASE = idleBase(id); IDLES[id] = arr(); BASE = b; } return IDLES[id]; }
+  // ชุดท่าของสไตล์ (ใช้ในเกม) หรือของฮีโร่ตัวนั้น (ใช้บนเวทีเลือกตัว: ท่านิ่งเฉพาะตัว + ท่าที่เข้ากับตัว + ท่าประจำตัว)
+  function actsFor(style, id) {
+    const key = id ? style + ':' + id : style;
+    if (ACTS[key]) return ACTS[key];
+    const b = BASE; BASE = id ? idleBase(id) : IDLE;
+    let A = buildActs(style);
+    const H = id && TR.S3D.HERO && TR.S3D.HERO[id];
+    if (H) {
+      const keep = {}; (H.keep || Object.keys(A)).forEach(function (n) { if (A[n]) keep[n] = A[n]; });
+      if (A.enter) keep.enter = A.enter;
+      if (A.cast && !keep.cast && style === 'staff') keep.cast = A.cast;
+      A = keep;
+      if (H.sig) { const extra = H.sig(); Object.keys(extra).forEach(function (n) { A[n] = extra[n]; }); }
+    }
+    BASE = b;
+    return (ACTS[key] = A);
+  }
 
   TR.S3D = { runPoseAt: runPoseAt, mMul: mMul, rotM: rotM, mLocal: mLocal, mApply: mApply, H: H, sh: sh, shHex: shHex, box: box, frustum: frustum, prism: prism, sphere: sphere, gem: gem, scl: scl, place: place,
-    NAMES: NAMES, IDX: IDX, PARENT: PARENT, KEYS: KEYS, KI: KI, arr: arr, evalAct: evalAct, actsFor: actsFor, clamp: clamp, ease: ease, easeO: easeO, TAU: TAU, PI: PI, rgbCache: rgbCache };
+    NAMES: NAMES, IDX: IDX, PARENT: PARENT, KEYS: KEYS, KI: KI, arr: arr, evalAct: evalAct, actsFor: actsFor, arrFor: arrFor, tl: tl, merge: merge, CROUCH: CROUCH, LUNGE: LUNGE, HERO: {}, clamp: clamp, ease: ease, easeO: easeO, TAU: TAU, PI: PI, rgbCache: rgbCache };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
