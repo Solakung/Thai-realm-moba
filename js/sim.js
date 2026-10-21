@@ -337,6 +337,8 @@
     if (pid === 'kwan' && u.hp < u.maxHp * 0.5) { m.armor += 0.1; m.speed *= 1.1; }
     else if (pid === 'muay' && u.pStack > 0 && u.pT > g.t) m.atkSpd *= 1 + 0.05 * u.pStack;
     else if (pid === 'win' && u.run > 0) m.speed *= 1 + Math.min(0.15, 0.03 * u.run);
+    else if (pid === 'khunsuek' && u.still >= TR.PASSIVE.khunsuek.still) m.armor += TR.PASSIVE.khunsuek.armor;
+    else if (pid === 'jaa' && u.hp < u.maxHp * TR.PASSIVE.jaa.hpBelow) m.ls += TR.PASSIVE.jaa.ls;
     // พ่อเมือง: เพื่อนใกล้ ๆ ได้เกราะ
     for (const y of g.units) {
       if (y.type !== 'hero' || y.dead || y.team !== u.team || y === u || !y.def.passive || y.def.passive.id !== 'yai') continue;
@@ -510,6 +512,7 @@
     const pid = src.def.passive && src.def.passive.id;
     if (pid === 'nakdab' && o.basic) { src.pN = (src.pN || 0) + 1; if (src.pN >= 4) { src.pN = 0; mul *= 1.6; } }
     else if (pid === 'phran' && dst.m && (dst.m.slow > 0 || dst.m.root)) mul *= 1.15;
+    else if (pid === 'pun' && o.basic) { src.pN = (src.pN || 0) + 1; if (src.pN >= TR.PASSIVE.pun.every) { src.pN = 0; mul *= TR.PASSIVE.pun.mul; } }
     else if (pid === 'seri' && src.bush >= 0) mul *= 1.25;
     else if (pid === 'spy' && dst.face) {
       const vx = src.x - dst.x, vy = src.y - dst.y, l = hyp(vx, vy) || 1;
@@ -545,6 +548,8 @@
       if (F.siege3 && dst.type === 'minion') {
         for (const e of g.units) if (e !== dst && e.type === 'minion' && e.team === dst.team && !e.dead && hyp(e.x - dst.x, e.y - dst.y) < 90) hit(g, src, e, d * 0.4, { raw: true, extra: true });
       }
+      if (pid === 'traffic' && dst.type !== 'tower') addFx(dst, { type: 'slow', tag: 'tfslow' + src.id, pct: TR.PASSIVE.traffic.slow, until: g.t + TR.PASSIVE.traffic.dur });
+      if (pid === 'press' && dst.type !== 'tower') { src.pB = (src.pB || 0) + 1; if (src.pB >= TR.PASSIVE.press.every) { src.pB = 0; addFx(dst, { type: 'blind', tag: 'prblind', until: g.t + TR.PASSIVE.press.blind }); ring(g, dst.x, dst.y, 16, '#fffde7', 0.25); } }
       if (pid === 'muay') { src.pStack = Math.min(5, (src.pT > g.t ? src.pStack : 0) + 1); src.pT = g.t + 3; }
     }
     if (o.skill) {
@@ -739,6 +744,7 @@
         else if (kl && kl.isPlayer) { g.fx.push({ k: 'shake', amp: CFG.juice.killShake, t0: g.t, dur: 0.35 }); g.fx.push({ k: 'stop', ms: CFG.juice.killStopMs, t0: g.t, dur: 0.12 }); g.fx.push({ k: 'flash', c: '#ffd54f', a: 0.22, t0: g.t, dur: 0.35 }); }
       }
       if (dst.isPlayer) makeRecap(g, dst, src);
+      if (src && src.type === 'hero' && src.def.passive && src.def.passive.id === 'yamada') { src.cd[0] = 0; ring(g, src.x, src.y, 22, '#ff8a80', 0.3); }
       dst.deaths++; dst.recent = {}; dst.streak = 0; dst.mkN = 0;
       dst.respawnAt = g.t + CFG.respawnBase + CFG.respawnPerLevel * dst.level;
       dst.fx = []; dst.dash = null; dst.casting = null;
@@ -1092,6 +1098,7 @@
     if (u.nextMul) { ctx.mul *= u.nextMul; u.nextMul = 0; }
     if (u.greedReady) { ctx.mul *= 1.08; u.greedReady = false; }
     if (u.def.passive && u.def.passive.id === 'mothamma') { u.pC = (u.pC || 0) + 1; if (u.pC >= 3) { u.pC = 0; ctx.mul *= 1.3; ring(g, u.x, u.y, 24, '#ffd54f', 0.3); } }
+    if (u.def.passive && u.def.passive.id === 'nopphamat') { const P = TR.PASSIVE.nopphamat; addFx(u, { type: 'shield', tag: 'nopsh', amt: u.maxHp * P.shield, until: g.t + P.dur }); }
     if (u.itmFx && u.itmFx.cdr3) u.sbT = g.t + 4;
     if (u.itmFx && u.itmFx.e1c) healUnit(g, u, u.maxHp * TR.ITEM_FX.e1c.heal);
     cancelRecall(g, u);
@@ -1465,6 +1472,9 @@
     else if (pid === 'mohya') {
       u.pAura = (u.pAura || 0) - dt;
       if (u.pAura <= 0) { u.pAura = 0.5; for (const a of alliedHeroes(g, u.team, u.x, u.y, 180)) healUnit(g, a, a.maxHp * 0.008 * 0.5); }
+    } else if (pid === 'nurse') {
+      u.pAura = (u.pAura || 0) - dt;
+      if (u.pAura <= 0) { const P = TR.PASSIVE.nurse; u.pAura = 0.5; for (const a of alliedHeroes(g, u.team, u.x, u.y, P.r)) if (a.hp < a.maxHp * P.hpBelow) healUnit(g, a, a.maxHp * P.pct * 0.5); }
     } else if (pid === 'win') {
       if (u.input.dx || u.input.dy) u.run = Math.min(5, (u.run || 0) + dt); else u.run = 0;
     }

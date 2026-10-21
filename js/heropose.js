@@ -110,6 +110,59 @@
     }
   };
 
+  /* ---------- ฮีโร่ชุดใหม่ (v0.22) ---------- */
+  const wave = function (name, dur, a, b) {   // ท่าประจำตัวแบบง่าย: ไปท่า a แล้วค้าง แล้วไปท่า b แล้วกลับ
+    const o = {}; o[name] = tl(dur, [[0, {}], [0.4, a, 'o'], [dur * 0.5, a], [dur * 0.75, b || a, 'o'], [dur, {}]], { noTrail: true }); return o;
+  };
+  H.nopphamat = {   // นางนพมาศ: ถือคทาดอกบัวไว้ระดับอก ยืนสง่า
+    idle: { 'torso.rx': 0.02, 'head.rx': 0.05, 'head.ry': 0.1, 'shA.rx': -1.2, 'shA.rz': 0.1, 'elA.rx': -0.9, 'wrA.rx': 0.1, 'shB.rx': -0.9, 'shB.rz': -0.2, 'elB.rx': -1.3, 'hpA.rz': 0.08, 'hpB.rz': -0.08, 'knA.rx': 0.05, 'knB.rx': 0.08 },
+    life: function (P, t) { add(P, 'wrA.rx', Math.sin(t * 2) * 0.08); add(P, 'head.ry', Math.sin(t * 0.7) * 0.1); },
+    keep: ['cast'],
+    sig: function () { return wave('lantern', 2.6, { 'shA.rx': -2.6, 'shA.rz': 0.3, 'elA.rx': -0.4, 'head.rx': -0.3, 'torso.rx': -0.1 }, { 'shA.rx': -2.4, 'elA.rx': -0.3 }); }
+  };
+  H.khunsuek = {   // ขุนศึกโล่หวาย: ยกโล่กลมบังอก หอกชี้ต่ำ
+    idle: { 'torso.ry': 0.2, 'torso.rx': 0.05, 'head.ry': -0.15, 'shA.rx': -0.5, 'shA.rz': 0.25, 'elA.rx': -0.6, 'wrA.rx': 0.2, 'shB.rx': -1.2, 'shB.rz': -0.3, 'elB.rx': -1.5, 'hpA.rx': -0.25, 'knA.rx': 0.3, 'hpB.rx': 0.15, 'knB.rx': 0.2, 'hpA.rz': 0.2, 'hpB.rz': -0.2 },
+    life: function (P, t) { add(P, 'shB.rx', Math.sin(t * 1.4) * 0.05); add(P, 'head.ry', Math.sin(t * 0.6) * 0.08); },
+    keep: ['slash', 'guard'],
+    sig: function () { return wave('hold', 2.6, { 'shB.rx': -1.6, 'elB.rx': -0.8, 'shA.rx': -2.8, 'elA.rx': -0.3, 'torso.rx': -0.15 }, { 'shA.rx': -1.4, 'elA.rx': -0.2, 'torso.rx': 0.25 }); }
+  };
+  H.pun = {   // พลปืนคาบชุด: ยืนตรงถือปืนตั้งข้างตัวแบบทหาร
+    idle: { 'torso.ry': -0.1, 'head.ry': 0.1, 'shA.rx': -0.7, 'shA.rz': 0.1, 'elA.rx': -0.7, 'wrA.rx': 0.1, 'shB.rx': -0.8, 'shB.rz': -0.2, 'elB.rx': -1.2, 'hpA.rz': 0.1, 'hpB.rz': -0.1 },
+    life: function (P, t) { add(P, 'head.ry', Math.sin(t * 0.8) * 0.12); },
+    keep: ['shoot'],
+    sig: function () { return wave('reload', 2.6, { 'shA.rx': -1.5, 'elA.rx': -0.9, 'shB.rx': -1.6, 'elB.rx': -1.0, 'torso.rx': 0.2, 'head.rx': 0.25 }, { 'shB.rx': -1.1, 'elB.rx': -0.6, 'torso.rx': 0.15 }); }
+  };
+  H.yamada = {   // ยามาดะอาสา: ตั้งท่าชักดาบ มือหนึ่งจับฝักข้างเอว
+    idle: { 'torso.ry': -0.35, 'torso.rx': 0.12, 'head.ry': 0.35, 'shA.rx': -0.8, 'shA.rz': 0.3, 'elA.rx': -1.0, 'wrA.rx': 0.3, 'shB.rx': -0.5, 'shB.rz': -0.5, 'elB.rx': -0.9, 'hpA.rx': -0.35, 'knA.rx': 0.5, 'hpB.rx': 0.2, 'knB.rx': 0.25, 'hpA.rz': 0.2, 'hpB.rz': -0.15 },
+    life: function (P, t) { add(P, 'torso.rx', Math.sin(t * 1.6) * 0.03); add(P, 'head.ry', Math.sin(t * 0.7) * 0.06); },
+    keep: ['slash'],
+    sig: function () { return wave('draw', 2.6, { 'shA.rx': -2.4, 'shA.rz': 0.5, 'elA.rx': -0.2, 'torso.ry': 0.4, 'torso.rx': 0.2 }, { 'shA.rx': -0.9, 'elA.rx': -0.1, 'torso.ry': -0.5, 'torso.rx': 0.35 }); }
+  };
+  H.jaa = {   // จ่าดาบปลายปืน: ปืนติดดาบทอดเฉียงข้างหน้า ท่าพร้อมรบ
+    idle: { 'torso.ry': 0.3, 'torso.rx': 0.1, 'head.ry': -0.2, 'shA.rx': -1.2, 'shA.rz': 0.1, 'elA.rx': -0.7, 'wrA.rx': 0.1, 'shB.rx': -1.3, 'shB.rz': -0.2, 'elB.rx': -0.6, 'hpA.rx': -0.35, 'knA.rx': 0.4, 'hpB.rx': 0.2, 'knB.rx': 0.2, 'hpA.rz': 0.15, 'hpB.rz': -0.15 },
+    life: function (P, t) { add(P, 'shA.rx', Math.sin(t * 1.8) * 0.05); add(P, 'shB.rx', Math.sin(t * 1.8) * 0.05); },
+    keep: ['slash', 'guard'],
+    sig: function () { return wave('thrustup', 2.6, { 'shA.rx': -0.8, 'shB.rx': -0.9, 'elA.rx': -1.6, 'elB.rx': -1.6, 'torso.rx': 0.2 }, { 'shA.rx': -1.55, 'shB.rx': -1.5, 'elA.rx': -0.05, 'elB.rx': -0.1, 'torso.rx': 0.3, 'torso.ry': -0.3 }); }
+  };
+  H.nurse = {   // พยาบาลสนาม: โน้มตัวอ่อนโยน ถือไม้เท้าธงกางเขนแดง
+    idle: { 'torso.rx': 0.1, 'head.rx': 0.1, 'head.ry': 0.1, 'shA.rx': -0.9, 'shA.rz': 0.15, 'elA.rx': -0.8, 'wrA.rx': 0.1, 'shB.rx': -0.6, 'shB.rz': -0.2, 'elB.rx': -1.1, 'hpA.rz': 0.12, 'hpB.rz': -0.1, 'knA.rx': 0.08, 'knB.rx': 0.1 },
+    life: function (P, t) { add(P, 'shA.rx', Math.sin(t * 1.5) * 0.04); add(P, 'head.ry', Math.sin(t * 0.8) * 0.12); },
+    keep: ['cast'],
+    sig: function () { return wave('aid', 2.6, { 'torso.rx': 0.4, 'head.rx': 0.35, 'shB.rx': -1.6, 'elB.rx': -0.6, 'shA.rx': -1.2, 'elA.rx': -0.6 }, { 'torso.rx': 0.1, 'head.rx': 0.05, 'shB.rx': -1.0 }); }
+  };
+  H.traffic = {   // ตำรวจจราจร: ยกมือข้างหนึ่งสั่งหยุด อีกข้างถือกระบอง
+    idle: { 'torso.ry': -0.1, 'head.ry': 0.15, 'shA.rx': -0.6, 'shA.rz': 0.3, 'elA.rx': -1.0, 'wrA.rx': 0.3, 'shB.rx': -1.55, 'shB.rz': -0.3, 'elB.rx': -0.1, 'wrB.rx': -0.2, 'hpA.rz': 0.15, 'hpB.rz': -0.15, 'knA.rx': 0.1, 'knB.rx': 0.12 },
+    life: function (P, t) { add(P, 'wrB.rx', Math.sin(t * 2.4) * 0.12); add(P, 'head.ry', Math.sin(t * 0.6) * 0.1); },
+    keep: ['slash', 'guard'],
+    sig: function () { return wave('stop', 2.6, { 'shB.rx': -1.55, 'elB.rx': 0, 'shA.rx': -1.2, 'elA.rx': -0.1, 'torso.rx': -0.1 }, { 'shB.rx': -1.55, 'shA.rx': -2.5, 'elA.rx': -0.2, 'wrB.rx': 0.4 }); }
+  };
+  H.press = {   // ช่างภาพข่าว: ยกกล้องเลนส์ยาวขึ้นเล็ง
+    idle: { 'torso.ry': 0.2, 'torso.rx': 0.08, 'head.ry': -0.15, 'shA.rx': -1.4, 'shA.rz': 0.05, 'elA.rx': -1.1, 'wrA.rx': 0, 'shB.rx': -1.3, 'shB.rz': -0.1, 'elB.rx': -1.0, 'hpA.rx': -0.2, 'knA.rx': 0.25, 'hpB.rx': 0.1, 'knB.rx': 0.12, 'hpA.rz': 0.1, 'hpB.rz': -0.1 },
+    life: function (P, t) { add(P, 'head.ry', Math.sin(t * 1.0) * 0.1); add(P, 'shA.rx', Math.sin(t * 2.5) * 0.03); },
+    keep: ['shoot'],
+    sig: function () { return wave('snap', 2.6, { 'shA.rx': -1.55, 'elA.rx': -0.3, 'shB.rx': -1.5, 'elB.rx': -0.5, 'torso.rx': 0.15, 'head.rx': 0.1 }, { 'shA.rx': -1.2, 'elA.rx': -0.9, 'torso.rx': 0.05 }); }
+  };
+
   /* ---------- ท่าตีและท่าร่ายสกิลในเกม (รายฮีโร่) ----------
      แต่ละตัวเลือก "ท่าตี" 1 แบบ และ "ท่าร่ายสกิล" ของสกิล 1/2/3 ต่างกัน จากชุดท่าพื้นฐานด้านล่าง แล้วใส่ท่าถือ/จังหวะประจำตัวทับ
      ใช้ผ่าน TR.S3D.HERO[id].game() → { gatk, gc0, gc1, gc2 } (เรียกตอน BASE เป็นท่านิ่งของฮีโร่ตัวนั้นแล้ว) */
@@ -141,7 +194,15 @@
     spy:      ['thrust', 'throw',  'sweep',  'spin'],
     mae:      ['throw',  'throw',  'push',   'raise'],
     win:      ['sweep',  'spin',   'thrust', 'slam'],
-    chang:    ['push',   'raise',  'throw',  'slam']
+    chang:    ['push',   'raise',  'throw',  'slam'],
+    nopphamat: ['push',  'throw',  'raise',  'slam'],
+    khunsuek: ['overhead', 'push', 'raise',  'sweep'],
+    pun:      ['-',      'shoot',  'throw',  'shoot'],
+    yamada:   ['sweep',  'thrust', 'sweep',  'spin'],
+    jaa:      ['thrust', 'thrust', 'raise',  'slam'],
+    nurse:    ['push',   'throw',  'raise',  'raise'],
+    traffic:  ['sweep',  'push',   'thrust', 'slam'],
+    press:    ['-',      'throw',  'shoot',  'raise']
   };
   Object.keys(PLAN).forEach(function (id) {
     H[id].game = function () {

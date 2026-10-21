@@ -199,6 +199,14 @@
     mae: function (c, K) { cap(c, 0, 0, 7, 0, 1.4, K('#5d4037')); circ(c, 11.5, 0, 5, K('#37474f'), true); circ(c, 11.5, 0, 3.7, K('#546e7a')); },
     win: function (c, K) { cap(c, -3, 0, 11, 0, 1.8, K('#90a4ae')); circ(c, 12.3, 0, 2.6, K('#78909c'), true); circ(c, 12.3, 0, 1, '#263238'); },
     chang: function (c, K) { cap(c, -4, 0, 12, 0, 1.7, K('#455a64')); fillRR(c, 11, -2.6, 5, 5.2, 1, K('#fdd835'), true); c.strokeStyle = '#fff59d'; c.lineWidth = 0.7; c.beginPath(); c.moveTo(16, -1); c.lineTo(19, -3); c.lineTo(18, 0); c.lineTo(21, -1); c.stroke(); },
+    nopphamat: function (c, K) { cap(c, -4, 0, 10, 0, 1.2, K('#8d6e63')); for (let i = 0; i < 6; i++) { const t = i / 6 * TAU; poly(c, [12 + Math.cos(t), Math.sin(t), 12 + Math.cos(t - 0.5) * 3.6, Math.sin(t - 0.5) * 3.6, 12 + Math.cos(t) * 5, Math.sin(t) * 5, 12 + Math.cos(t + 0.5) * 3.6, Math.sin(t + 0.5) * 3.6], K('#f48fb1'), true); } circ(c, 12, 0, 1.6, K('#fff59d')); },
+    khunsuek: function (c, K) { cap(c, -5, 0, 14, 0, 1.4, K('#5d4037')); poly(c, [13, -1.6, 20, 0, 13, 1.6], K('#cfd8dc'), true); circ(c, 1, 5.4, 5.2, K('#a1887f'), true); circ(c, 1, 5.4, 3.2, K('#cfa14a')); circ(c, 1, 5.4, 1, K('#6d4c41')); },
+    pun: function (c, K) { fillRR(c, -5, -1.7, 7, 3.4, 1.2, K('#6d4c41'), true); fillRR(c, 1, -0.8, 17, 1.6, 0.5, K('#455a64'), true); fillRR(c, 17, -1.1, 1.6, 2.2, 0.4, K('#212121')); },
+    yamada: function (c, K) { cap(c, -3, 0, 2, 0, 1.4, K('#212121')); fillRR(c, 1.6, -3, 1.6, 6, 0.5, K('#d4a017'), true); poly(c, [3.2, -0.9, 19, -0.6, 22, 0, 19, 0.6, 3.2, 0.9], K('#eceff1'), true); },
+    jaa: function (c, K) { fillRR(c, -5, -1.7, 7, 3.4, 1.2, K('#6d4c41'), true); fillRR(c, 1, -0.8, 14, 1.6, 0.5, K('#455a64'), true); poly(c, [14, -0.7, 23, -0.2, 23.5, 0.1, 14, 0.7], K('#eceff1'), true); },
+    nurse: function (c, K) { cap(c, -5, 0, 13, 0, 1.2, K('#8d6e63')); fillRR(c, 12, -5, 7, 6, 0.5, K('#fafafa'), true); fillRR(c, 14.8, -4, 1.4, 4, 0.2, K('#d32f2f')); fillRR(c, 13.5, -2.7, 4, 1.4, 0.2, K('#d32f2f')); },
+    traffic: function (c, K) { cap(c, -2, 0, 3, 0, 1.6, K('#212121')); cap(c, 3, 0, 16, 0, 1.8, K('#ff5252')); circ(c, 15, 0, 2.2, K('#ffcdd2')); },
+    press: function (c, K) { fillRR(c, -2, -3, 8, 6, 1.2, K('#212121'), true); fillRR(c, 6, -2.2, 8, 4.4, 0.8, K('#37474f'), true); fillRR(c, 14, -2.6, 2.4, 5.2, 0.6, K('#80d8ff'), true); circ(c, 0, -3.4, 1, K('#ffca28')); },
     minionM: function (c, K, col) { poly(c, [0, -1, 9, -0.8, 11, 0, 9, 0.8, 0, 1], K('#dfe6ea'), true); fillRR(c, -2, -1.5, 2.6, 3, 0.6, K('#795548'), true); },
     minionR: function (c, K) { c.lineCap = 'round'; c.strokeStyle = OUT; c.lineWidth = 2; c.beginPath(); c.arc(4, 0, 6.5, -1.1, 1.1); c.stroke(); c.strokeStyle = K('#a1887f'); c.lineWidth = 1.2; c.stroke(); }
   };
@@ -216,6 +224,14 @@
     mae: function (c, K, col) { hairCap(c, K, col.hair); circ(c, -1, -6.2, 2.6, K(col.hair), true); fillRR(c, -5, -2.9, 10, 2, 0.8, K('#f48fb1'), true); circ(c, 4, -4.4, 1.2, K('#fff59d')); circ(c, 4, -4.4, 0.5, K('#ec407a')); },
     win: function (c, K, col) { c.beginPath(); c.arc(0, 0.2, 6.2, Math.PI * 0.95, TAU * 1.0); c.lineTo(5.6, 1.6); c.lineTo(-5.8, 1.6); c.closePath(); c.fillStyle = K('#ff7043'); c.fill(); c.strokeStyle = OUT; c.lineWidth = 0.7; c.stroke(); fillRR(c, 0.8, -1.3, 5.6, 2.6, 1, K('#263238'), true); },
     chang: function (c, K, col) { hairCap(c, K, col.hair); c.beginPath(); c.arc(0, -1.2, 5.9, Math.PI, TAU); c.closePath(); c.fillStyle = K('#fdd835'); c.fill(); c.strokeStyle = OUT; c.lineWidth = 0.7; c.stroke(); fillRR(c, -6.6, -1.4, 13.2, 1.4, 0.6, K('#f9a825'), true); circ(c, 4.4, -3.6, 1.2, K('#fffde7')); },
+    nopphamat: function (c, K, col) { hairCap(c, K, col.hair); circ(c, -1, -6, 2.6, K(col.hair), true); poly(c, [-4, -3, 0, -10, 4, -3], K('#ffd54f'), true); circ(c, 0, -9, 1, K('#fff59d')); },
+    khunsuek: function (c, K, col) { c.beginPath(); c.arc(0, -0.8, 5.8, Math.PI, TAU); c.closePath(); c.fillStyle = K('#8d6e63'); c.fill(); c.strokeStyle = OUT; c.lineWidth = 0.7; c.stroke(); fillRR(c, -6.4, -1.4, 12.8, 1.4, 0.6, K('#4e342e'), true); poly(c, [-1, -6, 0, -9.6, 1, -6], K('#cfa14a'), true); },
+    pun: function (c, K, col) { hairCap(c, K, col.hair); poly(c, [-7, -2, -3.4, -4.4, 0, -10, 3.4, -4.4, 7, -2], K('#37474f'), true); fillRR(c, -1, -6.6, 2, 2, 0.4, K('#c62828')); },
+    yamada: function (c, K, col) { hairCap(c, K, '#111111'); circ(c, -1, -6, 2.4, K('#111111'), true); fillRR(c, -5.4, -2.6, 10.8, 1.7, 0.6, K('#e53935'), true); poly(c, [-5, -2, -9, 1, -8, 2, -4.6, -0.4], K('#e53935'), true); },
+    jaa: function (c, K, col) { c.beginPath(); c.arc(0, -0.8, 5.8, Math.PI, TAU); c.closePath(); c.fillStyle = K('#556b2f'); c.fill(); c.strokeStyle = OUT; c.lineWidth = 0.7; c.stroke(); fillRR(c, -6.4, -1.4, 12.8, 1.4, 0.6, K('#3f4f22'), true); fillRR(c, -1.4, -4.4, 2.8, 1.8, 0.4, K('#d4a017')); },
+    nurse: function (c, K, col) { hairCap(c, K, col.hair); fillRR(c, -5.4, -4.4, 10.8, 3.2, 0.8, K('#fafafa'), true); fillRR(c, -0.5, -3.9, 1, 2.2, 0.2, K('#d32f2f')); fillRR(c, -1.1, -3.3, 2.2, 1, 0.2, K('#d32f2f')); },
+    traffic: function (c, K, col) { c.beginPath(); c.arc(0, -0.8, 5.8, Math.PI, TAU); c.closePath(); c.fillStyle = K('#1565c0'); c.fill(); c.strokeStyle = OUT; c.lineWidth = 0.7; c.stroke(); fillRR(c, -6.4, -1.4, 12.8, 1.4, 0.6, K('#0d47a1'), true); circ(c, 0, -3.8, 1.2, K('#ffd54f')); },
+    press: function (c, K, col) { hairCap(c, K, col.hair); c.beginPath(); c.arc(0, -1.2, 5.9, Math.PI, TAU); c.closePath(); c.fillStyle = K('#37474f'); c.fill(); c.strokeStyle = OUT; c.lineWidth = 0.7; c.stroke(); fillRR(c, 0, -2.2, 8, 1.3, 0.5, K('#263238'), true); },
     minionM: function (c, K, col) { c.beginPath(); c.arc(0, -0.6, 5.7, Math.PI, TAU); c.closePath(); c.fillStyle = K(col.body); c.fill(); c.strokeStyle = OUT; c.lineWidth = 0.7; c.stroke(); fillRR(c, -6, -1.1, 12, 1.4, 0.5, K(dark(col.body, 0.3)), true); },
     minionR: function (c, K, col) { hairCap(c, K, '#3e2723'); fillRR(c, -5.2, -3.1, 10.4, 1.9, 0.8, K(col.body), true); }
   };
@@ -235,6 +251,14 @@
     mae: function (c, K, col, bw) { fillRR(c, -bw / 2 + 0.6, -9, bw - 1.2, 11, 2, K('#fff59d'), true); fillRR(c, -bw / 2, -3, bw, 6, 1.5, K('#f06292'), true); },
     win: function (c, K, col, bw) { fillRR(c, -bw / 2, -11, bw, 8.6, 1.5, K('#ffab91'), true); c.fillStyle = K('#212121'); c.font = 'bold 4.6px sans-serif'; c.textAlign = 'center'; c.fillText('7', 0, -5.2); },
     chang: function (c, K, col, bw) { fillRR(c, -bw / 2, -14, bw, 15, 3, K('#fdd835'), true); fillRR(c, -bw / 2 - 0.4, -4.8, bw + 0.8, 2, 0.5, K('#455a64'), true); fillRR(c, 1, -10, 3.2, 3.2, 0.6, K('#455a64'), true); },
+    nopphamat: function (c, K, col, bw) { poly(c, [-bw / 2, -2, bw / 2, -2, bw / 2 + 2.6, 5.5, -bw / 2 - 2.6, 5.5], K('#8e24aa'), true); fillRR(c, -bw / 2, -9.8, bw, 1.6, 0.5, K('#ffd54f')); fillRR(c, -1, -14, 2, 11, 0.5, K('#f8bbd0')); },
+    khunsuek: function (c, K, col, bw) { fillRR(c, -bw / 2, -13, bw, 8, 1.4, K('#a1887f'), true); fillRR(c, -bw / 2, -6.2, bw, 2.2, 0.5, K('#cfa14a'), true); },
+    pun: function (c, K, col, bw) { c.strokeStyle = K('#efefef'); c.lineWidth = 1.6; c.beginPath(); c.moveTo(-bw / 2, -14); c.lineTo(bw / 2, -4); c.moveTo(bw / 2, -14); c.lineTo(-bw / 2, -4); c.stroke(); fillRR(c, -bw / 2, -4.6, bw, 1.8, 0.5, K('#c62828'), true); },
+    yamada: function (c, K, col, bw) { fillRR(c, -bw / 2, -14, bw, 3, 1.2, K('#e53935'), true); fillRR(c, -bw / 2, -3.6, bw, 1.8, 0.5, K('#e53935'), true); poly(c, [-bw / 2 - 1, -2, bw / 2 + 1, -2, bw / 2 + 2.4, 6, -bw / 2 - 2.4, 6], K('#1a237e'), true); },
+    jaa: function (c, K, col, bw) { fillRR(c, -bw / 2, -3.6, bw, 1.8, 0.5, K('#3e2723'), true); c.strokeStyle = K('#3e2723'); c.lineWidth = 1.4; c.beginPath(); c.moveTo(-bw / 2, -14); c.lineTo(bw / 2, -3.8); c.stroke(); fillRR(c, -4, -11, 2.4, 1.6, 0.3, K('#d4a017')); },
+    nurse: function (c, K, col, bw) { poly(c, [-bw / 2, -2, bw / 2, -2, bw / 2 + 2.2, 5.5, -bw / 2 - 2.2, 5.5], K('#eceff1'), true); fillRR(c, -bw / 2, -3.6, bw, 1.6, 0.5, K('#d32f2f')); fillRR(c, -0.6, -12, 1.2, 4.4, 0.2, K('#d32f2f')); fillRR(c, -2.2, -10.4, 4.4, 1.2, 0.2, K('#d32f2f')); },
+    traffic: function (c, K, col, bw) { fillRR(c, -bw / 2, -13, bw, 2, 0.5, K('#fff176')); fillRR(c, -bw / 2, -9.4, bw, 2, 0.5, K('#fff176')); fillRR(c, -bw / 2, -3.6, bw, 1.8, 0.5, K('#111111'), true); },
+    press: function (c, K, col, bw) { fillRR(c, -bw / 2 + 0.6, -12, bw - 1.2, 9, 1.4, K('#546e7a'), true); fillRR(c, 1, -10, 3.4, 2.8, 0.5, K('#ffca28')); fillRR(c, -bw / 2, -3.6, bw, 1.8, 0.5, K('#212121'), true); },
     minionM: function (c, K, col, bw) { fillRR(c, -bw / 2, -3.6, bw, 1.6, 0.4, K(dark(col.body, 0.3))); },
     minionR: function (c, K, col, bw) { fillRR(c, -bw / 2, -3.6, bw, 1.6, 0.4, K(dark(col.body, 0.3))); }
   };

@@ -4,7 +4,7 @@
   'use strict';
   const TR = (G.TR = G.TR || {});
 
-  TR.VERSION = '0.21.6';
+  TR.VERSION = '0.22.0';
 
   TR.CFG = {
     dt: 0.05,          // ตรรกะเกม 20 ครั้งต่อวินาที
@@ -22,7 +22,7 @@
     fog: true,   // หมอกสงคราม: ทีมเห็นเฉพาะรอบตัวฮีโร่/ลูกกระจ๊อก/ป้อม/ตะเกียง เป้าที่อยู่ในหมอกเล็ง/ตีไม่ได้ (สกิลพื้นที่ยังโดนได้)
     vision: { hero: 270, minion: 150, tower: 360, king: 420 },   // รัศมีมองเห็น (หน่วยโลก) · ตะเกียงใช้ CFG.ward.r
     ward: { max: 2, regen: 45, dur: 90, r: 380, sweep: 60 },   // ตะเกียงส่องทาง: จำนวนที่ถือได้ เวลาได้คืน 1 อัน อายุ รัศมีมองเห็น ระยะที่ศัตรูเดินทับแล้วพัง
-    ban: { n: 1 },      // จำนวนฮีโร่ที่แต่ละฝ่ายแบน (ตอนนี้มี 12 ตัว ต้องเหลือพอลง 10 คน เพิ่มฮีโร่แล้วค่อยเพิ่มเลขนี้)
+    ban: { n: 1 },      // จำนวนฮีโร่ที่แต่ละฝ่ายแบน (ตอนนี้มี 20 ตัว ต้องเหลือพอลง 10 คน เพิ่มฮีโร่แล้วค่อยเพิ่มเลขนี้)
     eraWarn: 10,       // แจ้งเตือนก่อนเปลี่ยนยุค (วินาที) — ข้อเสนอที่ยังไม่ได้ตัดสินใจ
     maxTime: 1800,     // เพดานเวลาแมตช์สำหรับเครื่องมือบอท
     peak: 1.12,        // ยุครุ่งเรือง: ดาเมจและเลือด +12%
@@ -133,11 +133,18 @@
 
   // ระยะตีธรรมดารายฮีโร่ (หน่วยโลก) — ไม่มีในรายการ = ใช้ค่าของบทบาท (TR.ROLES[role].range)
   // ป้อมยิงไกล CFG.towerRange 150: นักยิงต้องไม่ไกลเกินป้อมมาก, สายประชิดต่างกันตามขนาดอาวุธ (>60 = ยิงกระสุน)
-  TR.HERO_RANGE = { nakdab: 34, muay: 28, kwan: 40, yai: 32, spy: 28, win: 32, phran: 165, seri: 150, mothamma: 125, chang: 135, mohya: 105, mae: 92 };
+  TR.HERO_RANGE = { nakdab: 34, muay: 28, kwan: 40, yai: 32, spy: 28, win: 32, phran: 165, seri: 150, mothamma: 125, chang: 135, mohya: 105, mae: 92, nopphamat: 130, pun: 175, press: 155, nurse: 95 };
   TR.atkRange = function (def) { const v = TR.HERO_RANGE[def.id]; return v != null ? v : TR.ROLES[def.role].range; };
 
   // ตัวคูณปรับสมดุลรายฮีโร่ (จากผลรันบอทหลายรอบ) hp/dmg 1 = ปกติ
   TR.HERO_BAL = { chang: { hp: 0.94, dmg: 0.93 }, win: { hp: 1.06, dmg: 1.08 }, kwan: { hp: 0.9, dmg: 0.93 }, muay: { hp: 0.92, dmg: 0.93 }, mae: { hp: 1.06, dmg: 1.06 }, yai: { hp: 1.04, dmg: 1.04 } };
+  // ตัวเลขพลังติดตัวของฮีโร่ชุดใหม่ (v0.22)
+  TR.PASSIVE = {
+    nopphamat: { shield: 0.07, dur: 2 }, khunsuek: { still: 1, armor: 0.12 },
+    pun: { every: 3, mul: 1.5 }, press: { every: 4, blind: 1 },
+    jaa: { hpBelow: 0.5, ls: 0.15 }, nurse: { r: 200, hpBelow: 0.35, pct: 0.015 },
+    traffic: { slow: 0.1, dur: 1.5 }
+  };
 
   // ชุดใจ: ค่าสถานะพื้นฐาน + ราคาที่ต้องจ่าย (พลังแฝงอยู่ใน sim.js)
   TR.EMBLEMS = {
@@ -161,7 +168,9 @@
     nakdab: [2, 4, 1, 3], phran: [4, 2, 3, 1], mohya: [1, 1, 2, 4],
     kwan: [1, 2, 3, 4], mothamma: [4, 3, 1, 2], muay: [1, 4, 2, 3],
     seri: [2, 3, 4, 1], yai: [1, 1, 2, 4], spy: [2, 3, 4, 1],
-    mae: [1, 1, 2, 4], win: [2, 4, 3, 1], chang: [4, 2, 1, 2]
+    mae: [1, 1, 2, 4], win: [2, 4, 3, 1], chang: [4, 2, 1, 2],
+    nopphamat: [4, 2, 2, 3], khunsuek: [1, 3, 2, 4], pun: [4, 3, 2, 1], yamada: [2, 4, 3, 1],
+    jaa: [1, 4, 2, 3], nurse: [1, 1, 3, 4], traffic: [1, 2, 3, 4], press: [4, 2, 3, 1]
   };
   TR.FIT_LABEL = ['', 'แย่', 'กลาง', 'ดี', 'ดีมาก'];
 
@@ -214,6 +223,36 @@
           desc: 'เพื่อนที่เลือดต่ำกว่า 25% ในระยะ ฟื้นเลือดทันที (ครั้งละ 1 คน)',
           fx: [{ k: 'heal', who: 'lowest', r: 200, pct: 0.5, hpBelow: 0.25 }] }
       ] },
+    { id: 'nopphamat', name: 'นางนพมาศ', era: 0, role: 'mage',
+      passive: { id: 'nopphamat', name: 'โคมลอยคุ้มกาย', desc: 'ร่ายสกิลแล้วได้โล่ 7% ของเลือดสูงสุด นาน 2 วินาที' }, skillMag: true, basicMag: true,
+      strength: 'ยิงไกล มีโล่ตอนร่าย', weakness: 'เลือดน้อย ดาเมจต่อครั้งไม่สูง',
+      colors: { body: '#ec6f9a', accent: '#ffd54f', hair: '#3e2723' },
+      skills: [
+        { name: 'กระทงเพลิง', icon: 'lantern', cd: 5, ai: 'enemy', aiRange: 190,
+          desc: 'ปล่อยกระทงไฟพุ่งตรงไปไกล ดาเมจเวทเป้าเดียว',
+          fx: [{ k: 'shot', range: 220, speed: 210, w: 6, dmg: 135 }] },
+        { name: 'ม่านดอกไม้', icon: 'blossom', cd: 11, ai: 'fight', aiRange: 120,
+          desc: 'โล่กลีบดอกไม้รอบตัว 3 วินาที และวิ่งเร็วขึ้นเล็กน้อย',
+          fx: [{ k: 'buff', who: 'self', dur: 3, shield: 260, speedMul: 1.12 }] },
+        { name: 'สายน้ำลอยกระทง', icon: 'riverlight', cd: 48, ai: 'ult', aiRange: 150,
+          desc: 'คลื่นแสงระเบิดพื้นที่ใหญ่ ดาเมจเวทและหน่วงศัตรู',
+          fx: [{ k: 'blast', range: 160, r: 66, delay: 0.8, dmg: 250, slow: [0.4, 2] }] }
+      ] },
+    { id: 'khunsuek', name: 'ขุนศึกโล่หวาย', era: 0, role: 'tank',
+      passive: { id: 'khunsuek', name: 'ยืนหยัดแนวหน้า', desc: 'ยืนนิ่งเกิน 1 วินาที ได้เกราะเพิ่ม 12%' }, skillMag: false, basicMag: false,
+      strength: 'ตั้งรับเหนียว ดึงความสนใจศัตรู', weakness: 'ดาเมจต่ำ ไม่มีสกิลหนี',
+      colors: { body: '#6d4c41', accent: '#cfa14a', hair: '#212121' },
+      skills: [
+        { name: 'โล่กระแทก', icon: 'shieldbash', cd: 8, ai: 'enemy', aiRange: 120,
+          desc: 'พุ่งสั้นใส่ด้วยโล่ ผลักศัตรูออกไปเล็กน้อย',
+          fx: [{ k: 'dash', dist: 90, dmg: 75, toTarget: true, stop: 22, range: 120, push: 30, w: 16 }] },
+        { name: 'ตั้งโล่หวาย', icon: 'rattanwall', cd: 12, ai: 'fight', aiRange: 90,
+          desc: 'ตั้งโล่ 2.5 วินาที รับดาเมจดีขึ้นแต่เดินช้าลง',
+          fx: [{ k: 'buff', who: 'self', dur: 2.5, shield: 380, speedMul: 0.75, armorAdd: 0.2 }] },
+        { name: 'ประกาศศึก', icon: 'warcry', cd: 55, ai: 'ult', aiRange: 100,
+          desc: 'ศัตรูรอบตัวหันมาตีเรา 1.5 วินาที และเรารับดาเมจน้อยลง',
+          fx: [{ k: 'taunt', r: 110, dur: 1.5 }, { k: 'buff', who: 'self', dur: 4, armorAdd: 0.25 }] }
+      ] },
     // ---------- อยุธยา ----------
     { id: 'kwan', name: 'ควาญช้างศึก', era: 1, role: 'tank',
       passive: { id: 'kwan', name: 'ผิวหนาช้างศึก', desc: 'เลือดต่ำกว่าครึ่ง ได้เกราะเพิ่ม 10% และวิ่งเร็วขึ้น 10%' }, skillMag: false, basicMag: false,
@@ -259,6 +298,36 @@
         { name: 'คอมโบมงคล', icon: 'combostar', cd: 50, ai: 'ult', aiRange: 60,
           desc: 'ท่ารวบ 4 ครั้งใส่เป้าเดียว ดาเมจรวมสูง แต่ถูกคุมแล้วขาด',
           fx: [{ k: 'combo', n: 4, dmg: 130, gap: 0.22, range: 48, root: true, breakStun: true }] }
+      ] },
+    { id: 'pun', name: 'พลปืนคาบชุด', era: 1, role: 'marksman',
+      passive: { id: 'pun', name: 'ยิงเป็นชุด', desc: 'ตีปกติครั้งที่ 3 ของทุกชุดแรงขึ้น 50%' }, skillMag: false, basicMag: false,
+      strength: 'ดาเมจไกล ยืนนิ่งยิงแรง', weakness: 'ชักช้า เลือดน้อย โดนประชิดแล้วเปราะ',
+      colors: { body: '#37474f', accent: '#c62828', hair: '#3e2723' },
+      skills: [
+        { name: 'ยิงนัดเดียว', icon: 'musket', cd: 5, ai: 'enemy', aiRange: 210,
+          desc: 'กระสุนไกลเป้าเดียว ถ้ายืนนิ่งก่อนยิงแรงขึ้น',
+          fx: [{ k: 'shot', range: 240, speed: 380, w: 5, dmg: 150, stillMul: 1.3 }] },
+        { name: 'ถอยตั้งแถว', icon: 'fallback', cd: 10, ai: 'escape', aiRange: 120,
+          desc: 'ถอยหลังสั้น ๆ แล้ววิ่งเร็วขึ้นชั่วครู่',
+          fx: [{ k: 'dash', dist: 70, dmg: 0, away: true }, { k: 'buff', who: 'self', dur: 1.5, speedMul: 1.2 }] },
+        { name: 'ชุดยิงสลับแถว', icon: 'volley', cd: 42, ai: 'ult', aiRange: 180,
+          desc: 'ยิงกระสุนกระจายเป็นกรวยแคบด้านหน้า',
+          fx: [{ k: 'cone', range: 200, n: 5, spread: 24, dmg: 105, speed: 340 }] }
+      ] },
+    { id: 'yamada', name: 'ยามาดะอาสา', era: 1, role: 'assassin',
+      passive: { id: 'yamada', name: 'ดาบไม่ลังเล', desc: 'สังหารศัตรูได้ รีเซ็ตคูลดาวน์สกิล 1 ทันที' }, skillMag: false, basicMag: false,
+      strength: 'เก็บฮีโร่เลือดน้อยแล้วต่อเนื่อง', weakness: 'เปราะ ต้องเข้าประชิดทุกครั้ง',
+      colors: { body: '#283593', accent: '#e53935', hair: '#111111' },
+      skills: [
+        { name: 'ฟันพุ่ง', icon: 'iaidash', cd: 7, ai: 'enemy', aiRange: 150,
+          desc: 'พุ่งเข้าฟันศัตรูตามทางที่ผ่าน',
+          fx: [{ k: 'dash', dist: 110, dmg: 110, toTarget: true, stop: 20, range: 150, w: 14 }] },
+        { name: 'ใบมีดเงา', icon: 'shadowblade', cd: 6, ai: 'enemy', aiRange: 70,
+          desc: 'ฟันแรงใส่เป้าเดียว แรงขึ้นถ้าฟันจากด้านหลัง',
+          fx: [{ k: 'strike', range: 55, dmg: 120, backMul: 1.3, dashTo: true }] },
+        { name: 'ดาบซามูไร', icon: 'katana', cd: 44, ai: 'ult', aiRange: 140,
+          desc: 'ล็อกเป้าฟันเดียวจบ ดาเมจสูงมากถ้าเลือดต่ำกว่า 35%',
+          fx: [{ k: 'strike', range: 150, dmg: 220, execBelow: 0.35, execMul: 1.6, dashTo: true }] }
       ] },
     // ---------- ยุคสงคราม ----------
     { id: 'seri', name: 'เสรีไทย', era: 2, role: 'marksman',
@@ -306,6 +375,36 @@
           desc: 'ล็อกเป้า 1 คน ดาเมจสูงถ้าเป้าเลือดต่ำกว่า 40% ฆ่าได้แล้วรีเซ็ตสกิล 1-2',
           fx: [{ k: 'strike', range: 160, dmg: 230, execBelow: 0.4, execMul: 1.8, resetOnKill: true, dashTo: true }] }
       ] },
+    { id: 'jaa', name: 'จ่าดาบปลายปืน', era: 2, role: 'fighter',
+      passive: { id: 'jaa', name: 'ไม่ถอยแม้เหลือคนเดียว', desc: 'เลือดต่ำกว่าครึ่ง ดูดเลือด 15%' }, skillMag: false, basicMag: false,
+      strength: 'ยิ่งเจ็บยิ่งอึด บุกแล้วพลิกเกมได้', weakness: 'ไม่มีสกิลคุมระยะไกล',
+      colors: { body: '#556b2f', accent: '#d7ccc8', hair: '#3e2723' },
+      skills: [
+        { name: 'แทงปลายปืน', icon: 'bayonet', cd: 7, ai: 'enemy', aiRange: 130,
+          desc: 'พุ่งแทงเข้าหาศัตรู',
+          fx: [{ k: 'dash', dist: 100, dmg: 105, toTarget: true, stop: 22, range: 130, w: 14 }] },
+        { name: 'ตั้งท่าป้อง', icon: 'guardstance', cd: 11, ai: 'fight', aiRange: 80,
+          desc: 'ลดดาเมจที่รับและดูดเลือด 2.5 วินาที',
+          fx: [{ k: 'buff', who: 'self', dur: 2.5, armorAdd: 0.25, lifesteal: 0.15 }] },
+        { name: 'สั่งลุย', icon: 'charge', cd: 50, ai: 'ult', aiRange: 95,
+          desc: 'ฟาดพื้นที่รอบตัวทำให้มึน และตีแรงขึ้น 5 วินาที',
+          fx: [{ k: 'nova', r: 95, dmg: 200, stun: 0.5 }, { k: 'buff', who: 'self', dur: 5, dmgMul: 1.12 }] }
+      ] },
+    { id: 'nurse', name: 'พยาบาลสนาม', era: 2, role: 'support',
+      passive: { id: 'nurse', name: 'ไม่ทิ้งผู้บาดเจ็บ', desc: 'เพื่อนในระยะ 200 ที่เลือดต่ำกว่า 35% ฟื้นเลือด 1.5% ต่อวินาที' }, skillMag: true, basicMag: false,
+      strength: 'ช่วยคนเลือดต่ำ ล้างสถานะลบ', weakness: 'ดาเมจน้อยมาก ต้องอยู่ใกล้ทีม',
+      colors: { body: '#e0e0e0', accent: '#d32f2f', hair: '#4e342e' },
+      skills: [
+        { name: 'ผ้าพันแผล', icon: 'bandage', cd: 6, ai: 'lowAlly', aiRange: 150,
+          desc: 'ฮีลต่อเนื่องเพื่อนที่เลือดน้อยสุด 2 วินาที',
+          fx: [{ k: 'heal', who: 'lowest', r: 150, pct: 0.14, hot: 2 }] },
+        { name: 'เต็นท์พยาบาล', icon: 'fieldtent', cd: 13, ai: 'allies', aiRange: 90,
+          desc: 'วางพื้นที่ เพื่อนที่ยืนอยู่ฟื้นเลือดต่อเนื่อง 4 วินาที',
+          fx: [{ k: 'zone', range: 30, r: 55, dur: 4, tick: 0.5, heal: 30, healAllies: true, nearSelf: true }] },
+        { name: 'ช่วยชีวิตฉุกเฉิน', icon: 'rescue', cd: 62, ai: 'lowAllyCrit', aiRange: 170,
+          desc: 'ฟื้นเลือดทันทีให้เพื่อนที่เลือดต่ำกว่า 30% และล้างสถานะลบ',
+          fx: [{ k: 'heal', who: 'lowest', r: 180, pct: 0.45, hpBelow: 0.3, cleanse: true }] }
+      ] },
     // ---------- ปัจจุบัน ----------
     { id: 'mae', name: 'แม่ค้าริมทาง', era: 3, role: 'support',
       passive: { id: 'mae', name: 'ค้าขายคล่อง', desc: 'รายได้ทอง +12% และได้ทองเพิ่ม 2 ต่อวินาที' }, skillMag: true, basicMag: false,
@@ -351,7 +450,37 @@
         { name: 'ไฟดับทั้งซอย', icon: 'blackout', cd: 55, ai: 'ult', aiRange: 150,
           desc: 'พื้นที่ใหญ่ ศัตรูเห็นไม่ชัดและช้าลง 3 วินาที',
           fx: [{ k: 'zone', range: 150, r: 90, dur: 3, tick: 0.25, slow: 0.35, dmg: 8, blind: true }] }
-      ] }
+      ] },
+    { id: 'traffic', name: 'ตำรวจจราจร', era: 3, role: 'tank',
+      passive: { id: 'traffic', name: 'ใบสั่งชะลอ', desc: 'ตีปกติทำให้เป้าวิ่งช้าลง 10% นาน 1.5 วินาที' }, skillMag: false, basicMag: false,
+      strength: 'คุมจังหวะ ชะลอศัตรูเป็นกลุ่ม', weakness: 'ดาเมจต่ำ พึ่งทีมช่วยปิดเกม',
+      colors: { body: '#1565c0', accent: '#fff176', hair: '#212121' },
+      skills: [
+        { name: 'ยกมือหยุด', icon: 'stopsign', cd: 10, ai: 'enemy', aiRange: 90,
+          desc: 'วางพื้นที่หน้าตัว หน่วงศัตรูที่เข้ามา 2 วินาที',
+          fx: [{ k: 'zone', range: 60, r: 52, dur: 2, tick: 0.25, slow: 0.5, nearSelf: true }] },
+        { name: 'กระบองจราจร', icon: 'baton', cd: 8, ai: 'enemy', aiRange: 120,
+          desc: 'พุ่งสั้นฟาดกระบองใส่ ผลักศัตรูออกไป',
+          fx: [{ k: 'dash', dist: 90, dmg: 85, toTarget: true, stop: 22, range: 120, push: 30, w: 16 }] },
+        { name: 'ปิดถนน', icon: 'roadblock', cd: 52, ai: 'ult', aiRange: 110,
+          desc: 'ระเบิดพื้นที่รอบตัว ศัตรูมึนสั้น ๆ และช้าลง',
+          fx: [{ k: 'nova', r: 120, dmg: 190, stun: 0.5, slow: [0.45, 3] }] }
+      ] },
+    { id: 'press', name: 'ช่างภาพข่าว', era: 3, role: 'marksman',
+      passive: { id: 'press', name: 'แฟลชสะกดตา', desc: 'ตีปกติครั้งที่ 4 ของทุกชุดทำให้เป้าตาพร่า 1 วินาที' }, skillMag: false, basicMag: false,
+      strength: 'ทำให้ศัตรูพลาด ปักเป้าทำดาเมจไกล', weakness: 'เปราะ ต้องมีแนวหน้าคุม',
+      colors: { body: '#455a64', accent: '#ffca28', hair: '#212121' },
+      skills: [
+        { name: 'แฟลชวาบ', icon: 'flashbulb', cd: 8, ai: 'enemy', aiRange: 160,
+          desc: 'แสงแฟลชระเบิดวงเล็ก ศัตรูมึนสั้น ๆ',
+          fx: [{ k: 'blast', range: 170, r: 36, delay: 0.25, dmg: 90, stun: 0.4 }] },
+        { name: 'ซูมโฟกัส', icon: 'zoomlens', cd: 6, ai: 'enemy', aiRange: 240,
+          desc: 'ยิงไกลมาก ถ้ายืนนิ่งก่อนยิงแรงขึ้น',
+          fx: [{ k: 'shot', range: 280, speed: 420, w: 5, dmg: 165, stillMul: 1.25 }] },
+        { name: 'ข่าวด่วน', icon: 'breaking', cd: 46, ai: 'ult', aiRange: 180,
+          desc: 'เล็งเป้าฮีโร่ศัตรูรอบตัวให้รับดาเมจเพิ่ม และยิงกระสุนกระจายเป็นกรวย',
+          fx: [{ k: 'mark', range: 220, mul: 1.12, dur: 5 }, { k: 'cone', range: 190, n: 6, spread: 40, dmg: 90, speed: 320 }] }
+      ] },
   ];
 
   TR.HERO_BY_ID = {};
@@ -553,6 +682,18 @@
      ทุกครั้งที่อัปเดตเกม: เพิ่มรายการใหม่ไว้บนสุด และแก้ TR.VERSION ให้ตรงกัน
      ผู้เล่นที่ยังไม่เคยเห็นเวอร์ชันนั้นจะเห็นกล่องอัปเดตขึ้นเองตอนเปิดเกม */
   TR.CHANGELOG = [
+    {
+      version: '0.22.0',
+      date: '2026-10-21',
+      title: 'ฮีโร่ใหม่ 8 ตัว ยุคละ 2 (รวม 20 ตัว)',
+      items: [
+        'สุโขทัย: นางนพมาศ (เมจ ยิงกระทงไฟ ได้โล่ทุกครั้งที่ร่ายสกิล) · ขุนศึกโล่หวาย (แทงค์ ยืนนิ่งเกราะเพิ่ม ประกาศศึกดึงความสนใจ)',
+        'อยุธยา: พลปืนคาบชุด (มือปืน ตีครั้งที่ 3 แรงขึ้น ยืนนิ่งยิงแรง) · ยามาดะอาสา (แอสซาซิน ฆ่าได้แล้วรีเซ็ตสกิล 1)',
+        'ยุคสงคราม: จ่าดาบปลายปืน (นักสู้ เลือดต่ำดูดเลือด) · พยาบาลสนาม (ซัพพอร์ต ช่วยเพื่อนที่เลือดต่ำเป็นพิเศษ)',
+        'ปัจจุบัน: ตำรวจจราจร (แทงค์ ตีปกติชะลอศัตรู) · ช่างภาพข่าว (มือปืน ตีครั้งที่ 4 ทำให้ตาพร่า)',
+        'ทุกตัวมีโมเดล 3D ท่าทาง ภาพ 2D ไอคอนสกิล เอฟเฟกต์ และเสียงประจำตัวครบ · ตัวเลขพลังติดตัวอยู่ที่ TR.PASSIVE ใน js/data.js'
+      ]
+    },
     {
       version: '0.21.6',
       date: '2026-10-21',

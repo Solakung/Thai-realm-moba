@@ -148,7 +148,7 @@
     out[KI['root.y']] += TMPP[KI['root.y']] * w;
   }
   // สร้างท่าจากสถานะเกม: mv 0..1.3 (เดิน), ph เฟสก้าว (เรเดียน), atkP/castP 0..1 ขณะกำลังทำ (นอกช่วง = ≥1), dead 0..1
-  const RCA = { nakdab: 'salute', phran: 'scout', mohya: 'brew', kwan: 'stomp', mothamma: 'chant', muay: 'wai', seri: 'reload', yai: 'declare', spy: 'flourish', mae: 'serve', win: 'rev', chang: 'zap' };   // ท่ากลับพระนคร = ท่าประจำตัวหน้าเลือกตัว
+  const RCA = { nakdab: 'salute', phran: 'scout', mohya: 'brew', kwan: 'stomp', mothamma: 'chant', muay: 'wai', seri: 'reload', yai: 'declare', spy: 'flourish', mae: 'serve', win: 'rev', chang: 'zap', nopphamat: 'lantern', khunsuek: 'hold', pun: 'reload', yamada: 'draw', jaa: 'thrustup', nurse: 'aid', traffic: 'stop', press: 'snap' };   // ท่ากลับพระนคร = ท่าประจำตัวหน้าเลือกตัว
   function gamePose(M, st, out) {
     const HG = S.HERO[M.id] && S.HERO[M.id].game ? S.actsFor(M.style, M.id) : null, acts = S.actsFor(M.style);
     out.set(M.rest || S.arrFor(M.id));

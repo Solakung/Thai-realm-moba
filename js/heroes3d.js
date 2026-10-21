@@ -8,7 +8,7 @@
   const SKIN = '#f1caa0';
   const ROLE_BW = { tank: 1.28, fighter: 1.05, mage: 0.94, marksman: 0.94, assassin: 0.86, support: 1.0 };
   const ROLE_SCALE = { tank: 1.08, fighter: 1.02, mage: 0.99, marksman: 1.0, assassin: 0.97, support: 0.99 };
-  const STYLE = { nakdab: 'melee', phran: 'bow', mohya: 'staff', kwan: 'melee', mothamma: 'staff', muay: 'fist', seri: 'gun', yai: 'melee', spy: 'melee', mae: 'melee', win: 'melee', chang: 'staff' };
+  const STYLE = { nakdab: 'melee', phran: 'bow', mohya: 'staff', kwan: 'melee', mothamma: 'staff', muay: 'fist', seri: 'gun', yai: 'melee', spy: 'melee', mae: 'melee', win: 'melee', chang: 'staff', nopphamat: 'staff', khunsuek: 'melee', pun: 'gun', yamada: 'melee', jaa: 'melee', nurse: 'staff', traffic: 'melee', press: 'gun' };
 
   function build(def) {
     const id = def.id, col = def.colors, role = def.role;
@@ -44,6 +44,14 @@
       case 'mae': cfg.torso = '#fff59d'; cfg.sleeve = '#fff59d'; cfg.pants = '#6d4c41'; break;
       case 'win': cfg.torso = '#37474f'; cfg.sleeve = '#37474f'; cfg.pants = '#263238'; cfg.boots = '#212121'; break;
       case 'chang': cfg.torso = '#fdd835'; cfg.sleeve = '#fdd835'; cfg.pants = '#455a64'; break;
+      case 'nopphamat': cfg.torso = '#ec6f9a'; cfg.sleeve = '#f8bbd0'; cfg.pants = '#7b1fa2'; cfg.fore = SKIN; break;
+      case 'khunsuek': cfg.torso = '#6d4c41'; cfg.sleeve = '#8d6e63'; cfg.pants = '#3e2723'; cfg.boots = '#2b1d16'; break;
+      case 'pun': cfg.torso = '#37474f'; cfg.sleeve = '#37474f'; cfg.pants = '#cfd8dc'; cfg.boots = '#212121'; break;
+      case 'yamada': cfg.torso = '#283593'; cfg.sleeve = '#283593'; cfg.pants = '#1a237e'; cfg.boots = '#212121'; break;
+      case 'jaa': cfg.torso = '#556b2f'; cfg.sleeve = '#556b2f'; cfg.pants = '#4a5a2a'; cfg.boots = '#2b1d16'; break;
+      case 'nurse': cfg.torso = '#eeeeee'; cfg.sleeve = '#eeeeee'; cfg.pants = '#cfd8dc'; cfg.boots = '#eeeeee'; break;
+      case 'traffic': cfg.torso = '#1565c0'; cfg.sleeve = '#1565c0'; cfg.pants = '#0d2f5e'; cfg.boots = '#111111'; break;
+      case 'press': cfg.torso = '#455a64'; cfg.sleeve = '#455a64'; cfg.pants = '#37474f'; cfg.boots = '#212121'; break;
     }
 
     /* ----- ร่างพื้นฐาน ----- */
@@ -221,6 +229,101 @@
         P('wrA', at(prism(0.62, 0.62, 12, 6), 0, 5.0, 0), '#455a64'); P('wrA', at(box(2.8, 1.2, 1.2), 0, 11.8, 0), '#fdd835');
         P('wrA', at(gem(1.3, 4.0, 4), 0, 14.6, 0), '#fff176', { em: true, glow: 6 }); P('wrA', at(box(0.45, 7, 0.45), 1.7, 8.4, 1.0, 0, 0, 0.1), '#212121');
         M.tip = [0, 14.6, 0]; M.tipBase = [0, 8, 0];
+        break; }
+      case 'nopphamat': {
+        P('head', at(sphere(2.3, 6, 3), -1.0, 9.8, -2.4), hair);
+        P('head', at(prism(0, 4.2, 4.6, 8), 0, 9.6, 0), '#ffd54f'); P('head', at(prism(5.2, 5.2, 0.7, 8), 0, 7.2, 0), '#ffca28');
+        P('head', at(gem(0.9, 2.2, 4), 0, 12.4, 0), '#fff59d', { em: true, glow: 3 });
+        P('root', at(frustum(8 * bw, 5.2, 12.4, 8.2, 9), 0, -3.6, 0), '#8e24aa'); P('root', at(box(12.6, 0.8, 8.6), 0, -7.7, 0), '#ffd54f');
+        P('torso', at(box(10 * bw, 1.4, 5.8), 0, 1.3, 0), '#ffd54f'); P('torso', at(box(2.0, 11, 5.8), 2.0, 5.4, 0, 0, 0, 0.55), '#f8bbd0');
+        // คทาและกระทงดอกบัว
+        P('wrA', staff(14, '#8d6e63', 0.5), '#8d6e63');
+        for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; P('wrA', at(gem(1.0, 3.0, 4), Math.cos(a) * 1.9, 12.2, Math.sin(a) * 1.9, Math.sin(a) * 0.55, 0, -Math.cos(a) * 0.55), '#f48fb1'); }
+        P('wrA', at(sphere(1.4, 6, 3), 0, 12.6, 0), '#fff59d', { em: true, glow: 6 });
+        M.tip = [0, 13, 0]; M.tipBase = [0, 7, 0];
+        break; }
+      case 'khunsuek': {
+        P('head', at(prism(4.9, 5.3, 2.6, 8), 0, 7.0, 0), '#8d6e63'); P('head', at(prism(0, 1.0, 2.4, 6), 0, 9.8, 0), '#cfa14a');
+        P('head', at(box(9.6, 1.4, 5.6), 0, 5.0, 0), '#4e342e');
+        both('shA', 'shB', function () { return scl(sphere(3.5, 7, 4), 1.1, 0.8, 1.1); }, '#8d6e63', 0.4, 0.3, 0);
+        P('torso', at(box(9.8 * bw, 8.6, 1.2), 0, 5.4, 3.1), '#a1887f'); P('torso', at(box(10 * bw, 1.5, 5.9), 0, 1.2, 0), '#cfa14a');
+        P('root', at(frustum(8 * bw, 4.8, 10 * bw, 5.4, 4.2), 0, -2.8, 0), '#5d4037');
+        // โล่หวายกลมที่แขนซ้าย
+        P('wrB', at(prism(7.4, 7.4, 1.4, 12), 0, 0, 3.4, 1.5708, 0, 0), '#a1887f'); P('wrB', at(prism(5.6, 5.6, 0.5, 12), 0, 0, 4.2, 1.5708, 0, 0), '#cfa14a'); P('wrB', at(sphere(1.5, 6, 3), 0, 0, 4.8), '#8d6e63');
+        // หอกสั้น
+        P('wrA', staff(18, '#5d4037', 0.6), '#5d4037'); P('wrA', at(gem(1.0, 4.2, 4), 0, 16.0, 0), '#cfd8dc');
+        M.tip = [0, 16.5, 0]; M.tipBase = [0, 6, 0];
+        break; }
+      case 'pun': {
+        P('head', at(prism(0, 6.0, 3.0, 8), 0, 9.0, 0), '#37474f'); P('head', at(prism(6.6, 6.6, 0.5, 8), 0, 7.4, 0), '#263238');
+        P('head', at(box(1.2, 2.0, 0.6), 0, 9.0, 3.6), '#c62828');
+        P('torso', at(box(1.6, 11.2, 5.7), 1.6, 5.4, 0, 0, 0, 0.55), '#efefef'); P('torso', at(box(1.6, 11.2, 5.7), -1.6, 5.4, 0, 0, 0, -0.55), '#efefef');
+        P('torso', at(box(10 * bw, 1.4, 5.8), 0, 1.2, 0), '#c62828');
+        P('root', at(box(3.2, 3.0, 2.0), 3.6, -1.2, 3.0), '#5d4037');
+        // ปืนคาบชุด ยาวและมีลำกล้อง
+        P('wrA', at(box(1.4, 4.4, 1.9), 0, -0.2, 0), '#6d4c41'); P('wrA', at(prism(0.55, 0.55, 17, 6), 0, 11.0, 0), '#455a64'); P('wrA', at(box(0.9, 1.2, 1.0), 0, 6.4, 0), '#b0bec5');
+        P('wrA', at(box(0.6, 0.6, 0.6), 0, 19.7, 0), '#212121');
+        M.tip = [0, 19.5, 0]; M.tipBase = [0, 6, 0];
+        break; }
+      case 'yamada': {
+        P('head', at(sphere(2.0, 6, 3), 0, 10.2, -2.2), '#111111'); P('head', at(prism(4.7, 4.7, 1.0, 8), 0, 5.8, 0), '#e53935');
+        P('head', at(box(1.0, 3.6, 0.6), -1.0, 4.4, -4.8, 0.25, 0, -0.2), '#e53935');
+        P('torso', at(box(1.8, 11, 5.8), 1.6, 5.4, 0, 0, 0, 0.5), '#e53935'); P('torso', at(box(1.8, 11, 5.8), -1.6, 5.4, 0, 0, 0, -0.5), '#c62828');
+        P('torso', at(box(10.2 * bw, 1.6, 5.9), 0, 1.2, 0), '#e53935');
+        P('root', at(frustum(8 * bw, 5.2, 10.4 * bw, 6.4, 4.8), 0, -2.8, 0), '#1a237e');
+        both('shA', 'shB', function () { return box(3.2, 1.0, 3.2); }, '#c62828', 0, -0.2, 0);
+        P('wrA', at(box(0.9, 3.0, 0.9), 0, 0, 0), '#212121'); P('wrA', at(box(2.6, 0.6, 2.6), 0, 1.8, 0), '#d4a017');
+        P('wrA', at(box(0.8, 13, 0.35), 0, 8.4, 0), '#eceff1'); P('wrA', at(scl(prism(0, 0.7, 2.4, 4), 1, 1, 0.3), 0, 15.9, 0, 0, 0.78, 0), '#ffffff');
+        P('root', at(box(0.9, 0.9, 9), 4.0, -0.8, -4.0, 0.4, 0, 0), '#212121');
+        M.tip = [0, 15.5, 0]; M.tipBase = [0, 3, 0];
+        break; }
+      case 'jaa': {
+        P('head', at(scl(sphere(5.0, 8, 4), 1, 0.8, 1.06), 0, 5.8, 0), '#556b2f'); P('head', at(prism(6.2, 6.2, 0.5, 8), 0, 4.9, 0.4), '#3f4f22');
+        P('head', at(box(1.8, 1.4, 0.7), 0, 6.5, 4.8), '#d4a017');
+        P('torso', at(box(10.2 * bw, 1.4, 5.8), 0, 1.2, 0), '#3e2723');
+        P('torso', at(box(1.4, 11, 5.8), 2.0, 5.4, 0, 0, 0, 0.6), '#3e2723');
+        P('torso', at(box(2.0, 1.6, 0.6), -2.6, 7.4, 3.0), '#d4a017'); P('torso', at(box(2.0, 1.6, 0.6), -2.6, 5.6, 3.0), '#d4a017');
+        P('root', at(box(3.0, 3.0, 2.0), 3.6, -1.0, 3.2), '#6d4c41');
+        // ปืนติดดาบปลายปืน
+        P('wrA', at(box(1.3, 4.2, 1.8), 0, -0.2, 0), '#6d4c41'); P('wrA', at(prism(0.55, 0.55, 15, 6), 0, 9.8, 0), '#455a64');
+        P('wrA', at(box(0.5, 6, 0.9), 0, 20.2, 0), '#eceff1'); P('wrA', at(scl(prism(0, 0.6, 2.0, 4), 1, 1, 0.5), 0, 24.0, 0), '#ffffff');
+        M.tip = [0, 23, 0]; M.tipBase = [0, 5, 0];
+        break; }
+      case 'nurse': {
+        P('head', at(box(8.6, 3.0, 5.6), 0, 7.6, 0), '#fafafa'); P('head', at(box(2.0, 1.8, 0.7), 0, 7.8, 3.0), '#d32f2f'); P('head', at(box(0.7, 2.6, 0.7), 0, 7.8, 3.1), '#d32f2f');
+        P('head', at(sphere(2.0, 6, 3), -1.0, 5.0, -3.4), hair);
+        P('root', at(frustum(8 * bw, 5.2, 11.2, 7.4, 6), 0, -3.2, 0), '#eceff1'); P('root', at(box(11.4, 0.8, 7.5), 0, -6.2, 0), '#cfd8dc');
+        P('torso', at(box(2.4, 2.4, 0.6), 0, 6.8, 3.1), '#d32f2f'); P('torso', at(box(0.8, 3.4, 0.7), 0, 6.8, 3.15), '#ffffff'); P('torso', at(box(3.4, 0.8, 0.7), 0, 6.8, 3.15), '#ffffff');
+        P('torso', at(box(10 * bw, 1.2, 5.8), 0, 1.2, 0), '#d32f2f');
+        // กระเป๋าพยาบาล
+        P('root', at(box(4.6, 3.6, 2.6), -5.2 * bw, -1.0, 0.4), '#fafafa'); P('root', at(box(1.4, 0.6, 2.7), -5.2 * bw, -1.0, 0.4), '#d32f2f');
+        // ไม้เท้า/ธงกางเขนแดง
+        P('wrA', staff(15, '#8d6e63', 0.5), '#8d6e63'); P('wrA', at(box(5.6, 4.6, 0.4), 2.8, 13.6, 0), '#fafafa');
+        P('wrA', at(box(0.9, 3.0, 0.5), 2.8, 13.6, 0), '#d32f2f'); P('wrA', at(box(3.0, 0.9, 0.5), 2.8, 13.6, 0), '#d32f2f');
+        M.tip = [0, 14, 0]; M.tipBase = [0, 6, 0];
+        break; }
+      case 'traffic': {
+        P('head', at(scl(sphere(5.0, 8, 4), 1, 0.8, 1.06), 0, 5.8, 0), '#1565c0'); P('head', at(prism(6.1, 6.1, 0.5, 8), 0, 4.9, 0.5), '#0d47a1');
+        P('head', at(box(1.8, 1.6, 0.7), 0, 6.6, 5.0), '#ffd54f');
+        P('torso', at(box(10.2 * bw, 1.4, 5.8), 0, 1.2, 0), '#111111'); P('torso', at(box(10.4 * bw, 1.0, 5.9), 0, 4.2, 0), '#fff176', { em: true, glow: 1 });
+        P('torso', at(box(10.4 * bw, 1.0, 5.9), 0, 7.4, 0), '#fff176', { em: true, glow: 1 });
+        P('torso', at(box(1.4, 11, 5.8), 2.2, 5.4, 0, 0, 0, 0.6), '#fff176');
+        both('shA', 'shB', function () { return box(3.3, 1.2, 3.3); }, '#fff176', 0, -0.1, 0);
+        // กระบองจราจรเรืองแสง + ป้ายหยุดที่แขนซ้าย
+        P('wrA', at(prism(0.8, 0.8, 4.4, 6), 0, 0.4, 0), '#212121'); P('wrA', at(prism(0.9, 0.9, 12, 6), 0, 8.4, 0), '#ff5252', { em: true, glow: 5 });
+        P('wrB', at(prism(0.5, 0.5, 6, 6), 0, 3.0, 0), '#8d6e63'); P('wrB', at(prism(3.4, 3.4, 0.5, 8), 0, 7.8, 0, 1.5708, 0, 0), '#d32f2f'); P('wrB', at(box(3.4, 0.8, 0.7), 0, 7.8, 0.4), '#ffffff');
+        M.tip = [0, 14.5, 0]; M.tipBase = [0, 4, 0];
+        break; }
+      case 'press': {
+        P('head', at(prism(5.0, 5.0, 3.2, 8), 0, 7.6, 0), '#37474f'); P('head', at(box(8.8, 0.8, 4.2), 0, 6.1, 3.2), '#263238');
+        P('torso', at(box(9.8 * bw, 8.4, 2.4), 0, 5.2, -3.5), '#546e7a'); P('torso', at(box(1.8, 11, 5.8), 2.0, 5.4, 0, 0, 0, 0.55), '#212121');
+        P('torso', at(box(4.0, 3.0, 1.0), -2.0, 3.6, 3.2), '#37474f'); P('torso', at(box(4.0, 2.6, 0.8), 2.4, 6.4, 3.2), '#ffca28');
+        P('root', at(box(8.6 * bw, 1.6, 5.5), 0, 0.9, 0), '#212121');
+        // กล้องถ่ายภาพเลนส์ยาว (ถือเป็นอาวุธ)
+        P('wrA', at(box(4.2, 3.4, 3.0), 0, 1.4, 0), '#212121'); P('wrA', at(prism(1.9, 1.9, 8, 8), 0, 8.2, 0), '#37474f');
+        P('wrA', at(prism(2.4, 2.4, 1.6, 8), 0, 13.2, 0), '#455a64'); P('wrA', at(prism(1.6, 1.6, 0.4, 8), 0, 14.2, 0), '#80d8ff', { em: true, glow: 4 });
+        P('wrA', at(box(1.4, 1.2, 1.2), 0, 3.4, 1.8), '#ffca28', { em: true, glow: 2 });
+        M.tip = [0, 14.5, 0]; M.tipBase = [0, 4, 0];
         break; }
     }
     M.hasGlow = M.parts.some(function (p) { return p.glow; });

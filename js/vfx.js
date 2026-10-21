@@ -195,7 +195,15 @@
     'spy:0': ['smoke'], 'spy:1': ['flare', '#b0bec5', '#ffffff'], 'spy:2': ['shadow'],
     'mae:0': ['steam'], 'mae:1': ['steam'], 'mae:2': ['feast'],
     'win:0': ['exhaust'], 'win:1': ['skid'], 'win:2': ['exhaust'],
-    'chang:0': ['zapflare'], 'chang:1': ['zapflare'], 'chang:2': ['blackout']
+    'chang:0': ['zapflare'], 'chang:1': ['zapflare'], 'chang:2': ['blackout'],
+    'nopphamat:0': ['glyph', '#ffb74d'], 'nopphamat:1': ['leaves'], 'nopphamat:2': ['glyph', '#80deea', true],
+    'khunsuek:0': ['dust'], 'khunsuek:1': ['dome'], 'khunsuek:2': ['horn'],
+    'pun:0': [], 'pun:1': ['dust'], 'pun:2': ['fan'],
+    'yamada:0': ['flare', '#e53935', '#ffffff'], 'yamada:1': ['smoke'], 'yamada:2': ['flare', '#ffffff', '#e53935'],
+    'jaa:0': ['dust'], 'jaa:1': ['parry'], 'jaa:2': ['banner'],
+    'nurse:0': ['leaves'], 'nurse:1': ['purge'], 'nurse:2': ['feast'],
+    'traffic:0': ['horn'], 'traffic:1': ['dust'], 'traffic:2': ['quake'],
+    'press:0': ['flare', '#fffde7', '#ffffff'], 'press:1': [], 'press:2': ['fan']
   };
 
   /* ---------- ตอนโดนเป้า (imp) ---------- */
@@ -262,9 +270,17 @@
     'spy:0': ['slashx', '#ff5252'], 'spy:1': ['spark', '#b0bec5'], 'spy:2': ['cross'],
     'mae:0': ['heal', '#ffcc80', '#fff8e1'], 'mae:1': ['heal', '#ffcc80', '#fff8e1'], 'mae:2': ['heal', '#f48fb1', '#fff59d'],
     'win:0': ['spark', '#ff9100', 1.2], 'win:1': ['spark', '#ff9100'], 'win:2': ['spark', '#ff6d00', 1.3],
-    'chang:0': ['zap'], 'chang:1': ['zap'], 'chang:2': ['zap']
+    'chang:0': ['zap'], 'chang:1': ['zap'], 'chang:2': ['zap'],
+    'nopphamat:0': ['spark', '#ffb74d', 1.2], 'nopphamat:1': ['spark', '#f8bbd0'], 'nopphamat:2': ['spark', '#80deea', 1.3],
+    'khunsuek:0': ['shock', '#cfa14a'], 'khunsuek:1': ['shock', '#a1887f'], 'khunsuek:2': ['shock', '#ffb300'],
+    'pun:0': ['arrowhit', '#ffe082'], 'pun:1': ['spark', '#cfd8dc'], 'pun:2': ['arrowhit', '#ffcc80'],
+    'yamada:0': ['slashx', '#ff5252'], 'yamada:1': ['slashx', '#9fa8da'], 'yamada:2': ['cross'],
+    'jaa:0': ['pow', '#c5e1a5'], 'jaa:1': ['spark', '#aed581'], 'jaa:2': ['shock', '#c5e1a5'],
+    'nurse:0': ['heal', '#ffffff', '#ef9a9a'], 'nurse:1': ['heal', '#ffcdd2', '#ffffff'], 'nurse:2': ['heal', '#ef5350', '#ffffff'],
+    'traffic:0': ['shock', '#90caf9'], 'traffic:1': ['pow', '#90caf9'], 'traffic:2': ['shock', '#ff8a80'],
+    'press:0': ['spark', '#fffde7', 1.4], 'press:1': ['arrowhit', '#80d8ff'], 'press:2': ['spark', '#ffca28']
   };
-  const BASIC = { nakdab: '#ffd54f', phran: '#a5d6a7', mohya: '#c5e1a5', kwan: '#ffb300', mothamma: '#ce93d8', muay: '#ffb74d', seri: '#eceff1', yai: '#ffd54f', spy: '#ef9a9a', mae: '#ffcc80', win: '#ff9100', chang: '#fff176' };
+  const BASIC = { nakdab: '#ffd54f', phran: '#a5d6a7', mohya: '#c5e1a5', kwan: '#ffb300', mothamma: '#ce93d8', muay: '#ffb74d', seri: '#eceff1', yai: '#ffd54f', spy: '#ef9a9a', mae: '#ffcc80', win: '#ff9100', chang: '#fff176', nopphamat: '#ffb74d', khunsuek: '#cfa14a', pun: '#ffe082', yamada: '#9fa8da', jaa: '#c5e1a5', nurse: '#ef9a9a', traffic: '#90caf9', press: '#fffde7' };
 
   /* ---------- ลูกกระสุน ---------- */
   function proj(c, p, dx, dy, py, g) {
@@ -462,7 +478,9 @@
   const RC = {   // ฮีโร่ → [ธีม, สีหลัก, สีรอง]
     nakdab: ['banner', '#ffd54f', '#ff8f00'], phran: ['orbit', '#81c784', '#33691e'], mohya: ['orbit', '#f8bbd0', '#aed581'], kwan: ['stomp', '#ffb300', '#8d6e63'],
     mothamma: ['glyph', '#ce93d8', '#7b1fa2'], muay: ['lotus', '#ffb74d', '#ef6c00'], seri: ['flag', '#ffffff', '#1565c0'], yai: ['bell', '#ffd54f', '#8d6e63'],
-    spy: ['smoke', '#b0bec5', '#263238'], mae: ['steam', '#fff3e0', '#f06292'], win: ['exhaust', '#ff7043', '#78909c'], chang: ['electric', '#fff176', '#fbc02d']
+    spy: ['smoke', '#b0bec5', '#263238'], mae: ['steam', '#fff3e0', '#f06292'], win: ['exhaust', '#ff7043', '#78909c'], chang: ['electric', '#fff176', '#fbc02d'],
+    nopphamat: ['glyph', '#ffb74d', '#8e24aa'], khunsuek: ['stomp', '#cfa14a', '#6d4c41'], pun: ['flag', '#ffffff', '#c62828'], yamada: ['smoke', '#9fa8da', '#1a237e'],
+    jaa: ['banner', '#c5e1a5', '#556b2f'], nurse: ['orbit', '#ffffff', '#d32f2f'], traffic: ['bell', '#fff176', '#1565c0'], press: ['electric', '#fffde7', '#455a64']
   };
   const RCT = {};
   const due = function (id, dt) { const n = (typeof performance !== 'undefined' ? performance.now() : Date.now()) / 1000; if (!RCT[id] || n - RCT[id] > dt) { RCT[id] = n; return true; } return false; };
