@@ -335,10 +335,12 @@
   }
 
   function setTilt(k) { ST.K = k; view.h = VIEW_H / k; }
+  const QUAL = { cap: 2, mul: 1, maxPix: 2.6e6 };
+  function setQuality(cap, mul, maxPix) { QUAL.cap = cap; QUAL.mul = mul; QUAL.maxPix = maxPix || 2.6e6; }
   function resize(canvas, cssW, cssH) {
-    const dpr = Math.min(G.devicePixelRatio || 1, 2);
+    const dpr = Math.min(G.devicePixelRatio || 1, QUAL.cap) * QUAL.mul;   // ความละเอียดภาพ = ตัวหน่วงหลักบนมือถือ (ปรับได้ที่ตั้งค่า/ปรับเองตอนเครื่องหน่วง)
     let cw = Math.max(320, Math.round(cssW * dpr)), ch = Math.max(180, Math.round(cssH * dpr));
-    const maxPix = 2.6e6;
+    const maxPix = QUAL.maxPix;
     if (cw * ch > maxPix) { const k = Math.sqrt(maxPix / (cw * ch)); cw = Math.round(cw * k); ch = Math.round(ch * k); }
     canvas.width = cw; canvas.height = ch;
     view.cw = cw; view.ch = ch; view.z = ch / VIEW_H; view.w = cw / view.z; view.h = VIEW_H / ST.K;
@@ -845,11 +847,27 @@
       } else {
       c.save(); c.translate(x, y);
       if (u.untarget > g.t) c.globalAlpha = 0.35; else if (stealth) c.globalAlpha = own ? 0.45 : 0.1;
+      if (!u.dead) {   // วงทีมใต้เท้า: อ่านทีมง่ายขึ้น ภาพไม่แบน
+        const tc = u.team === 0 ? '100,181,246' : '239,83,80', pa = c.globalAlpha;
+        c.globalAlpha = pa * (own ? 0.55 : 0.4); c.lineWidth = 1.3; c.strokeStyle = 'rgb(' + tc + ')'; c.fillStyle = 'rgba(' + tc + ',.18)';
+        c.beginPath(); c.ellipse(0, 1, 11 * sc * 1.15, 4.3 * sc * 1.15, 0, 0, TAU); c.fill(); c.stroke(); c.globalAlpha = pa;
+      }
       if (u.dead) { c.globalAlpha = Math.max(0, 1 - age); c.rotate(an.vf * Math.min(1, age * 3) * 1.4); c.translate(0, Math.min(1, age * 3) * 6); }
       if (u.dash) { c.globalAlpha *= 0.9; }
-      c.scale(sc, sc);
+      const sq = !u.dead && u.hurtT != null && g.t - u.hurtT < 0.14 ? 1 - (0.14 - (g.t - u.hurtT)) / 0.14 : 1;   // โดนตี: ตัวยุบเล็กน้อยแล้วเด้งกลับ
+      const lungeP = ap >= 0 && ap < 1 ? Math.sin(ap * Math.PI) : 0;
+      c.scale(sc * 1.15 * (1 + (1 - sq) * 0.12 + lungeP * 0.04), sc * 1.15 * (1 - (1 - sq) * 0.1));
       rig(c, { id: u.id, key: u.def.id, colors: u.def.colors, role: u.role, vf: an.vf, mv: u.dash ? 1.3 : an.mv, ph: an.ph, rt: rt, atkP: ap, castP: cp, flash: u.flash > g.t });
       c.restore();
+      if (TR.atkRange(u.def) < 60 && ap > 0.12 && ap < 0.62 && !u.dead) {   // เส้นฟันของสายประชิด (2D)
+        const k2 = (ap - 0.12) / 0.5, R = 15 * sc * 1.15;
+        c.save(); c.translate(x + an.vf * 7 * sc, y - 12 * sc); c.scale(an.vf, 1);
+        c.globalAlpha = (1 - k2) * 0.85; c.lineCap = 'round';
+        const a0 = -1.1 + k2 * 0.9, a1 = a0 + 1.5;
+        c.strokeStyle = '#ffffff'; c.lineWidth = 2.4 * (1 - k2) + 0.6; c.beginPath(); c.arc(0, 0, R, a0, a1); c.stroke();
+        c.strokeStyle = u.def.colors.accent; c.globalAlpha *= 0.6; c.lineWidth = 5 * (1 - k2); c.beginPath(); c.arc(0, 0, R, a0 + 0.1, a1 - 0.1); c.stroke();
+        c.restore(); c.globalAlpha = 1;
+      }
       }
       if (!u.dead) {
         // ฝุ่นเท้า/เงาพุ่ง
@@ -1398,5 +1416,5 @@
     const vg = c.createLinearGradient(0, h * 0.7, 0, h); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.45)'); c.fillStyle = vg; c.fillRect(0, h * 0.7, w, h * 0.3);
   }
 
-  TR.Render = { hitStopLeft: function () { return Math.max(0, RS.stopUntil - performance.now()); }, setAim: setAim, screenToWorld: screenToWorld, is3d: function () { return !!RS.use3d; }, setMode3d: setMode3d, setTilt: setTilt, tilt: ST, drawStage: drawStage, stageReset: stageReset, _rig: rig, view: view, resize: resize, draw: draw, drawMinimap: drawMinimap, setCamFree: setCamFree, panCam: panCam, followUnit: followUnit, clearCam: clearCam, camMode: camMode, camPoint: camPoint, minimapToWorld: minimapToWorld, drawHeroIcon: drawHeroIcon, TEAM: TEAM };
+  TR.Render = { setQuality: setQuality, viewH: VIEW_H, zoomCss: function (cv) { return (cv.clientHeight || 1) / VIEW_H; }, hitStopLeft: function () { return Math.max(0, RS.stopUntil - performance.now()); }, setAim: setAim, screenToWorld: screenToWorld, is3d: function () { return !!RS.use3d; }, setMode3d: setMode3d, setTilt: setTilt, tilt: ST, drawStage: drawStage, stageReset: stageReset, _rig: rig, view: view, resize: resize, draw: draw, drawMinimap: drawMinimap, setCamFree: setCamFree, panCam: panCam, followUnit: followUnit, clearCam: clearCam, camMode: camMode, camPoint: camPoint, minimapToWorld: minimapToWorld, drawHeroIcon: drawHeroIcon, TEAM: TEAM };
 })(typeof window !== 'undefined' ? window : globalThis);

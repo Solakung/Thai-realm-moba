@@ -183,16 +183,23 @@
 
   /* ---------- เริ่ม/จบเกม ---------- */
   /* โหมดกราฟิก: '3d' = กล้องเอียง+โมเดล poly (ค่าเริ่มต้น) / '2d' = มุมบนตรงแบบเดิม ใช้ตุ๊กตา 2D เบากว่า */
-  let gfx = '3d';
+  let gfx = '3d', autoMul = 1, noAutoUntil = 0;
+  function applyQuality() {   // ระดับภาพ: auto = เริ่ม 1.5x บนจอสัมผัส แล้วลดเองถ้าเครื่องหน่วง · high 2x · mid 1.25x · low 1x×0.75
+    const touch = !(window.matchMedia && matchMedia('(pointer:fine)').matches), m = ctl.gq || 'auto';
+    if (m === 'high') TR.Render.setQuality(2, 1, 2.6e6);
+    else if (m === 'mid') TR.Render.setQuality(1.25, 1, 1.6e6);
+    else if (m === 'low') TR.Render.setQuality(1, 0.75, 0.9e6);
+    else TR.Render.setQuality(touch ? 1.5 : 2, autoMul, touch ? 1.5e6 : 2.6e6);
+  }
   try { if (localStorage.getItem('tr_gfx') === '2d') gfx = '2d'; } catch (e) { /* ไม่เป็นไร */ }
-  function fit() { TR.Render.resize(canvas, window.innerWidth, window.innerHeight); }
+  function fit() { applyQuality(); TR.Render.resize(canvas, window.innerWidth, window.innerHeight); }
   function applyGfx(mode, save) {
     gfx = mode === '2d' ? '2d' : '3d';
     TR.Render.setTilt(gfx === '3d' ? 0.74 : 1); TR.Render.setMode3d(gfx === '3d');
     if (gfx === '3d' && !TR.Render.is3d()) gfx = '2d';
-    $('gfxMode').textContent = gfx === '3d' ? '3D' : '2D คลาสสิก';
+    $('gfxMode').textContent = gfx === '3d' ? '3D' : '2D คลาสสิก'; if ($('gfxMode2')) $('gfxMode2').textContent = $('gfxMode').textContent;
     if (save) { try { localStorage.setItem('tr_gfx', gfx); } catch (e) { /* ไม่เป็นไร */ } }
-    fit(); slowN = 0; ftEma = 0;
+    fit(); slowN = 0; ftEma = 0; if (save) noAutoUntil = performance.now() + 90000;   // สลับเองแล้ว 90 วินาทีแรกไม่ให้ระบบอัตโนมัติสลับซ้ำ
   }
   let toastT = 0;
   function toast(msg) { const t = $('toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(function () { t.hidden = true; }, 4200); }
@@ -200,11 +207,18 @@
   let ftEma = 0, slowN = 0;
   function watchPerf(ms) {
     ftEma = ftEma ? ftEma * 0.9 + ms * 0.1 : ms;
-    if (gfx === '3d' && ftEma > 24) { if (++slowN > 180) { applyGfx('2d', false); toast('เครื่องดูหนัก — สลับเป็นกราฟิก 2D ให้อัตโนมัติ (เปลี่ยนกลับได้ที่เมนู)'); } } else slowN = Math.max(0, slowN - 2);
+    if (ftEma <= 24 || performance.now() < noAutoUntil) { slowN = 0; return; }
+    if (++slowN <= 90) return;
+    slowN = 0; ftEma = 0;
+    if ((ctl.gq || 'auto') === 'auto' && autoMul > 0.55) {   // ขั้นแรก: ลดความละเอียดภาพก่อน (เห็นต่างเล็กน้อยแต่เบาขึ้นมาก)
+      autoMul = Math.max(0.5, autoMul * 0.8); fit(); toast('เครื่องดูหนัก — ลดความละเอียดภาพให้อัตโนมัติ (ปรับได้ที่ตั้งค่า → คุณภาพภาพ)');
+    } else if (gfx === '3d') {
+      applyGfx('2d', false); toast('ยังหนักอยู่ — สลับเป็น 2D ให้อัตโนมัติ · สลับกลับได้ที่ปุ่มหยุดเกม → กราฟิก');
+    }
   }
 
   /* ---------- ตั้งค่าการควบคุม (เก็บในเครื่อง) ---------- */
-  const CTL_DEF = { atkMode: 'button', prio: 'near', dragAim: true, mouseAim: !!(window.matchMedia && matchMedia('(pointer:fine)').matches), autoSkill: false, size: 1, autoBuy: true, mini: 1, sfx: 1, music: 0.6, voice: true };
+  const CTL_DEF = { atkMode: 'button', prio: 'near', dragAim: true, mouseAim: !!(window.matchMedia && matchMedia('(pointer:fine)').matches), autoSkill: false, size: 1, autoBuy: true, gq: 'auto', mini: 1, sfx: 1, music: 0.6, voice: true };
   let ctl = Object.assign({}, CTL_DEF);
   try { const sv = JSON.parse(localStorage.getItem('tr_ctl') || 'null'); if (sv) Object.keys(CTL_DEF).forEach(function (k) { if (sv[k] !== undefined) ctl[k] = sv[k]; }); } catch (e) { /* ไม่เป็นไร */ }
   const CTL_ROWS = [
@@ -218,10 +232,12 @@
     { k: 'sfx', t: 'เสียงเอฟเฟกต์', opts: [[0, 'ปิด'], [0.5, 'เบา'], [1, 'ปกติ']], d: '' },
     { k: 'music', t: 'เพลงประจำยุค', opts: [[0, 'ปิด'], [0.35, 'เบา'], [0.6, 'ปกติ'], [1, 'ดัง']], d: 'เพลงสร้างสดในเครื่อง เปลี่ยนทำนองตามยุคของแมตช์' },
     { k: 'voice', t: 'เสียงประกาศ (ฆ่าคนแรก/ฆ่าต่อเนื่อง)', opts: [[true, 'เปิด'], [false, 'ปิด']], d: 'ใช้เสียงพูดภาษาไทยของเบราว์เซอร์ ถ้าเครื่องไม่มีเสียงไทยจะใช้เสียงเอฟเฟกต์แทน' },
+    { k: 'gq', t: 'คุณภาพภาพ', opts: [['auto', 'อัตโนมัติ'], ['high', 'คมชัด'], ['mid', 'สมดุล'], ['low', 'ประหยัด']], d: 'เครื่องหน่วงให้ลองสมดุล/ประหยัด — ภาพเบาลงมาก · อัตโนมัติจะลดความละเอียดเองเมื่อเครื่องหน่วง ก่อนสลับเป็น 2D' },
     { k: 'size', t: 'ขนาดปุ่ม', opts: [[0.85, 'เล็ก'], [1, 'กลาง'], [1.18, 'ใหญ่']], d: '' }
   ];
   function saveCtl() { try { localStorage.setItem('tr_ctl', JSON.stringify(ctl)); } catch (e) { /* ไม่เป็นไร */ } }
   function applyCtl() {
+    if (typeof autoMul !== 'undefined' && TR.Render.resize && canvas.width) { autoMul = ctl.gq === 'auto' ? autoMul : 1; fit(); }
     if (g && g.player) act({ k: 'set', atkMode: ctl.atkMode, prio: ctl.prio, autoSkill: !!ctl.autoSkill });
     layoutCtl(); layoutMini();
     TR.Audio.setVol({ sfx: ctl.sfx, music: ctl.music, voice: ctl.voice });
@@ -440,8 +456,11 @@
         if (len < AIM_PX) { drag.on = false; TR.Render.setAim(null); b.classList.remove('aiming'); return; }
         drag.on = true; b.classList.add('aiming');
         const d = [vx, vy / K()], dl = Math.hypot(d[0], d[1]) || 1;
-        drag.aim = { dx: d[0] / dl, dy: d[1] / dl, k: Math.max(0.2, Math.min(1, len / FULL_PX)) };
-        drag.cancel = len > CANCEL_PX;
+        // ลากแล้วตำแหน่งตามนิ้ว: สกิลพื้นที่/พุ่ง ใช้ระยะจริงในโลกคูณซูมจอ (ระยะไกลลากไกลขึ้น) ไม่ใช่จอยสติกคงที่ — ปล่อยใกล้ปุ่ม = ยกเลิก
+        const area = aimSpec.type === 'point' || aimSpec.type === 'line';
+        const pxFull = area ? Math.max(70, Math.min(200, aimSpec.range * TR.Render.zoomCss(canvas) * 0.62)) : FULL_PX;
+        drag.aim = { dx: d[0] / dl, dy: d[1] / dl, k: Math.max(area ? 0.06 : 0.2, Math.min(1, len / pxFull)) };
+        drag.cancel = len > Math.max(CANCEL_PX, pxFull * 1.8);
         TR.Render.setAim({ type: aimSpec.type, range: aimSpec.range, r: aimSpec.r, dx: drag.aim.dx, dy: drag.aim.dy, k: drag.aim.k, cancel: drag.cancel });
       });
       const end = function (e) {
@@ -1437,6 +1456,7 @@
   $('resumeBtn').addEventListener('click', togglePause);
   $('quitBtn').addEventListener('click', toMenu);
   $('updBtn').addEventListener('click', showUpdate);
+  $('gfxBtn2').addEventListener('click', function () { applyGfx(gfx === '3d' ? '2d' : '3d', true); $('gfxMode2').textContent = gfx === '3d' ? '3D' : '2D คลาสสิก'; });
   $('gfxBtn').addEventListener('click', function () { applyGfx(gfx === '3d' ? '2d' : '3d', true); });
   applyGfx(gfx, false);
   $('updClose').addEventListener('click', closeUpdate);

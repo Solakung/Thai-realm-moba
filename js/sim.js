@@ -1307,7 +1307,7 @@
         if (fx.stop != null) dd = Math.max(0, Math.min(fx.dist, dist(u, e) - e.radius - fx.stop));
       } else if (fx.onlyHero) return;
     }
-    if (ctx.aim && !fx.away && !fx.toTarget) dir = [ctx.aim.dx, ctx.aim.dy];
+    if (ctx.aim && !fx.away && !fx.toTarget) { dir = [ctx.aim.dx, ctx.aim.dy]; dd = fx.dist * Math.max(0.25, ctx.aim.k); }   // พุ่งตามระยะที่ลากเล็ง (สั้นสุด 25%)
     if (dd < 2) {
       const e = pickEnemy(g, u, (fx.stop || 24) + 14, !!fx.onlyHero, true);
       if (e && fx.dmg) hit(g, u, e, fx.dmg, { skill: true, mul: ctx.mul });
