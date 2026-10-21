@@ -499,6 +499,7 @@
   }
   function tutTick(pl) {
     if (!g.tutorial || $('tut').hidden) return;
+    $('tut').style.visibility = shopOpen ? 'hidden' : 'visible';
     if (TUT[tutI].ok(pl, tutSt, g)) {
       TR.Audio.play('levelup'); tutI++; tutSt = {};
       if (tutI >= TUT.length) { $('tut').querySelector('.tt').textContent = 'จบบทเรียนแล้ว 🎉'; $('tut').querySelector('.tx').textContent = 'พร้อมลงสนามจริง — กดพัก (P) แล้วกลับเมนูเพื่อเริ่มเกม 5v5'; setTimeout(function () { $('tut').hidden = true; }, 9000); }
@@ -778,7 +779,7 @@
     return out;
   }
   function autoBuy(pl) {
-    if (!ctl.autoBuy || !TR.Sim.canShop(pl)) return;
+    if (!ctl.autoBuy || g.tutorial || !TR.Sim.canShop(pl)) return;
     for (let n = 0; n < 6; n++) {
       const st = buildSteps(pl)[0]; if (!st) return;
       const net = TR.Sim.netCost(pl, st); if (net == null || pl.gold < net) return;
