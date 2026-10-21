@@ -26,7 +26,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 #clock { font-family: monospace; font-size: 14px; }
 #score { font-family: monospace; font-size: 14px; }
 #score b.b { color: var(--blue); } #score b.r { color: var(--red); }
-#mini { position: absolute; right: max(10px, env(safe-area-inset-right)); top: 8px; width: 176px; height: 66px; border: 1px solid var(--line); border-radius: 6px; opacity: .94; }
+#mini { position: absolute; right: max(10px, env(safe-area-inset-right)); top: 8px; width: 176px; height: 66px; border: 2px solid rgba(255,255,255,.35); border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,.6); opacity: .97; }
 #feed { position: absolute; right: max(10px, env(safe-area-inset-right)); top: 82px; width: 220px; display: flex; flex-direction: column; gap: 3px; align-items: flex-end; }
 #feed div { background: rgba(15,23,32,.75); padding: 2px 8px; border-radius: 4px; font-size: 12px; animation: fadeOut 6s forwards; }
 #feed .b { border-right: 3px solid var(--blue); } #feed .r { border-right: 3px solid var(--red); }

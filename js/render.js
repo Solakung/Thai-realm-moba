@@ -1269,15 +1269,18 @@
   }
   function drawMinimap(c, g, w, h, cam) {
     c.setTransform(1, 0, 0, 1, 0, 0);
-    const sx = w / CFG.W, sy = h / CFG.H, k = w / 352;
+    const sx = w / CFG.W, sy = h / CFG.H, k = Math.max(w / 352, 1.15);
     const E = TR.ERAS[g.era];
     const bgG = c.createLinearGradient(0, 0, 0, h); bgG.addColorStop(0, '#1b2a37'); bgG.addColorStop(1, '#101a23');
     c.fillStyle = bgG; c.fillRect(0, 0, w, h);
     // ป่าข้างเลน (จางๆ)
     c.fillStyle = 'rgba(70,120,70,.16)';
     for (const y of [(CFG.lanes[0].y + CFG.lanes[1].y) / 2, (CFG.lanes[1].y + CFG.lanes[2].y) / 2]) c.fillRect(300 * sx, (y - 110) * sy, (CFG.W - 600) * sx, 220 * sy);
-    c.strokeStyle = E.lane; c.globalAlpha = 0.9; c.lineWidth = Math.max(2.5 * k, h * 0.07); c.lineCap = 'round'; c.lineJoin = 'round';
+    c.strokeStyle = E.lane; c.globalAlpha = 0.9; c.lineWidth = Math.max(4 * k, h * 0.11); c.lineCap = 'round'; c.lineJoin = 'round';
     for (const L of CFG.lanes) { c.beginPath(); c.moveTo(180 * sx, L.y * sy); c.lineTo((CFG.W - 180) * sx, L.y * sy); c.stroke(); }
+    c.globalAlpha = 0.35; c.strokeStyle = '#ffffff'; c.lineWidth = 1 * k; c.setLineDash([6 * k, 6 * k]);   // เส้นกลางเลน ให้เห็นเป็นถนนชัด
+    for (const L of CFG.lanes) { c.beginPath(); c.moveTo(180 * sx, L.y * sy); c.lineTo((CFG.W - 180) * sx, L.y * sy); c.stroke(); }
+    c.setLineDash([]); c.strokeStyle = E.lane; c.globalAlpha = 0.9; c.lineWidth = Math.max(4 * k, h * 0.11);
     for (const bx of [100, CFG.W - 100]) for (const l of [0, 2]) {
       const dir = bx < 500 ? 1 : -1, ex = bx + dir * CFG.laneEntry;
       c.beginPath(); c.moveTo(bx * sx, CFG.baseY * sy); c.quadraticCurveTo((bx + dir * 200) * sx, CFG.baseY * sy, ex * sx, CFG.lanes[l].y * sy); c.stroke();
@@ -1293,7 +1296,7 @@
     // ลำดับวาด: ป้อม → มอนป่า → ลูกกระจ๊อก → ฮีโร่
     for (const u of g.units) {
       if (u.type !== 'tower') continue;
-      const x = u.x * sx, y = u.y * sy, s2 = (u.king ? 9 : 6) * k;
+      const x = u.x * sx, y = u.y * sy, s2 = (u.king ? 16 : 10) * k;
       if (u.dead) { c.globalAlpha = 0.5; c.strokeStyle = '#78909c'; c.lineWidth = 1 * k; c.strokeRect(x - s2 / 2, y - s2 / 2, s2, s2); c.beginPath(); c.moveTo(x - s2 / 2, y - s2 / 2); c.lineTo(x + s2 / 2, y + s2 / 2); c.moveTo(x + s2 / 2, y - s2 / 2); c.lineTo(x - s2 / 2, y + s2 / 2); c.stroke(); c.globalAlpha = 1; continue; }
       c.fillStyle = TEAM[u.team]; c.beginPath();
       if (u.king) { c.moveTo(x, y - s2 * .7); c.lineTo(x + s2 * .6, y); c.lineTo(x, y + s2 * .7); c.lineTo(x - s2 * .6, y); } else { c.moveTo(x, y - s2 * .6); c.lineTo(x + s2 * .5, y + s2 * .45); c.lineTo(x - s2 * .5, y + s2 * .45); }
@@ -1306,18 +1309,20 @@
       const x = u.x * sx, y = u.y * sy;
       if (u.type === 'monster' && u.kind === 'boss') { c.fillStyle = '#e53935'; c.beginPath(); c.arc(x, y, 5.4 * k, 0, TAU); c.fill(); c.strokeStyle = '#fff'; c.lineWidth = 1.2 * k; c.stroke(); }
       else if (u.type === 'monster') { const buff = TR.MONSTERS[u.kind].buff; c.fillStyle = buff ? '#ffd54f' : '#ff9800'; c.beginPath(); c.arc(x, y, (buff ? 3.2 : 2.2) * k, 0, TAU); c.fill(); if (buff) { c.strokeStyle = '#000'; c.lineWidth = 0.8 * k; c.stroke(); } }
-      else if (u.type === 'minion') { c.fillStyle = TEAM[u.team]; c.globalAlpha = 0.85; c.fillRect(x - 1 * k, y - 1 * k, 2 * k, 2 * k); c.globalAlpha = 1; }
+      else if (u.type === 'minion') { c.fillStyle = TEAM[u.team]; c.globalAlpha = 0.95; c.fillRect(x - 1.6 * k, y - 1.6 * k, 3.2 * k, 3.2 * k); c.globalAlpha = 1; }
     }
     for (const u of g.units) {
       if (u.type !== 'hero') continue;
       if (u.m && u.m.stealth && me && u.team !== me.team) continue;
       if (me && u.team !== me.team && u.hid && u.hid[me.team]) continue;
       if (me && !g.over && u.team !== me.team && u.vis && u.vis[me.team] === false) continue;
-      const isMe = u === me, x = u.x * sx, y = u.y * sy, r = (isMe ? 5.6 : 4.8) * k;
+      const isMe = u === me, x = u.x * sx, y = u.y * sy, r = (isMe ? 8.2 : 7.2) * k;
       if (u.dead) { c.globalAlpha = 0.65; c.strokeStyle = '#9e9e9e'; c.lineWidth = 1.4 * k; c.beginPath(); c.moveTo(x - r * .7, y - r * .7); c.lineTo(x + r * .7, y + r * .7); c.moveTo(x + r * .7, y - r * .7); c.lineTo(x - r * .7, y + r * .7); c.stroke(); c.globalAlpha = 1; continue; }
-      c.fillStyle = TEAM[u.team]; c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
-      c.fillStyle = (u.def && u.def.colors && u.def.colors.accent) || '#fff'; c.beginPath(); c.arc(x, y, r * 0.58, 0, TAU); c.fill();
-      c.strokeStyle = isMe ? '#fff' : '#000'; c.lineWidth = (isMe ? 1.6 : 0.9) * k; c.beginPath(); c.arc(x, y, r, 0, TAU); c.stroke();
+      // ไอคอนฮีโร่แบบ AoV: วงแหวนสีทีมหนา + พื้นสีฮีโร่ + อักษรแรกของชื่อ
+      c.fillStyle = (u.def && u.def.colors && u.def.colors.body) || '#555'; c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
+      c.strokeStyle = TEAM[u.team]; c.lineWidth = 2.4 * k; c.beginPath(); c.arc(x, y, r - 1.2 * k, 0, TAU); c.stroke();
+      c.fillStyle = '#fff'; c.font = '700 ' + Math.round(r * 1.1) + 'px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(((u.def && u.def.name) || '?').charAt(0), x, y + 0.5 * k); c.textAlign = 'left'; c.textBaseline = 'alphabetic';
+      c.strokeStyle = isMe ? '#fff' : '#000'; c.lineWidth = (isMe ? 1.8 : 1) * k; c.beginPath(); c.arc(x, y, r, 0, TAU); c.stroke();
       if (isMe) { c.strokeStyle = 'rgba(255,235,59,.75)'; c.lineWidth = 1 * k; c.beginPath(); c.arc(x, y, r + 3 * k, 0, TAU); c.stroke(); }
       if (u.hp < u.maxHp * 0.35 && !isMe) { c.strokeStyle = '#ff1744'; c.lineWidth = 1.2 * k; c.beginPath(); c.arc(x, y, r + 2 * k, 0, TAU); c.stroke(); }
     }

@@ -319,12 +319,12 @@
   }
   window.addEventListener('resize', function () { layoutCtl(); layoutMini(); });
   function layoutMini() {
-    const base = Math.round((window.innerHeight <= 460 ? 150 : 214) * ctl.mini), rs = 'max(10px, env(safe-area-inset-right))';
-    mini.style.width = base + 'px'; mini.style.height = Math.round(base * 0.375) + 'px';
-    mini.width = base * 2; mini.height = Math.round(base * 0.75);
+    const base = Math.round((window.innerHeight <= 460 ? 176 : 270) * ctl.mini), rs = 'max(10px, env(safe-area-inset-right))';
+    mini.style.width = base + 'px'; mini.style.height = Math.round(base * 0.52) + 'px';   // สูงกว่าสัดส่วนแมพจริง ยืดแนวตั้งให้อ่านง่าย (พิกัดแตะคำนวณจากกรอบ จึงไม่เพี้ยน)
+    mini.width = base * 2; mini.height = Math.round(base * 1.04);
     $('pauseBtn').style.right = 'calc(' + rs + ' + ' + (base + 10) + 'px)'; $('shopBtn').style.right = 'calc(' + rs + ' + ' + (base + 50) + 'px)';
     $('boardBtn').style.right = 'calc(' + rs + ' + ' + (base + 130) + 'px)'; $('chatBtn').style.right = 'calc(' + rs + ' + ' + (base + 90) + 'px)'; $('chatPanel').style.right = 'calc(' + rs + ' + ' + (base + 10) + 'px)';
-    $('feed').style.top = (Math.round(base * 0.375) + (window.innerHeight <= 460 ? 10 : 16)) + 'px';
+    $('feed').style.top = (Math.round(base * 0.52) + (window.innerHeight <= 460 ? 10 : 16)) + 'px';
   }
   /* ---------- สัญญาณทีม: ส่งไปที่จุดที่กล้องมองอยู่ (ตัวเอง / จุดที่แอบดู / ตอนตายคือจุดที่ดูอยู่) ---------- */
   const SIG_ORDER = ['go', 'group', 'danger', 'retreat', 'defend'];
@@ -1007,7 +1007,9 @@
     }
   }
   function renderQuick(pl) {
-    const steps = buildSteps(pl).slice(0, 4), can = TR.Sim.canShop(pl);
+    // โชว์เฉพาะชิ้นที่เงินพอซื้อตอนนี้ สูงสุด 2 ชิ้น (นับเงินสะสม) จอจะได้ไม่รก
+    const can = TR.Sim.canShop(pl), steps = []; let left = pl.gold;
+    buildSteps(pl).forEach(function (st) { if (steps.length >= 2) return; const n = TR.Sim.netCost(pl, st); if (n != null && left >= n) { steps.push(st); left -= n; } });
     const sig = steps.map(function (st) { const n = TR.Sim.netCost(pl, st); return st.id + ':' + (n == null ? 'x' : (pl.gold >= n ? 1 : 0)); }).join(',') + '|' + can;
     if (sig === quickSig) return; quickSig = sig;
     const box = $('quick'); box.innerHTML = '';
