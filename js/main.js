@@ -1387,7 +1387,7 @@
     const dupMine = me && room.list.some(function (y) { return y.uid !== room.uid && y.hero === sel.hero; });
     $('lbReady').textContent = me && me.ready ? 'ยกเลิกพร้อม' : 'พร้อม';
     $('lbReady').disabled = !!dupMine && !(me && me.ready);
-    $('lbHint').textContent = dupMine ? 'ฮีโร่นี้มีเพื่อนเลือกแล้ว เลือกตัวอื่นก่อน' : 'เลือกฮีโร่ ชุดใจ เลน สเปล ในหน้านี้ แล้วกด "พร้อม" · ที่ว่างในทีมบอทเติมให้';
+    $('lbHint').textContent = dupMine ? 'ฮีโร่นี้มีเพื่อนเลือกแล้ว เลือกตัวอื่นก่อน' : 'เลือกฮีโร่ ชุดอารมณ์ เลน สเปล ในหน้านี้ แล้วกด "พร้อม" · ที่ว่างในทีมบอทเติมให้';
     const host = room.uid === room.host;
     $('lbBanRow').hidden = !(host || room.banMode);
     $('lbBanMode').hidden = !host; $('lbBanMode').textContent = room.banMode ? '🚫 โหมดแบน: เปิด' : '🚫 โหมดแบน: ปิด';

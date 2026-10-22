@@ -16,7 +16,7 @@ const seed0 = parseInt(process.argv[3] || '1', 10);
 const heroes = {}, emblems = {}, byEra = [0, 0, 0, 0], sides = [0, 0], draws = { n: 0 };
 TR.HEROES.forEach(function (h) { heroes[h.id] = { games: 0, wins: 0, kills: 0, deaths: 0 }; });
 TR.EMBLEM_ORDER.forEach(function (e) { emblems[e] = { games: 0, wins: 0 }; });
-const hxe = {}; // ฮีโร่ × ชุดใจ
+const hxe = {}; // ฮีโร่ × ชุดอารมณ์
 
 let totalTime = 0;
 const t0 = Date.now();
@@ -56,7 +56,7 @@ TR.HEROES.forEach(function (h) {
   const flag = s.games && (wr > 55 || wr < 45) ? '  <-- นอกเกณฑ์' : '';
   console.log('  ' + (h.name + '                    ').slice(0, 22) + ' ' + TR.ROLES[h.role].name.padEnd(9) + ' ยุค' + TR.ERAS[h.era].name.padEnd(8) + ' ' + pct(s.wins, s.games).padStart(6) + '  K/D ' + (s.kills / Math.max(1, s.games)).toFixed(1) + '/' + (s.deaths / Math.max(1, s.games)).toFixed(1) + flag);
 });
-console.log('\nชุดใจ:');
+console.log('\nชุดอารมณ์:');
 TR.EMBLEM_ORDER.forEach(function (e) { console.log('  ' + TR.EMBLEMS[e].name.padEnd(8) + pct(emblems[e].wins, emblems[e].games) + '  (n=' + emblems[e].games + ')'); });
 
 fs.writeFileSync(path.join(__dirname, 'balance-result.json'), JSON.stringify({ matches: N, seed0: seed0, draws: draws.n, sides: sides, byEra: byEra, heroes: heroes, emblems: emblems, heroEmblem: hxe }, null, 2));
