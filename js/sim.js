@@ -577,7 +577,6 @@
       d *= (src.dmgBase || 1) * (src.m ? src.m.dmg : 1) * (o.mul || 1);
       if (src.type === 'hero') d *= passiveDmg(g, src, dst, o);
       if (src.type === 'minion' && g.objBuf && g.objBuf[src.team].minion > g.t) d *= TR.OBJ.list[1].minion.dmg;
-      else if (src.type === 'tower' && g.objBuf && g.objBuf[src.team].tower > g.t) d *= TR.OBJ.list[2].tower.dmg;
       if (src.type === 'hero' && src.emblem === 'kro' && dst.hp / dst.maxHp < 0.4) d *= 1.1;
       if (dst.type === 'tower') {
         d *= (src.m ? src.m.tower : 1) * (src.type === 'minion' ? (src.cannon ? CFG.cannon.towerMul : 0.4) : 1);
@@ -1731,10 +1730,18 @@
       u.cdAtk = beh.rate;
       const col = u.team === 0 ? '#90caf9' : '#ef9a9a';
       line(g, u, tgt, beh.splash ? '#ffcc80' : col, beh.focus ? 0.05 : 0.12);
+      // ดาเมจป้อมใส่ฮีโร่ = ฐาน + % เลือดสูงสุด (ไม่สนเกราะ) ยิงคนเดิมติดกันแรงขึ้น · ใส่ลูกกระจ๊อก/อื่น ๆ ใช้ค่า dmgMinion
+      let rmul = 1;
+      if (tgt.type === 'hero') {
+        if (u.rampTgt === tgt && g.t - u.rampAt < 3) u.ramp = Math.min(beh.rampMax, (u.ramp | 0) + 1); else { u.rampTgt = tgt; u.ramp = 0; }
+        u.rampAt = g.t; rmul = 1 + beh.ramp * u.ramp;
+      }
+      if (g.objBuf && g.objBuf[u.team].tower > g.t) rmul *= TR.OBJ.list[2].tower.dmg;
+      const shot = function (e) { return (e.type === 'hero' ? beh.dmg + beh.pct * e.maxHp : beh.dmgMinion) * rmul; };
       if (beh.splash) {
         ring(g, tgt.x, tgt.y, beh.splash, '#ff8a65', 0.25);
-        for (const e of enemiesIn(g, u.team, tgt.x, tgt.y, beh.splash, true)) hit(g, u, e, beh.dmg, { raw: true });
-      } else hit(g, u, tgt, beh.dmg, { raw: true });
+        for (const e of enemiesIn(g, u.team, tgt.x, tgt.y, beh.splash, true)) hit(g, u, e, shot(e), { raw: true });
+      } else hit(g, u, tgt, shot(tgt), { raw: true });
     }
   }
 
