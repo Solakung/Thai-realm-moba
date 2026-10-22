@@ -1163,6 +1163,14 @@
         UP(c, f.y); c.globalAlpha = a * 0.9; c.strokeStyle = '#ffffff'; c.lineWidth = 1.6 * a + 0.3; c.lineCap = 'round';
         for (let i = 0; i < 8; i++) { const an = i * TAU / 8 + 0.3, r0 = R * 0.35, r1 = R * (0.7 + 0.3 * k); c.beginPath(); c.moveTo(f.x + Math.cos(an) * r0, f.y - 8 + Math.sin(an) * r0 * 0.7); c.lineTo(f.x + Math.cos(an) * r1, f.y - 8 + Math.sin(an) * r1 * 0.7); c.stroke(); }
         c.globalAlpha = 1;
+      } else if (f.k === 'gold') {   // เหรียญทอง +N ลอยขึ้น
+        UP(c, f.y);
+        const yy = f.y - 18 * ease(k), pop = 1 + (1 - ease(Math.min(1, k * 4))) * 0.5, fs = (f.big ? 8.6 : 7) * pop, txt = '+' + f.v;
+        c.globalAlpha = k > 0.65 ? 1 - (k - 0.65) / 0.35 : 1; c.font = '800 ' + fs + 'px sans-serif'; c.textAlign = 'center';
+        const tw = c.measureText(txt).width, cx0 = f.x - tw / 2 - fs * 0.45;
+        c.fillStyle = '#ffca28'; c.strokeStyle = 'rgba(70,40,0,.9)'; c.lineWidth = 1.2; c.beginPath(); c.arc(cx0, yy - fs * 0.32, fs * 0.42, 0, TAU); c.fill(); c.stroke();
+        c.fillStyle = '#fff59d'; c.beginPath(); c.arc(cx0 - fs * 0.1, yy - fs * 0.4, fs * 0.16, 0, TAU); c.fill();
+        c.lineWidth = 1.8; c.strokeStyle = 'rgba(60,32,0,.92)'; c.lineJoin = 'round'; c.strokeText(txt, f.x + fs * 0.35, yy); c.fillStyle = '#ffe082'; c.fillText(txt, f.x + fs * 0.35, yy); c.globalAlpha = 1;
       } else if (f.k === 'dmg') {
         UP(c, f.y);
         const yy = f.y - 14 * ease(k), sc = f.big ? 1 : 0.8;
@@ -1337,6 +1345,12 @@
       const S0 = TR.SIGNALS[p.type]; if (!S0) continue; const x = p.x * sx, y = p.y * sy, ph = ((g.t - p.t) * 1.2) % 1;
       c.strokeStyle = S0.color; c.lineWidth = 1.6 * k; c.globalAlpha = 1 - ph; c.beginPath(); c.arc(x, y, (5 + ph * 14) * k, 0, TAU); c.stroke(); c.globalAlpha = 1;
       c.font = (11 * k) + 'px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = '#fff'; c.fillText(S0.icon, x, y); c.textAlign = 'left'; c.textBaseline = 'alphabetic';
+    }
+    if (me && g.alertPts) for (const a of g.alertPts) {   // เตือนป้อม/ฐานฝั่งเราถูกโจมตี: วงแดงกะพริบ + !
+      if (a.team !== me.team || a.until <= g.t) continue;
+      const x = a.x * sx, y = a.y * sy, ph = ((g.t * 1.6) % 1);
+      c.strokeStyle = '#ff1744'; c.lineWidth = 2 * k; c.globalAlpha = 1 - ph * 0.8; c.beginPath(); c.arc(x, y, (7 + ph * 13) * k, 0, TAU); c.stroke(); c.globalAlpha = 1;
+      c.fillStyle = '#ff1744'; c.font = '800 ' + (11 * k) + 'px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('!', x, y - 14 * k); c.textAlign = 'left'; c.textBaseline = 'alphabetic';
     }
     if (cam) {
       c.fillStyle = 'rgba(255,255,255,0.07)'; c.fillRect(cam.camX * sx, cam.camY * sy, cam.vw * sx, cam.vh * sy);

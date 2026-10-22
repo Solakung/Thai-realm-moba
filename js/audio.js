@@ -50,6 +50,8 @@
 
   /* ---------- เอฟเฟกต์เสียง ---------- */
   const SFX = {
+    coin: function (v) { tone({ f: 1318, dur: 0.07, type: 'square', v: 0.05 * v }); tone({ f: 1975, dur: 0.16, type: 'square', v: 0.045 * v }); },
+    alarm: function (v) { tone({ f: 740, dur: 0.14, type: 'square', v: 0.1 * v }); tone({ f: 540, dur: 0.14, type: 'square', v: 0.1 * v, at: ctx.currentTime + 0.16 }); tone({ f: 740, dur: 0.14, type: 'square', v: 0.1 * v, at: ctx.currentTime + 0.32 }); },
     hit: function (v) { noise({ dur: 0.06, f: 1400, q: 0.8, v: 0.22 * v }); tone({ f: 190, f2: 90, dur: 0.07, type: 'triangle', v: 0.18 * v }); },
     hitHero: function (v) { noise({ dur: 0.09, f: 900, q: 0.7, v: 0.3 * v }); tone({ f: 150, f2: 60, dur: 0.12, type: 'triangle', v: 0.28 * v }); },
     shoot: function (v) { tone({ f: 900, f2: 380, dur: 0.09, type: 'square', v: 0.07 * v }); },
@@ -129,7 +131,7 @@
     const f = t[q[0] === 'at' ? 0 : 1 + (q[2] | 0)]; if (!f) return false;
     f(v == null ? 1 : v); return true;
   }
-  const GAP = { hit: 0.05, hitHero: 0.07, shoot: 0.08, cast: 0.05, minion: 0.12, shot: 0.12, die: 0.1 };
+  const GAP = { coin: 0.06, alarm: 1.5, hit: 0.05, hitHero: 0.07, shoot: 0.08, cast: 0.05, minion: 0.12, shot: 0.12, die: 0.1 };
   function play(name, v) {
     if (!ctx || vol.sfx <= 0) return;
     const hero = name.charCodeAt(2) === 58 && (name.charCodeAt(0) === 97 || name.charCodeAt(0) === 115);   // 'at:' / 'sk:'

@@ -627,6 +627,11 @@
       if (src.type === 'hero') { const st = findFxStealth(src); if (st && !o.keepStealth) removeFx(src, st); }
     }
     dst.lastAttacker = src; if (dst.type === 'tower') dst.lastHurt = g.t;
+    if (dst.type === 'tower' && src && src.team !== dst.team && (dst.team === 0 || dst.team === 1) && g.t - (dst.alertT || -99) > CFG.alertGap) {   // เตือนป้อม/ฐานถูกโจมตี
+      dst.alertT = g.t; g.alertPts = (g.alertPts || []).filter(function (a) { return a.until > g.t; });
+      g.alertPts.push({ x: dst.x, y: dst.y, team: dst.team, king: !!dst.king, until: g.t + 6 });
+      g.events.push({ k: 'alert', team: dst.team, king: !!dst.king, name: dst.name, x: dst.x, y: dst.y });
+    }
     if (VIS && o.basic && src) sfx(g, src.type === 'tower' ? 'shot' : (src.type === 'minion' ? 'minion' : (dst.type === 'hero' ? 'hitHero' : 'hit')), dst.x, dst.y, (src === g.player || dst === g.player));
     if (src && !o.extra && dst.hp > 0) onHitEffects(g, src, dst, d, o);
     if (dst.type === 'monster' && src) { dst.aggroBy = src; dst.aggroT = g.t; }
@@ -717,6 +722,12 @@
   }
 
   function addGold(u, n) { u.gold += n; u.goldTotal += n; }
+  // เหรียญทองลอย + เสียงกริ๊ง (เห็นเฉพาะทองของผู้เล่นเอง เป็นภาพล้วน ไม่กระทบตรรกะ)
+  function goldPop(g, u, n, x, y, big) {
+    if (!VIS || !g.player || u !== g.player || n < 1) return;
+    if (g.fx.length < 150) g.fx.push({ k: 'gold', x: x + (g.vrand() - 0.5) * 6, y: y - 20, v: Math.round(n), big: !!big, t0: g.t, dur: big ? 1.1 : 0.85 });
+    sfx(g, 'coin', x, y, true);
+  }
   function addXp(g, u, n) {
     if (u.level >= CFG.maxLevel) return;
     u.xp += n;
@@ -753,9 +764,9 @@
         killer.kills++; g.score[killer.team]++;
         announceKill(g, killer, dst);
         for (const id in dst.recent) { const r = dst.recent[id]; if (r.u !== killer && r.u.team === killer.team && g.t - r.t <= 10) r.u.assists++; }
-        addGold(killer, 300); addXp(g, killer, 150);
+        addGold(killer, 300); addXp(g, killer, 150); goldPop(g, killer, 300, dst.x, dst.y, true);
         if (killer.itmFx && killer.itmFx.vamp3) healUnit(g, killer, killer.maxHp * 0.12);
-        for (const a of alliedHeroes(g, killer.team, dst.x, dst.y, 260)) if (a !== killer) { addGold(a, 60); addXp(g, a, 60); }
+        for (const a of alliedHeroes(g, killer.team, dst.x, dst.y, 260)) if (a !== killer) { addGold(a, 60); addXp(g, a, 60); goldPop(g, a, 60, dst.x, dst.y, false); }
       } else if ((dst.team === 0 || dst.team === 1) && !(src && src.type === 'monster')) { g.score[1 - dst.team]++; }
       g.events.push({ k: 'kill', killer: killer ? killer.def.name : (src && src.type === 'monster' ? TR.MONSTERS[src.kind].name : (src && src.type === 'tower' ? 'ป้อม' : 'มินเนียน')),
         kteam: src ? src.team : 1 - dst.team, victim: dst.def.name, vteam: dst.team });
@@ -763,8 +774,10 @@
       dst.dieT = g.t;
       for (const a of alliedHeroes(g, 1 - dst.team, dst.x, dst.y, 260)) addXp(g, a, 14);
       if (src && src.type === 'hero') {
-        const gm = goldMul(src);
-        addGold(src, 20 * gm + (src.itmFx && src.itmFx.gold3 ? 8 : 0));
+        const gm = goldMul(src), gv = 20 * gm + (src.itmFx && src.itmFx.gold3 ? 8 : 0) + CFG.gold.lastHit;
+        addGold(src, gv); goldPop(g, src, gv, dst.x, dst.y, false);
+        // เพื่อนที่อยู่ใกล้ได้ทองแบ่ง (ไม่ต้องปลิดเอง) — ให้คนยืนเลนด้วยกันไม่เสียเปล่า
+        for (const a of alliedHeroes(g, src.team, dst.x, dst.y, CFG.gold.shareR)) if (a !== src) { addGold(a, CFG.gold.share); goldPop(g, a, CFG.gold.share, dst.x, dst.y, false); }
         src.cs++;
         if (src.itmFx && src.itmFx.e0c) healUnit(g, src, src.maxHp * TR.ITEM_FX.e0c.heal);
         if (o && o.basic && src.emblem === 'lob') { src.greedCount++; if (src.greedCount >= 3) { src.greedCount = 0; src.greedReady = true; } }
@@ -785,7 +798,7 @@
         }
       } else if (src && src.type === 'hero') {
         src.stMon++;
-        addGold(src, M.gold * goldMul(src) + (src.itmFx && src.itmFx.jungle3 ? 40 : 0)); addXp(g, src, M.xp);
+        { const mg = M.gold * goldMul(src) + (src.itmFx && src.itmFx.jungle3 ? 40 : 0); addGold(src, mg); goldPop(g, src, mg, dst.x, dst.y, true); } addXp(g, src, M.xp);
         if (src.itmFx && src.itmFx.jungle3) healUnit(g, src, src.maxHp * 0.12);
         for (const a of alliedHeroes(g, src.team, dst.x, dst.y, 240)) if (a !== src) addXp(g, a, 30);
         const until = g.t + CFG.buffDur;
@@ -795,7 +808,7 @@
       }
     } else if (dst.type === 'tower') {
       if (src && src.type === 'hero') src.stTowers++;
-      for (const a of alliedHeroes(g, 1 - dst.team, dst.x, dst.y, 450)) addGold(a, 150);
+      for (const a of alliedHeroes(g, 1 - dst.team, dst.x, dst.y, 450)) { addGold(a, 150); goldPop(g, a, 150, dst.x, dst.y, true); }
       g.events.push({ k: 'tower', team: dst.team, name: dst.name });
       if (dst.king) { g.over = true; g.winner = 1 - dst.team; g.events.push({ k: 'over', winner: g.winner }); }
     }

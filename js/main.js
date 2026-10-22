@@ -680,6 +680,7 @@
     const bn = g.bans.me.concat(g.bans.bot).length ? ' · แบน: ' + g.bans.me.map(hn).join(', ') + (online ? ' (ฟ้า) ' : ' (เรา) ') + g.bans.bot.map(hn).join(', ') + (online ? ' (แดง)' : ' (ศัตรู)') : '';
     banner('ยุค' + TR.ERAS[0].name + ' เริ่มแล้ว', TR.ERAS[0].note + ' · ฮีโร่ยุคนี้แข็งขึ้น: ' + heroesOfEra(0) + bn, 4500);
     fit();
+    TR.Audio.say('ศึกข้ามยุค เริ่มต้นแล้ว');
     lastTs = performance.now();
     showIntro();
   }
@@ -877,6 +878,14 @@
     clearTimeout(bannerT);
     bannerT = setTimeout(function () { b.classList.remove('on'); }, ms || 3500);
   }
+  let alertT = 0;
+  function alertShow(e) {   // แถบเตือนแดง: ป้อม/ฐานฝั่งเราถูกโจมตี + เสียงไซเรน
+    let ln = CFG.lanes[0], bd = 1e9; CFG.lanes.forEach(function (L) { const d = Math.abs(L.y - e.y); if (d < bd) { bd = d; ln = L; } });
+    const bar = $('alertBar');
+    bar.textContent = e.king ? '⚠️ ราชธานีของเราถูกโจมตี!' : '⚠️ ป้อมของเราถูกโจมตี · ' + ln.name;
+    bar.hidden = false; TR.Audio.play('alarm'); if (e.king) TR.Audio.say('ราชธานีถูกโจมตี');
+    clearTimeout(alertT); alertT = setTimeout(function () { bar.hidden = true; }, 3500);
+  }
   function feed(text, team) {
     const f = $('feed');
     const d = document.createElement('div');
@@ -902,7 +911,10 @@
       }
       else if (e.k === 'chat') { if (e.team === g.player.team) TR.Audio.play('ping'); feed(e.who + ': ' + e.text, e.team); }
       else if (e.k === 'jungle') feed(e.killer + ' ได้บัฟ' + e.name + ' (' + e.text + ')', e.kteam);
-      else if (e.k === 'tower') { TR.Audio.play('tower'); feed('ป้อม' + e.name + (e.team === 0 ? 'ฝั่งเรา' : 'ฝั่งศัตรู') + 'พังแล้ว', 1 - e.team); }
+      else if (e.k === 'alert') {
+        if (e.team === g.player.team) { alertShow(e); }
+      }
+      else if (e.k === 'tower') { TR.Audio.play('tower'); TR.Audio.say(e.team === g.player.team ? 'ป้อมของเราถูกทำลาย' : 'ทีมเราพังป้อมศัตรู'); feed('ป้อม' + e.name + (e.team === 0 ? 'ฝั่งเรา' : 'ฝั่งศัตรู') + 'พังแล้ว', 1 - e.team); }
       else if (e.k === 'warn') { TR.Audio.play('warn'); banner('อีก ' + CFG.eraWarn + ' วินาทีเข้าสู่ยุค' + TR.ERAS[e.era].name, 'ป้อมจะเปลี่ยนเป็น: ' + TR.ERAS[e.era].short, 4500); }
       else if (e.k === 'era') { TR.Audio.play('gong'); TR.Audio.musicEra(e.era); TR.Audio.say('เข้าสู่ยุค' + TR.ERAS[e.era].name); banner('เข้าสู่ยุค' + TR.ERAS[e.era].name, TR.ERAS[e.era].note + ' · ฮีโร่ยุครุ่งเรือง: ' + heroesOfEra(e.era), 5500); }
       else if (e.k === 'over') { endTimer = setTimeout(showResult, 1800); }
