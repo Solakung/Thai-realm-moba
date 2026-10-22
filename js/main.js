@@ -1485,6 +1485,12 @@
   window.addEventListener('resize', fit);
 
   buildMenu(); buildOptRows();
+  // ติดตั้งเป็นแอป (PWA): service worker + ปุ่มติดตั้งในหน้าแรก (ขึ้นเมื่อเบราว์เซอร์พร้อมให้ติดตั้ง)
+  if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(function () { /* ไม่เป็นไร */ });
+  let installEv = null;
+  window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); installEv = e; $('installBtn').hidden = false; });
+  window.addEventListener('appinstalled', function () { installEv = null; $('installBtn').hidden = true; });
+  $('installBtn').addEventListener('click', function () { if (!installEv) return; installEv.prompt(); installEv.userChoice.then(function () { installEv = null; $('installBtn').hidden = true; }); });
   startTitle();
   fit();
   if (getSeen() !== TR.VERSION) { $('updDot').hidden = false; showUpdate(); }

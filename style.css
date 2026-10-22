@@ -365,3 +365,6 @@ button.ghost, .card button:not(.primary) { background: var(--panel2); border: 1p
 /* มือถือ/จอแคบ: ตัวโชว์โมเดลเลื่อนผ่านไปตามหน้า (ไม่ลอยค้างบังปุ่มข้างล่าง) */
 @media (max-width: 1000px) { #stagePane { position: relative; top: auto; } }
 @media (max-width: 1000px) and (max-height: 460px) { #stagePane { height: 190px; } #stageName .nm { font-size: 22px; } }
+
+.tt-install { margin-top: 10px; padding: 8px 16px; border-radius: 18px; border: 1px solid #f2c14e88; background: #f2c14e22; color: #f2c14e; font: 600 13px/1 inherit; cursor: pointer; }
+.tt-install[hidden] { display: none; }

@@ -130,3 +130,7 @@ node tools/balance.js 300 42   # 300 แมตช์ เริ่ม seed ที
 
 ## ไอเทมประจำยุค (v0.18)
 - `TR.ERA_ITEMS` / `TR.ITEM_FX_ERA` ใน `js/data.js` (ค่าสมดุลทั้งหมดอยู่ที่นั่น + `CFG.recipeFloor`, `CFG.botEraItems`) · ตรรกะซื้อ/หักราคา `netCost`/`buy`/`recipeParts` ใน `js/sim.js` · ร้านค้าหมวดล่างสุดใน `renderShop` (`js/main.js`)
+
+
+## ติดตั้งเป็นแอป (เต็มจอ)
+เปิดเกมใน Chrome บนมือถือ → เมนู ⋮ → "ติดตั้งแอป" (หรือกดปุ่ม 📲 ที่หน้าแรก) จะได้ไอคอนบนหน้าจอหลักและเปิดแบบเต็มจอแนวนอน ไฟล์ที่เกี่ยวข้อง: `manifest.webmanifest`, `sw.js` (network-first ไม่ต้องแก้เมื่ออัปเดตเกม), `icons/`
