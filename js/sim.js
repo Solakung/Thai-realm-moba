@@ -111,7 +111,7 @@
     { const B = TR.BOSS, M = TR.MONSTERS.boss;
       g.boss = mkUnit(g, { type: 'monster', team: 2, kind: 'boss', camp: -1, side: -1, home: { x: B.x, y: B.y }, x: B.x, y: B.y,
         hp: 0, maxHp: M.hp, radius: M.radius, range: M.range, dmg: M.atk, as: M.as, speed: 70, baseArmor: 0.25,
-        leash: false, aggroBy: null, aggroT: -99, respawnAt: B.spawnAt, dead: true, slamAt: 0 }); }
+        leash: false, aggroBy: null, aggroT: -99, respawnAt: TR.OBJ.first, dead: true, slamAt: 0, obj: 0, warned: false }); g.objBuf = [{ minion: 0, tower: 0 }, { minion: 0, tower: 0 }]; }
     // ผู้เล่นจริง: opts.humans = [{uid, hero, team, name, emblem, spell, lane}] (ทุกเครื่องต้องส่งรายการเดียวกัน ลำดับเดียวกัน)
     // ไม่ส่งมา = โหมดเดี่ยวแบบเดิม (ผู้เล่น 1 คนทีม 0 ใช้ opts.playerXxx)
     const humans = [];
@@ -576,6 +576,8 @@
     if (!o.raw && src) {
       d *= (src.dmgBase || 1) * (src.m ? src.m.dmg : 1) * (o.mul || 1);
       if (src.type === 'hero') d *= passiveDmg(g, src, dst, o);
+      if (src.type === 'minion' && g.objBuf && g.objBuf[src.team].minion > g.t) d *= TR.OBJ.list[1].minion.dmg;
+      else if (src.type === 'tower' && g.objBuf && g.objBuf[src.team].tower > g.t) d *= TR.OBJ.list[2].tower.dmg;
       if (src.type === 'hero' && src.emblem === 'kro' && dst.hp / dst.maxHp < 0.4) d *= 1.1;
       if (dst.type === 'tower') {
         d *= (src.m ? src.m.tower : 1) * (src.type === 'minion' ? (src.cannon ? CFG.cannon.towerMul : 0.4) : 1);
@@ -784,17 +786,22 @@
       }
     } else if (dst.type === 'monster') {
       const M = TR.MONSTERS[dst.kind];
-      dst.respawnAt = g.t + M.respawn;
+      dst.respawnAt = g.t + (dst.kind === 'boss' ? TR.OBJ.respawn : M.respawn);
       if (dst.kind === 'boss') {
+        dst.warned = false;
+        const OB = TR.OBJ.list[dst.obj | 0];
         const who = src && src.type === 'hero' ? src.team : (dst.aggroBy && dst.aggroBy.team != null ? dst.aggroBy.team : -1);
         if (who === 0 || who === 1) {
-          const until = g.t + TR.BOSS.buffDur;
+          const until = g.t + OB.dur;
           for (const a of g.units) {
             if (a.type !== 'hero' || a.team !== who || a.dead) continue;
-            addGold(a, TR.BOSS.teamGold); addXp(g, a, TR.BOSS.teamXp);
-            addFx(a, { type: 'buff', tag: 'jb_boss', until: until, dmgMul: 1.08, armorAdd: 0.08 }); addFx(a, { type: 'hot', tag: 'jb_bhot', until: until, perSec: 25 });
+            addGold(a, OB.gold); addXp(g, a, OB.xp); goldPop(g, a, OB.gold, dst.x, dst.y, true);
+            addFx(a, { type: 'buff', tag: 'jb_boss', until: until, dmgMul: OB.buff.dmgMul, armorAdd: OB.buff.armorAdd || 0 });
+            if (OB.buff.hot) addFx(a, { type: 'hot', tag: 'jb_bhot', until: until, perSec: OB.buff.hot });
           }
-          g.events.push({ k: 'boss', state: 'dead', team: who });
+          if (OB.minion) g.objBuf[who].minion = g.t + OB.minion.dur;
+          if (OB.tower) g.objBuf[who].tower = g.t + OB.tower.dur;
+          g.events.push({ k: 'boss', state: 'dead', team: who, obj: dst.obj | 0 });
         }
       } else if (src && src.type === 'hero') {
         src.stMon++;
@@ -1392,7 +1399,11 @@
 
     // ยุค
     const ne = Math.min(TR.ERAS.length - 1, Math.floor(g.t / CFG.eraLen));
-    if (ne !== g.era) { g.era = ne; for (const hu of g.units) if (hu.type === 'hero') hu.era = ne; g.events.push({ k: 'era', era: ne }); }
+    if (ne !== g.era) { g.era = ne; for (const hu of g.units) if (hu.type === 'hero') hu.era = ne; g.events.push({ k: 'era', era: ne });
+      const bo = g.boss; if (bo && bo.obj !== ne) {   // เปลี่ยนยุค: เป้าหมายยุคเก่าหายไป อีกตัวของยุคใหม่เกิดตามหลัง
+        if (!bo.dead) { bo.dead = true; bo.hp = 0; bo.dieT = g.t; bo.tgt = null; g.events.push({ k: 'boss', state: 'gone', obj: bo.obj }); }
+        bo.respawnAt = g.t + TR.OBJ.swap; bo.warned = true;
+      } }
     const toNext = (g.era + 1) * CFG.eraLen - g.t;
     if (g.era < TR.ERAS.length - 1 && toNext <= CFG.eraWarn && g.warned !== g.era) { g.warned = g.era; g.events.push({ k: 'warn', era: g.era + 1 }); }
 
@@ -1641,7 +1652,13 @@
         const M = TR.MONSTERS[u.kind], sc = 1 + 0.8 * Math.min(1, g.t / 1500);
         u.dead = false; u.maxHp = M.hp * sc; u.hp = u.maxHp; u.dmg = M.atk * sc;
         u.x = u.px = u.home.x; u.y = u.py = u.home.y; u.fx = []; u.tgt = null; u.leash = false; u.aggroBy = null; u.dieT = null; u.spawnT = g.t; u.slamAt = g.t + 6;
-        if (u.kind === 'boss') g.events.push({ k: 'boss', state: 'spawn' });
+        if (u.kind === 'boss') {
+          const OB = TR.OBJ.list[g.era];
+          u.obj = g.era; u.warned = false; u.maxHp = M.hp * sc * OB.hp; u.hp = u.maxHp; u.dmg = M.atk * sc * OB.atk;
+          g.events.push({ k: 'boss', state: 'spawn', obj: u.obj });
+        }
+      } else if (u.kind === 'boss' && !u.warned && g.t >= u.respawnAt - TR.OBJ.warn) {
+        u.warned = true; g.events.push({ k: 'boss', state: 'warn', obj: g.era, at: u.respawnAt });
       }
       return;
     }

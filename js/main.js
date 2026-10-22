@@ -900,8 +900,15 @@
       const e = g.events.shift();
       if (e.k === 'kill') feed(e.killer + ' ปราบ ' + e.victim, e.kteam);
       else if (e.k === 'boss') {
-        if (e.state === 'spawn') { TR.Audio.play('boss'); banner('ยักษ์วัดแจ้งปรากฏกลางป่า!', 'ฆ่าได้ทั้งทีมได้บัฟและทอง · ระวังการสแลมพื้นที่', 5000); }
-        else { feed('ทีม' + (e.team === 0 ? 'ฟ้า' : 'แดง') + 'ปราบยักษ์วัดแจ้งได้', e.team); banner('ทีม' + (e.team === 0 ? 'ฟ้า' : 'แดง') + 'ปราบยักษ์วัดแจ้ง', 'ทั้งทีมได้บัฟและทอง · ยักษ์จะกลับมาใน 3 นาที', 4500); }
+        const OB = TR.OBJ.list[e.obj | 0], mine = e.team === g.player.team;
+        if (e.state === 'spawn') { TR.Audio.play('boss'); TR.Audio.say(OB.name + 'ปรากฏกลางแมพ'); banner(OB.name + 'ปรากฏกลางแมพ!', 'ฆ่าได้ทั้งทีมได้ทองและบัฟ · ' + OB.sub, 5000); }
+        else if (e.state === 'warn') { feed('อีก ' + TR.OBJ.warn + ' วิ ' + OB.name + ' จะปรากฏกลางแมพ', -1); banner('เตรียมตัว! ' + OB.name + ' ใกล้เกิด', 'อีก ' + TR.OBJ.warn + ' วินาที · รวมทีมไปกลางแมพ', 3200); }
+        else if (e.state === 'gone') feed(OB.name + ' หายไปตามกาลเวลา', -1);
+        else {
+          const t = 'ทีม' + (e.team === 0 ? 'ฟ้า' : 'แดง') + 'ปราบ' + OB.name;
+          const ex = OB.minion ? 'มินเนียนแรงขึ้น ' + OB.minion.dur + ' วิ' : (OB.tower ? 'ป้อมแรงขึ้น ' + OB.tower.dur + ' วิ' : 'ทั้งทีมได้ทองและบัฟ');
+          feed(t + 'ได้', e.team); TR.Audio.say(mine ? 'พวกเราปราบ' + OB.name + 'ได้' : 'ศัตรูปราบ' + OB.name); banner(t, ex, 4000);
+        }
       }
       else if (e.k === 'announce') {
         const mine = e.team === g.player.team, big = e.kind === 'multi' || e.kind === 'ace' || (e.kind === 'streak' && e.n >= 5);

@@ -117,9 +117,57 @@
     return M;
   }
 
-  function snake() {
-    const M = newModel('snake', 'beast', 1.0);
-    const P = M.P, at = M.at, g = '#d9a400', g2 = '#3b2a10', g3 = '#f5d36a';
+  function elephant() {   // ช้างเผือก
+    const M = newModel('elephant', 'beast', 1.0);
+    const P = M.P, at = M.at, g = '#f1ece2', g2 = '#d8cfbd', gold = '#ffca28';
+    M.T = [
+      [[0, 0, 0]], [[0, 0, 0]], [[0, 7.0, 9]],
+      [[4.6, 7, 4]], [[0, 0, 0]], [[0, 0, 0]], [[-4.6, 7, 4]], [[0, 0, 0]], [[0, 0, 0]],
+      [[4.6, 7, -6]], [[0, 0, 0]], [[0, 0, 0]], [[-4.6, 7, -6]], [[0, 0, 0]], [[0, 0, 0]]
+    ];
+    P('root', at(box(11, 8.5, 17), 0, 8.5, -1), g); P('root', at(box(11.6, 1.4, 12), 0, 12.9, -1), '#c62828'); P('root', at(box(11.8, 0.8, 12.4), 0, 12.3, -1), gold);   // ผ้าคลุมหลัง
+    P('root', at(box(1.2, 5, 1.2), 0, 7.5, -10), g2);                                                                                                                      // หาง
+    P('torso', at(box(10, 8, 5), 0, 8.2, 6), g);
+    P('head', at(box(7.4, 7, 6.4), 0, 0.5, 3.6), g); P('head', at(frustum(3.4, 3.0, 2.4, 2.0, 8), 0, -3.6, 7.6, 0.5, 0, 0), g);          // หัว+งวง
+    P('head', at(box(2.0, 2.0, 2.0), 0, -7.6, 10.2), g2);
+    P('head', at(box(0.9, 0.9, 6), 2.6, -2.2, 8.0, 0.35, 0, 0), '#fff8e1'); P('head', at(box(0.9, 0.9, 6), -2.6, -2.2, 8.0, 0.35, 0, 0), '#fff8e1'); // งา
+    P('head', at(box(0.6, 5.2, 5.2), 4.4, 0.8, 1.6, 0, 0, 0.5), g2); P('head', at(box(0.6, 5.2, 5.2), -4.4, 0.8, 1.6, 0, 0, -0.5), g2);           // หู
+    P('head', at(box(1.0, 1.0, 1.0), 2.5, 1.4, 6.6), '#c62828'); P('head', at(box(1.0, 1.0, 1.0), -2.5, 1.4, 6.6), '#c62828');
+    P('head', at(box(7.6, 1.2, 1.2), 0, -1.0, 1.0), gold);
+    ['shA', 'shB', 'hpA', 'hpB'].forEach(function (n) { const i = M.P(n, at(box(4.2, 7.0, 4.2), 0, -3.5, 0), g); M.feet.push(i); P(n, at(box(4.6, 1.0, 5.0), 0, -7.0, 0.4), g2); });
+    setRest(M);
+    M.anim = function (o, st, rt) {
+      const a = st.atkP; if (a >= 0 && a < 1) { const k = Math.sin(a * Math.PI); K(o, 'head.rx', -0.55 * k); o[KI['root.y']] += 2.2 * k; }
+      K(o, 'head.rx', Math.sin(rt * 1.8 + st.id) * 0.06); K(o, 'torso.ry', Math.sin(rt * 1.2 + st.id) * 0.05);
+      if (st.dead > 0) { const k = Math.min(1, st.dead * 2.5); o[KI['root.rx']] = 0; o[KI['root.rz']] = 2.9 * k; }
+    };
+    return M;
+  }
+  function cannon() {   // ฐานปืนใหญ่ร้าง
+    const M = newModel('cannon', 'beast', 1.0);
+    const P = M.P, at = M.at, w = '#6d4c41', w2 = '#4e342e', iron = '#37474f';
+    M.T = [
+      [[0, 0, 0]], [[0, 0, 0]], [[0, 12, 0]],
+      [[0, 0, 0]], [[0, 0, 0]], [[0, 0, 0]], [[0, 0, 0]], [[0, 0, 0]], [[0, 0, 0]],
+      [[0, 0, 0]], [[0, 0, 0]], [[0, 0, 0]], [[0, 0, 0]], [[0, 0, 0]], [[0, 0, 0]]
+    ];
+    P('root', at(box(16, 2.4, 16), 0, 1.2, 0), '#8d8d84'); P('root', at(box(14, 2.4, 14), 0, 3.6, 0), '#a1a198');            // ฐานหิน
+    P('root', at(box(11, 2.2, 8), 0, 6.2, 0), w);
+    for (let i = 0; i < 2; i++) { const x = i ? 5.2 : -5.2; P('root', at(box(1.6, 8, 8), x, 7.5, 0), w2); P('root', at(box(1.8, 6.5, 6.5), x * 1.12, 6.2, 0), '#3e2723'); P('root', at(box(2.0, 1.4, 1.4), x * 1.12, 6.2, 0), '#ffca28'); } // ล้อ
+    P('torso', at(box(5.4, 5.4, 15), 0, 10, 0), iron); P('torso', at(box(6.6, 6.6, 3.0), 0, 10, -6.4), '#263238'); P('torso', at(box(6.0, 6.0, 1.6), 0, 10, 7.0), '#455a64'); // ลำกล้อง
+    P('torso', at(box(2.4, 2.4, 0.6), 0, 10, 8.0), '#111');
+    P('head', at(box(3, 3, 3), 0, 4.0, -9), '#ff6f00'); P('head', at(box(1.4, 1.4, 1.4), 0, 6.4, -9.2), '#ffd54f');                  // ไฟปากชนวน
+    for (let i = 0; i < 4; i++) P('root', at(box(3.2, 3.2, 3.2), -9 + (i % 2) * 18, 3.2, 8 + (i >> 1) * 4), '#2e2e2e');                  // ลูกปืนกองข้าง
+    setRest(M);
+    M.anim = function (o, st, rt) {
+      const a = st.atkP; if (a >= 0 && a < 1) { const k = Math.sin(a * Math.PI); K(o, 'torso.rx', -0.25 * k); o[KI['root.z']] -= 2 * k; }
+      if (st.dead > 0) { o[KI['root.y']] -= Math.min(1, st.dead) * 4; }
+    };
+    return M;
+  }
+  function snake(nm, pal) {
+    const M = newModel(nm || 'snake', 'beast', 1.0);
+    const P = M.P, at = M.at, g = pal ? pal[0] : '#d9a400', g2 = pal ? pal[1] : '#3b2a10', g3 = pal ? pal[2] : '#f5d36a';
     M.T = [
       [[0, 0, 0]], [[0, 2.5, 0]], [[0, 11, 0]],
       [[0, 0, 0]], [[0, 0, 0]], [[0, 0, 0]], [[0, 0, 0]], [[0, 0, 0]], [[0, 0, 0]],
@@ -285,7 +333,7 @@
     if (CACHE[key]) return CACHE[key];
     let M;
     if (kind === 'minionM') M = minion(false, team); else if (kind === 'minionR') M = minion(true, team);
-    else if (kind === 'boss') M = boss(); else if (kind === 'croc') M = croc(); else if (kind === 'snake') M = snake();
+    else if (kind === 'boss') M = boss(); else if (kind === 'croc') M = croc(); else if (kind === 'snake') M = snake(); else if (kind === 'cannon') M = cannon(); else if (kind === 'elephant') M = elephant(); else if (kind === 'naga') M = snake('naga', ['#00acc1', '#0d3c4a', '#b2ebf2']);
     else if (kind === 'tower') M = tower(team[0], team[1], team[2]);
     else if (kind === 'krasue') M = krasue(); else if (kind === 'krahang') M = krahang();
     else return null;
@@ -293,5 +341,5 @@
     M.P = M.at = null;
     return (CACHE[key] = M);
   }
-  TR.Units3D = { model: model, kinds: ['tower', 'minionM', 'minionR', 'boss', 'croc', 'snake', 'krasue', 'krahang'] };
+  TR.Units3D = { model: model, kinds: ['tower', 'minionM', 'minionR', 'boss', 'croc', 'snake', 'elephant', 'naga', 'cannon', 'krasue', 'krahang'] };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

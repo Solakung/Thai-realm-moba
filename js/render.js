@@ -829,23 +829,29 @@
         const ap = u.lastAtk != null ? (rt - u.lastAtk) / 0.35 : 9;
         const lunge = ap >= 0 && ap < 1 ? Math.sin(ap * Math.PI) : 0, jaw = lunge;
         const pop = u.spawnT != null && g.t - u.spawnT < 0.5 ? ease((g.t - u.spawnT) / 0.5) : 1;
-        const MU = RS.use3d && TR.Units3D ? TR.Units3D.model(u.kind) : null;
+        const vk = u.kind === 'boss' && (u.obj | 0) < 3 ? ['elephant', 'naga', 'cannon'][u.obj | 0] : u.kind, bm = vk !== u.kind ? (vk === 'cannon' ? 1.7 : 2.0) : 1;
+        if (u.kind === 'boss' && !u.dead) {   // วงเรืองใต้เป้าหมายกลางแมพ
+          c.save(); c.globalAlpha = 0.35 + 0.15 * Math.sin(rt * 3); c.strokeStyle = TR.OBJ.list[u.obj | 0].color; c.lineWidth = 2;
+          c.beginPath(); c.ellipse(x, y + 4, 54, 54 * ST.K, 0, 0, TAU); c.stroke(); c.restore();
+        }
+        const MU = RS.use3d && TR.Units3D ? TR.Units3D.model(vk) : null;
         if (MU) {
           const al = u.dead ? Math.max(0, 1 - Math.max(0, age - 0.4) / 0.6) : pop;
-          TR.Stage3D.drawFigure(c, MU, { id: u.id, rt: rt, mv: an.mv, ph: an.ph, atkP: ap, castP: 9, dead: u.dead ? Math.min(1, age * 1.4) : 0 }, { x: x, y: y, facing: faceAng(u, dt), pitch: Math.asin(ST.K), scale: u.kind === 'boss' ? HS3 : HS3 * 1.2, alpha: al, flash: u.flash > g.t, amb: ERA_AMB[g.era] });
+          TR.Stage3D.drawFigure(c, MU, { id: u.id, rt: rt, mv: an.mv, ph: an.ph, atkP: ap, castP: 9, dead: u.dead ? Math.min(1, age * 1.4) : 0 }, { x: x, y: y, facing: faceAng(u, dt), pitch: Math.asin(ST.K), scale: u.kind === 'boss' ? HS3 * bm : HS3 * 1.2, alpha: al, flash: u.flash > g.t, amb: ERA_AMB[g.era] });
         } else {
         c.save(); c.translate(x, y);
         if (u.dead) { c.globalAlpha = 1 - age; c.scale(1 + age * 0.15, 1 - age * 0.3); }
         else if (pop < 1) { c.globalAlpha = pop; c.scale(0.6 + 0.4 * pop, 0.6 + 0.4 * pop); }
         c.scale(an.vf, 1);
-        drawMonster(c, u, u.flash > g.t ? FLASHK : IDENT, rt, an.vf, lunge, jaw);
+        if (bm > 1) c.scale(bm, bm);
+        drawMonster(c, vk !== u.kind ? { kind: vk === 'naga' ? 'snake' : (vk === 'cannon' ? 'boss' : 'croc'), id: u.id } : u, u.flash > g.t ? FLASHK : IDENT, rt, an.vf, lunge, jaw);
         c.restore();
         }
         if (!u.dead) {
           const M = TR.MONSTERS[u.kind];
-          const boss = u.kind === 'boss', hh = boss ? (MU ? 108 : 98) : (M.buff ? 44 : 34);
+          const boss = u.kind === 'boss', hh = boss ? ((MU ? 108 : 98) * (bm > 1 ? 0.9 : 1)) : (M.buff ? 44 : 34);
           if (u.hp < u.maxHp || u.tgt || boss) hpBar(c, x, y - hh, boss ? 56 : (M.buff ? 30 : 24), u.hp / u.maxHp, 2, true);
-          if (M.buff) { c.fillStyle = 'rgba(255,255,255,.85)'; c.font = '600 5px sans-serif'; c.textAlign = 'center'; c.fillText(M.name, x, y - hh - 3); }
+          if (M.buff || boss) { c.fillStyle = 'rgba(255,255,255,.85)'; c.font = '600 5px sans-serif'; c.textAlign = 'center'; c.fillText(boss ? TR.OBJ.list[u.obj | 0].name : M.name, x, y - hh - 3); }
           if (u.leash) { c.fillStyle = '#81c784'; c.font = 'bold 7px sans-serif'; c.textAlign = 'center'; c.fillText('+', x, y - hh + 12); }
         }
         continue;
@@ -1311,11 +1317,18 @@
       c.closePath(); c.fill(); c.strokeStyle = '#000'; c.lineWidth = 0.8 * k; c.stroke();
       if (u.hp < u.maxHp * 0.999) { const f = Math.max(0, u.hp / u.maxHp); c.fillStyle = 'rgba(0,0,0,.6)'; c.fillRect(x - s2, y + s2 * .62, s2 * 2, 2 * k); c.fillStyle = f > 0.5 ? '#66bb6a' : (f > 0.25 ? '#ffca28' : '#ef5350'); c.fillRect(x - s2, y + s2 * .62, s2 * 2 * f, 2 * k); }
     }
+    if (g.boss && g.boss.dead && !g.over) {   // ตัวนับเวลาเป้าหมายกลางแมพ
+      const left = Math.max(0, Math.ceil(g.boss.respawnAt - g.t)), OB = TR.OBJ.list[g.era], bx = g.boss.home.x * sx, by = g.boss.home.y * sy;
+      c.save(); c.globalAlpha = left <= TR.OBJ.warn ? 0.6 + 0.4 * Math.sin(g.t * 6) : 0.55;
+      c.strokeStyle = OB.color; c.lineWidth = 1.2 * k; c.setLineDash([2 * k, 2 * k]); c.beginPath(); c.arc(bx, by, 5.4 * k, 0, TAU); c.stroke(); c.setLineDash([]);
+      c.fillStyle = '#fff'; c.font = '700 ' + (6.5 * k) + 'px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.fillText(Math.floor(left / 60) + ':' + ('0' + (left % 60)).slice(-2), bx, by + 9.5 * k); c.restore();
+    }
     for (const u of g.units) {
       if (u.dead) continue;
       if (me && !g.over && u.team !== me.team && u.type !== 'tower' && u.vis && u.vis[me.team] === false) continue;
       const x = u.x * sx, y = u.y * sy;
-      if (u.type === 'monster' && u.kind === 'boss') { c.fillStyle = '#e53935'; c.beginPath(); c.arc(x, y, 5.4 * k, 0, TAU); c.fill(); c.strokeStyle = '#fff'; c.lineWidth = 1.2 * k; c.stroke(); }
+      if (u.type === 'monster' && u.kind === 'boss') { c.fillStyle = TR.OBJ.list[u.obj | 0].color; c.beginPath(); c.arc(x, y, 5.4 * k, 0, TAU); c.fill(); c.strokeStyle = '#fff'; c.lineWidth = 1.2 * k; c.stroke(); }
       else if (u.type === 'monster') { const buff = TR.MONSTERS[u.kind].buff; c.fillStyle = buff ? '#ffd54f' : '#ff9800'; c.beginPath(); c.arc(x, y, (buff ? 3.2 : 2.2) * k, 0, TAU); c.fill(); if (buff) { c.strokeStyle = '#000'; c.lineWidth = 0.8 * k; c.stroke(); } }
       else if (u.type === 'minion') { c.fillStyle = TEAM[u.team]; c.globalAlpha = 0.95; c.fillRect(x - 1.6 * k, y - 1.6 * k, 3.2 * k, 3.2 * k); c.globalAlpha = 1; }
     }
