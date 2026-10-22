@@ -1400,6 +1400,7 @@
     // ยุค
     const ne = Math.min(TR.ERAS.length - 1, Math.floor(g.t / CFG.eraLen));
     if (ne !== g.era) { g.era = ne; for (const hu of g.units) if (hu.type === 'hero') hu.era = ne; g.events.push({ k: 'era', era: ne });
+      for (let tm = 0; tm < 2; tm++) for (let l = 0; l < CFG.lanes.length; l++) for (let i = 0; i < CFG.laneTowers.length; i++) g.towers[tm][l][i].name = CFG.towerNames[ne][i];
       const bo = g.boss; if (bo && bo.obj !== ne) {   // เปลี่ยนยุค: เป้าหมายยุคเก่าหายไป อีกตัวของยุคใหม่เกิดตามหลัง
         if (!bo.dead) { bo.dead = true; bo.hp = 0; bo.dieT = g.t; bo.tgt = null; g.events.push({ k: 'boss', state: 'gone', obj: bo.obj }); }
         bo.respawnAt = g.t + TR.OBJ.swap; bo.warned = true;

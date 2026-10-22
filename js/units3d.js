@@ -158,6 +158,7 @@
     P('torso', at(box(2.4, 2.4, 0.6), 0, 10, 8.0), '#111');
     P('head', at(box(3, 3, 3), 0, 4.0, -9), '#ff6f00'); P('head', at(box(1.4, 1.4, 1.4), 0, 6.4, -9.2), '#ffd54f');                  // ไฟปากชนวน
     for (let i = 0; i < 4; i++) P('root', at(box(3.2, 3.2, 3.2), -9 + (i % 2) * 18, 3.2, 8 + (i >> 1) * 4), '#2e2e2e');                  // ลูกปืนกองข้าง
+    ['shA', 'shB', 'hpA', 'hpB'].forEach(function (n) { M.feet.push(M.P(n, at(box(0.2, 0.2, 0.2), 0, 0, 0), '#555')); });   // ขาเทียม (ให้ระบบวาดถือว่ามีเท้า)
     setRest(M);
     M.anim = function (o, st, rt) {
       const a = st.atkP; if (a >= 0 && a < 1) { const k = Math.sin(a * Math.PI); K(o, 'torso.rx', -0.25 * k); o[KI['root.z']] -= 2 * k; }
