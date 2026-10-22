@@ -384,7 +384,7 @@
 
   function towerVuln(g, t) {
     if (t.king) {
-      for (let l = 0; l < CFG.lanes.length; l++) if (g.towers[t.team][l][1].dead) return true;
+      for (let l = 0; l < CFG.lanes.length; l++) if (g.towers[t.team][l][CFG.laneTowers.length - 1].dead) return true;
       return false;
     }
     if (t.idx === 0) return true;
@@ -1696,10 +1696,20 @@
     } else if (!u.m.root) moveNav(u, tgt.x, tgt.y, dt);
   }
 
+  function shortcutMul(u) {   // ทางลัดข้ามเลน: ใกล้เส้นทางลัดความเร็วเพิ่ม
+    const SC = TR.SHORTCUT, A = SC.all;
+    if (u.x < 800 || u.x > CFG.W - 800 || u.y < 300 || u.y > CFG.H - 300) return 1;
+    for (let i = 0; i < A.length; i++) {
+      const a = A[i], dx = a[2] - a[0], dy = a[3] - a[1], l2 = dx * dx + dy * dy;
+      const t = clamp(((u.x - a[0]) * dx + (u.y - a[1]) * dy) / l2, 0, 1), ex = u.x - (a[0] + dx * t), ey = u.y - (a[1] + dy * t);
+      if (ex * ex + ey * ey < SC.w * SC.w) return 1 + SC.speed;
+    }
+    return 1;
+  }
   function moveToward(u, tx, ty, dt) {
     const dx = tx - u.x, dy = ty - u.y, l = hyp(dx, dy);
     if (l < 1) return;
-    const spd = (u.speed || u.baseSpeed) * u.m.speed * (1 - u.m.slow);
+    const spd = (u.speed || u.baseSpeed) * u.m.speed * (1 - u.m.slow) * (u.type === 'hero' ? shortcutMul(u) : 1);
     const s = Math.min(l, spd * dt);
     u.x += dx / l * s; u.y += dy / l * s;
     u.face = [dx / l, dy / l];

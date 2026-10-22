@@ -923,7 +923,7 @@
       }
       else if (e.k === 'tower') { TR.Audio.play('tower'); TR.Audio.say(e.team === g.player.team ? 'ป้อมของเราถูกทำลาย' : 'ทีมเราพังป้อมศัตรู'); feed('ป้อม' + e.name + (e.team === 0 ? 'ฝั่งเรา' : 'ฝั่งศัตรู') + 'พังแล้ว', 1 - e.team); }
       else if (e.k === 'warn') { TR.Audio.play('warn'); banner('อีก ' + CFG.eraWarn + ' วินาทีเข้าสู่ยุค' + TR.ERAS[e.era].name, 'ป้อมจะเปลี่ยนเป็น: ' + TR.ERAS[e.era].short, 4500); }
-      else if (e.k === 'era') { TR.Audio.play('gong'); TR.Audio.musicEra(e.era); TR.Audio.say('เข้าสู่ยุค' + TR.ERAS[e.era].name); banner('เข้าสู่ยุค' + TR.ERAS[e.era].name, TR.ERAS[e.era].note + ' · ฮีโร่ยุครุ่งเรือง: ' + heroesOfEra(e.era), 5500); }
+      else if (e.k === 'era') { TR.Audio.play('gong'); TR.Audio.musicEra(e.era); TR.Audio.say('เข้าสู่ยุค' + TR.ERAS[e.era].name); banner('เข้าสู่ยุค' + TR.ERAS[e.era].name, TR.ERAS[e.era].note + ' · ทางลัด: ' + TR.SHORTCUT.eras[e.era].name + ' · ฮีโร่ยุครุ่งเรือง: ' + heroesOfEra(e.era), 5500); }
       else if (e.k === 'over') { endTimer = setTimeout(showResult, 1800); }
     }
   }

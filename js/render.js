@@ -519,6 +519,15 @@
     return hv < 0.85 ? 'tree' : 'rock';
   }
 
+  function drawShortcuts(c, g, rt) {   // ทางลัดข้ามเลน (วิ่งเร็วขึ้น)
+    const SC = TR.SHORTCUT, E = SC.eras[g.era];
+    GT(c); c.save(); c.lineCap = 'round'; c.strokeStyle = E.color;
+    for (const a of SC.all) {
+      c.globalAlpha = 0.28; c.lineWidth = SC.w * 1.7; c.beginPath(); c.moveTo(a[0], a[1]); c.lineTo(a[2], a[3]); c.stroke();
+      c.globalAlpha = 0.8; c.lineWidth = 3.4; c.setLineDash([14, 12]); c.lineDashOffset = -rt * 26; c.beginPath(); c.moveTo(a[0], a[1]); c.lineTo(a[2], a[3]); c.stroke(); c.setLineDash([]);
+    }
+    c.restore();
+  }
   function drawGroundLayer(c, g, camX, camY, era, alpha, rt) {
     c.globalAlpha = alpha;
     const tile = groundTile(era), x0 = Math.floor(camX / TILE) * TILE, y0 = Math.floor(camY / TILE) * TILE;
@@ -1239,6 +1248,7 @@
     if (RS.eraFade < 1) RS.eraFade = Math.min(1, RS.eraFade + dt / 2.2);
     if (RS.eraFade < 1) { drawGroundLayer(c, g, camX, camY, RS.eraPrev, 1, rt); drawGroundLayer(c, g, camX, camY, g.era, RS.eraFade, rt); }
     else drawGroundLayer(c, g, camX, camY, g.era, 1, rt);
+    drawShortcuts(c, g, rt);
     drawBases(c, g, rt);
     drawFountains(c, g, rt);
     drawZones(c, g, rt);
@@ -1317,6 +1327,7 @@
       c.closePath(); c.fill(); c.strokeStyle = '#000'; c.lineWidth = 0.8 * k; c.stroke();
       if (u.hp < u.maxHp * 0.999) { const f = Math.max(0, u.hp / u.maxHp); c.fillStyle = 'rgba(0,0,0,.6)'; c.fillRect(x - s2, y + s2 * .62, s2 * 2, 2 * k); c.fillStyle = f > 0.5 ? '#66bb6a' : (f > 0.25 ? '#ffca28' : '#ef5350'); c.fillRect(x - s2, y + s2 * .62, s2 * 2 * f, 2 * k); }
     }
+    { c.save(); c.strokeStyle = TR.SHORTCUT.eras[g.era].color; c.globalAlpha = 0.5; c.lineWidth = 1.1 * k; for (const a of TR.SHORTCUT.all) { c.beginPath(); c.moveTo(a[0] * sx, a[1] * sy); c.lineTo(a[2] * sx, a[3] * sy); c.stroke(); } c.restore(); }
     if (g.boss && g.boss.dead && !g.over) {   // ตัวนับเวลาเป้าหมายกลางแมพ
       const left = Math.max(0, Math.ceil(g.boss.respawnAt - g.t)), OB = TR.OBJ.list[g.era], bx = g.boss.home.x * sx, by = g.boss.home.y * sy;
       c.save(); c.globalAlpha = left <= TR.OBJ.warn ? 0.6 + 0.4 * Math.sin(g.t * 6) : 0.55;
